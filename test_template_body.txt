@@ -1,0 +1,10 @@
+Dear {lead_name},
+
+Thank you for your inquiry! I'm {agent_name}, and I'd be happy to help you with your real estate needs.
+
+I'll be in touch with you shortly to discuss your requirements in detail.
+
+Best regards,
+{agent_name}
+{agent_phone}
+{agent_email}

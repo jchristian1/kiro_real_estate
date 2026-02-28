@@ -1,0 +1,7 @@
+Test Lead
+
+Name: John Smith
+Phone: 555-123-4567
+Email: john@example.com
+
+This is a test lead for the Gmail Lead Sync system.
