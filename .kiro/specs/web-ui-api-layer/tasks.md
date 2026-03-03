@@ -329,7 +329,7 @@ This implementation plan covers the development of a full-stack web application 
     - Test watcher status updates
     - _Requirements: 23.4_
 
-- [ ] 17. Frontend agent management
+- [x] 17. Frontend agent management
   - [x] 17.1 Create agent list page
     - Implement `AgentsPage` component
     - Create `AgentList` component displaying all agents with status
@@ -337,44 +337,44 @@ This implementation plan covers the development of a full-stack web application 
     - Add create, edit, delete actions
     - _Requirements: 1.4, 1.6_
   
-  - [-] 17.2 Create agent form
+  - [x] 17.2 Create agent form
     - Implement `AgentForm` component for create/edit
     - Validate email format and required fields
     - Show validation errors
     - _Requirements: 1.5_
   
-  - [~] 17.3 Create agent detail view
+  - [x] 17.3 Create agent detail view
     - Implement `AgentDetail` component
     - Display agent configuration and watcher status
     - Add watcher control buttons (start, stop, sync)
     - _Requirements: 1.6_
   
-  - [~] 17.4 Implement dangerous action confirmations
+  - [x] 17.4 Implement dangerous action confirmations
     - Create `ConfirmDialog` component
     - Show confirmation for agent deletion
     - Display agent name in confirmation dialog
     - _Requirements: 15.1, 15.5, 15.6_
   
-  - [~] 17.5 Write unit tests for agent components
+  - [x] 17.5 Write unit tests for agent components
     - Test agent list rendering
     - Test form validation
     - Test confirmation dialogs
     - _Requirements: 23.4, 23.5_
 
-- [ ] 18. Frontend lead source management
-  - [~] 18.1 Create lead source list page
+- [x] 18. Frontend lead source management
+  - [x] 18.1 Create lead source list page
     - Implement `LeadSourcesPage` component
     - Create `LeadSourceList` component
     - Add create, edit, delete actions
     - _Requirements: 2.1_
   
-  - [~] 18.2 Create lead source form
+  - [x] 18.2 Create lead source form
     - Implement `LeadSourceForm` component
     - Validate regex patterns
     - Display validation errors
     - _Requirements: 2.2, 2.5_
   
-  - [~] 18.3 Create regex testing harness
+  - [x] 18.3 Create regex testing harness
     - Implement `RegexTestHarness` component
     - Add input fields for pattern and sample text
     - Display match results with highlighting
@@ -382,29 +382,29 @@ This implementation plan covers the development of a full-stack web application 
     - Show timeout errors
     - _Requirements: 2.3, 2.4, 14.5, 14.6, 14.7_
   
-  - [~] 18.4 Implement version history UI
+  - [x] 18.4 Implement version history UI
     - Display version history for regex profiles
     - Add rollback action with confirmation
     - _Requirements: 9.5, 9.6_
   
-  - [~] 18.5 Implement dangerous action confirmations
+  - [x] 18.5 Implement dangerous action confirmations
     - Show confirmation for lead source deletion
     - _Requirements: 15.2, 15.5, 15.6_
   
-  - [~] 18.6 Write unit tests for lead source components
+  - [x] 18.6 Write unit tests for lead source components
     - Test regex testing harness
     - Test form validation
     - Test version history display
     - _Requirements: 23.1, 23.2, 23.4, 23.5_
 
-- [ ] 19. Frontend template management
-  - [~] 19.1 Create template list page
+- [x] 19. Frontend template management
+  - [x] 19.1 Create template list page
     - Implement `TemplatesPage` component
     - Create `TemplateList` component
     - Add create, edit, delete actions
     - _Requirements: 3.1_
   
-  - [~] 19.2 Create template editor
+  - [x] 19.2 Create template editor
     - Implement `TemplateEditor` component
     - Add subject and body input fields
     - Add placeholder insertion buttons
@@ -412,98 +412,98 @@ This implementation plan covers the development of a full-stack web application 
     - Show validation errors
     - _Requirements: 3.3, 3.5_
   
-  - [~] 19.3 Create template preview
+  - [x] 19.3 Create template preview
     - Implement `TemplatePreview` component
     - Display rendered template with sample data
     - Update preview in real-time as user edits
     - _Requirements: 3.3, 13.3_
   
-  - [~] 19.4 Implement version history UI
+  - [x] 19.4 Implement version history UI
     - Create `VersionHistory` sidebar component
     - Display template version history
     - Add rollback action with confirmation
     - _Requirements: 3.6, 3.7_
   
-  - [~] 19.5 Implement dangerous action confirmations
+  - [x] 19.5 Implement dangerous action confirmations
     - Show confirmation for template deletion
     - _Requirements: 15.3, 15.5, 15.6_
   
-  - [~] 19.6 Write unit tests for template components
+  - [x] 19.6 Write unit tests for template components
     - Test template editor
     - Test preview rendering
     - Test version history
     - _Requirements: 23.1, 23.4, 23.5_
 
-- [ ] 20. Frontend watcher control
-  - [~] 20.1 Create watcher status display
+- [x] 20. Frontend watcher control
+  - [x] 20.1 Create watcher status display
     - Implement real-time watcher status indicators
     - Display last sync timestamp
     - Poll watcher status every 5 seconds
     - Update display within 5 seconds of status change
     - _Requirements: 4.6, 4.7, 16.2, 16.3, 16.4, 16.5_
   
-  - [~] 20.2 Implement watcher control actions
+  - [x] 20.2 Implement watcher control actions
     - Add start, stop, sync buttons
     - Show confirmation for watcher stop
     - _Requirements: 4.1, 15.4, 15.5, 15.6_
   
-  - [~] 20.3 Write unit tests for watcher components
+  - [x] 20.3 Write unit tests for watcher components
     - Test status polling
     - Test control actions
     - _Requirements: 23.4_
 
-- [ ] 21. Frontend lead viewing and export
-  - [~] 21.1 Create leads page
+- [x] 21. Frontend lead viewing and export
+  - [x] 21.1 Create leads page
     - Implement `LeadsPage` component
     - Create `LeadTable` component with sortable columns
     - Add pagination controls
     - Display processing status and response status
     - _Requirements: 5.3, 5.7_
   
-  - [~] 21.2 Create lead filters
+  - [x] 21.2 Create lead filters
     - Implement `LeadFilters` component
     - Add filters for agent, date range, processing status
     - _Requirements: 5.2_
   
-  - [~] 21.3 Create lead detail view
+  - [x] 21.3 Create lead detail view
     - Implement `LeadDetail` component
     - Display full lead content and metadata
     - _Requirements: 5.4_
   
-  - [~] 21.4 Implement CSV export
+  - [x] 21.4 Implement CSV export
     - Add export button to leads page
     - Trigger browser download on export
     - Apply current filters to export
     - Show success toast on export
     - _Requirements: 5.5, 5.6, 19.5, 19.6_
   
-  - [~] 21.5 Write unit tests for lead components
+  - [x] 21.5 Write unit tests for lead components
     - Test table rendering and sorting
     - Test filtering
     - Test CSV export trigger
     - _Requirements: 23.4_
 
-- [ ] 22. Frontend audit logs and settings
-  - [~] 22.1 Create audit logs page
+- [x] 22. Frontend audit logs and settings
+  - [x] 22.1 Create audit logs page
     - Implement `AuditLogsPage` component
     - Create `AuditLogTable` component with filterable columns
     - Create `AuditLogFilters` for action type, user, date range
     - Add pagination controls
     - _Requirements: 7.1, 7.2, 7.4_
   
-  - [~] 22.2 Create settings page
+  - [x] 22.2 Create settings page
     - Implement `SettingsPage` component
     - Create `SettingsForm` component
     - Display all configurable settings
     - Validate setting values before submission
     - _Requirements: 18.1, 18.2, 18.3_
   
-  - [~] 22.3 Write unit tests for audit and settings components
+  - [x] 22.3 Write unit tests for audit and settings components
     - Test audit log filtering
     - Test settings form validation
     - _Requirements: 23.4, 23.5_
 
-- [ ] 23. Frontend toast notifications and error handling
+- [x] 23. Frontend toast notifications and error handling
   - [x] 23.1 Create toast notification system
     - Implement `ToastContainer` component
     - Show success toasts for successful operations (auto-dismiss after 3 seconds)
@@ -512,12 +512,12 @@ This implementation plan covers the development of a full-stack web application 
     - Position toasts consistently
     - _Requirements: 17.1, 17.2, 17.3, 17.4, 17.5_
   
-  - [~] 23.2 Implement user-friendly error handling
+  - [x] 23.2 Implement user-friendly error handling
     - Display user-friendly error messages for common scenarios
     - Provide link to detailed error logs for administrators
     - _Requirements: 22.5, 22.6_
   
-  - [~] 23.3 Write unit tests for toast notifications
+  - [x] 23.3 Write unit tests for toast notifications
     - Test toast display and dismissal
     - Test error message formatting
     - _Requirements: 23.4_
@@ -525,21 +525,21 @@ This implementation plan covers the development of a full-stack web application 
 - [ ] 24. Checkpoint - Frontend UI complete
   - Ensure all frontend tests pass, verify UI functionality in browser, ask the user if questions arise.
 
-- [ ] 25. Docker deployment configuration
-  - [~] 25.1 Create backend Dockerfile
+- [x] 25. Docker deployment configuration
+  - [x] 25.1 Create backend Dockerfile
     - Create multi-stage Dockerfile for FastAPI application
     - Install Python dependencies
     - Copy application code
     - Set up entry point for running migrations and starting server
     - _Requirements: 12.2, 12.3_
   
-  - [~] 25.2 Create frontend build configuration
+  - [x] 25.2 Create frontend build configuration
     - Configure Vite for production build
     - Set API base URL from environment variable
     - Build static assets for production
     - _Requirements: 28.5_
   
-  - [~] 25.3 Create docker-compose configuration
+  - [x] 25.3 Create docker-compose configuration
     - Define service for FastAPI backend
     - Mount volume for SQLite database persistence
     - Mount volume for frontend static files
@@ -547,14 +547,14 @@ This implementation plan covers the development of a full-stack web application 
     - Expose port 8000
     - _Requirements: 12.2, 12.3, 12.5_
   
-  - [~] 25.4 Create systemd service file
+  - [x] 25.4 Create systemd service file
     - Create service file for production deployment
     - Configure auto-restart on failure
     - Set up logging
     - _Requirements: 12.7_
 
-- [ ] 26. Integration testing and documentation
-  - [~] 26.1 Write integration tests
+- [x] 26. Integration testing and documentation
+  - [x] 26.1 Write integration tests
     - Test authentication flow end-to-end
     - Test agent creation and watcher lifecycle
     - Test lead source regex testing
@@ -562,7 +562,7 @@ This implementation plan covers the development of a full-stack web application 
     - Test CSV export functionality
     - _Requirements: 23.3, 24.4_
   
-  - [~] 26.2 Create deployment documentation
+  - [x] 26.2 Create deployment documentation
     - Document environment variable configuration
     - Document Docker deployment steps
     - Document systemd service setup
@@ -570,13 +570,13 @@ This implementation plan covers the development of a full-stack web application 
     - Document seed data generation
     - _Requirements: 12.1, 12.2, 12.4_
   
-  - [~] 26.3 Create API documentation
+  - [x] 26.3 Create API documentation
     - Generate OpenAPI/Swagger documentation from FastAPI
     - Document all endpoints with request/response examples
     - Document authentication requirements
     - _Requirements: 22.1_
 
-- [ ] 27. Final checkpoint - Complete system integration
+- [x] 27. Final checkpoint - Complete system integration
   - Run full integration tests, verify Docker deployment works, test with seed data, ensure backward compatibility with CLI system, ask the user if questions arise.
 
 ## Notes

@@ -12,7 +12,8 @@
  * Requirements: 6.6, 23.3
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import axios, { AxiosError } from 'axios';
 
 // API base URL from environment variable
@@ -54,7 +55,13 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const errorRef = useRef<string | null>(null);
+
+  const setError = (msg: string | null) => {
+    errorRef.current = msg;
+    setErrorState(msg);
+  };
 
   /**
    * Configure axios to include credentials (cookies) in all requests
@@ -107,14 +114,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       setUser(response.data.user);
       setError(null);
+      setLoading(false);
     } catch (err) {
       const axiosError = err as AxiosError<{ message?: string }>;
       const errorMessage = axiosError.response?.data?.message || 'Login failed. Please try again.';
-      setError(errorMessage);
-      setUser(null);
+      flushSync(() => {
+        setUser(null);
+        setError(errorMessage);
+        setLoading(false);
+      });
       throw new Error(errorMessage);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -149,7 +158,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const value: AuthContextState = {
     user,
     loading,
-    error,
+    error: errorRef.current,
     login,
     logout,
     clearError,

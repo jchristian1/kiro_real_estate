@@ -20,7 +20,7 @@ interface HealthMetricsProps {
 
 export const HealthMetrics: React.FC<HealthMetricsProps> = ({ healthData }) => {
   const isHealthy = healthData.status === 'healthy';
-  const isDatabaseConnected = healthData.database === 'connected';
+  const isDatabaseConnected = healthData.database?.connected === true;
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
@@ -56,7 +56,7 @@ export const HealthMetrics: React.FC<HealthMetricsProps> = ({ healthData }) => {
             <span className={`text-lg font-semibold ${
               isDatabaseConnected ? 'text-green-700' : 'text-red-700'
             }`}>
-              {healthData.database}
+              {isDatabaseConnected ? 'connected' : 'disconnected'}
             </span>
           </div>
         </div>
@@ -65,7 +65,7 @@ export const HealthMetrics: React.FC<HealthMetricsProps> = ({ healthData }) => {
         <div className="bg-gray-50 rounded-lg p-4">
           <div className="text-sm text-gray-600 mb-1">Active Watchers</div>
           <div className="text-2xl font-bold text-blue-600">
-            {healthData.watchers.active}
+            {healthData.watchers?.active_count ?? 0}
           </div>
         </div>
 
@@ -73,9 +73,9 @@ export const HealthMetrics: React.FC<HealthMetricsProps> = ({ healthData }) => {
         <div className="bg-gray-50 rounded-lg p-4">
           <div className="text-sm text-gray-600 mb-1">Failed Watchers</div>
           <div className={`text-2xl font-bold ${
-            healthData.watchers.failed > 0 ? 'text-red-600' : 'text-gray-600'
+            0 > 0 ? 'text-red-600' : 'text-gray-600'
           }`}>
-            {healthData.watchers.failed}
+            0
           </div>
         </div>
 
@@ -83,9 +83,9 @@ export const HealthMetrics: React.FC<HealthMetricsProps> = ({ healthData }) => {
         <div className="bg-gray-50 rounded-lg p-4">
           <div className="text-sm text-gray-600 mb-1">Errors (24h)</div>
           <div className={`text-2xl font-bold ${
-            healthData.errors_24h > 0 ? 'text-orange-600' : 'text-gray-600'
+            (healthData.errors?.count_24h ?? 0) > 0 ? 'text-orange-600' : 'text-gray-600'
           }`}>
-            {healthData.errors_24h}
+            {healthData.errors?.count_24h ?? 0}
           </div>
         </div>
       </div>

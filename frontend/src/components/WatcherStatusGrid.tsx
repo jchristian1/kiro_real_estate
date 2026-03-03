@@ -15,7 +15,7 @@ interface WatcherStatusGridProps {
   onRefresh: () => void;
 }
 
-export const WatcherStatusGrid: React.FC<WatcherStatusGridProps> = ({ watchers, onRefresh }) => {
+export const WatcherStatusGrid: React.FC<WatcherStatusGridProps> = ({ watchers = [], onRefresh }) => {
   /**
    * Get status badge color based on watcher status
    */

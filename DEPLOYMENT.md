@@ -1821,3 +1821,199 @@ For deployment issues or questions:
 **Document Version:** 1.0  
 **Last Updated:** 2024-01-15  
 **Maintained By:** Gmail Lead Sync Development Team
+
+
+---
+
+## Web UI Deployment
+
+This section covers deploying the Gmail Lead Sync Web UI (FastAPI backend + React frontend).
+
+### Environment Variables
+
+Create `/opt/gmail-lead-sync/.env` with the following variables:
+
+```bash
+# Required
+ENCRYPTION_KEY="<fernet-key>"        # python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+SECRET_KEY="<32-char-random-string>" # python3 -c "import secrets; print(secrets.token_hex(32))"
+
+# Database
+DATABASE_URL="sqlite:////data/gmail_lead_sync.db"
+
+# API server
+API_HOST="0.0.0.0"
+API_PORT="8000"
+LOG_LEVEL="INFO"
+
+# CORS (comma-separated origins)
+CORS_ORIGINS="http://localhost:8000,https://your-domain.com"
+CORS_ALLOW_CREDENTIALS="true"
+
+# Frontend static files (path to built React app)
+STATIC_FILES_DIR="/opt/gmail-lead-sync/static"
+```
+
+### Docker Deployment
+
+**Prerequisites:** Docker and Docker Compose installed.
+
+**1. Build the frontend:**
+
+```bash
+cd frontend
+VITE_API_BASE_URL=http://your-server:8000 npm run build
+```
+
+**2. Copy built assets into the Docker volume:**
+
+```bash
+# The docker-compose.yml mounts frontend_dist to /app/static
+# Copy dist/ contents to the named volume after first run
+docker compose up -d
+docker compose cp frontend/dist/. api:/app/static/
+docker compose restart api
+```
+
+**3. Configure secrets:**
+
+```bash
+cp api/.env.example .env
+# Edit .env with your ENCRYPTION_KEY and SECRET_KEY
+```
+
+**4. Start services:**
+
+```bash
+docker compose up -d
+```
+
+**5. Run database migrations (first time only):**
+
+Migrations run automatically via the entrypoint script on container start.
+
+**6. Seed demo data (optional):**
+
+```bash
+docker compose exec api python scripts/seed_data.py
+```
+
+**7. Verify deployment:**
+
+```bash
+curl http://localhost:8000/api/v1/health
+```
+
+### Systemd Deployment (without Docker)
+
+**1. Install Python dependencies:**
+
+```bash
+cd /opt/gmail-lead-sync
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements-api.txt
+```
+
+**2. Build and deploy frontend:**
+
+```bash
+cd frontend
+npm ci
+VITE_API_BASE_URL="" npm run build   # empty = same-origin
+cp -r dist/* /opt/gmail-lead-sync/static/
+```
+
+**3. Run database migrations:**
+
+```bash
+source venv/bin/activate
+alembic upgrade head
+```
+
+**4. Install the systemd service:**
+
+```bash
+sudo cp deployment/gmail-lead-sync.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable gmail-lead-sync
+sudo systemctl start gmail-lead-sync
+```
+
+**5. Verify:**
+
+```bash
+sudo systemctl status gmail-lead-sync
+curl http://localhost:8000/api/v1/health
+```
+
+### Database Migration Process
+
+Migrations are managed with Alembic.
+
+```bash
+# Apply all pending migrations
+alembic upgrade head
+
+# Check current revision
+alembic current
+
+# Rollback one revision
+alembic downgrade -1
+
+# View migration history
+alembic history
+```
+
+### Seed Data
+
+Generate demo data for testing:
+
+```bash
+# With virtual environment active
+python scripts/seed_data.py
+
+# Clear existing data first
+python scripts/seed_data.py --clear
+```
+
+### API Documentation
+
+FastAPI auto-generates interactive API docs:
+
+- Swagger UI: `http://localhost:8000/api/docs`
+- ReDoc: `http://localhost:8000/api/redoc`
+- OpenAPI JSON: `http://localhost:8000/api/openapi.json`
+
+These endpoints are available in development. In production, restrict access via a reverse proxy if needed.
+
+### Reverse Proxy (nginx)
+
+Example nginx configuration to proxy the API and serve the frontend:
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    # Redirect HTTP to HTTPS
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name your-domain.com;
+
+    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+
+    # Proxy all requests to FastAPI (which serves both API and frontend)
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```

@@ -18,12 +18,18 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 export interface HealthData {
   status: string;
   timestamp: string;
-  database: string;
-  watchers: {
-    active: number;
-    failed: number;
+  database: {
+    connected: boolean;
+    message: string;
   };
-  errors_24h: number;
+  watchers: {
+    active_count: number;
+    heartbeats: Record<string, unknown>;
+  };
+  errors: {
+    count_24h: number;
+    recent_errors: unknown[];
+  };
 }
 
 export interface WatcherStatus {
@@ -121,7 +127,7 @@ export const DashboardPage: React.FC = () => {
       <WatcherStatusGrid watchers={watcherStatuses} onRefresh={fetchWatcherStatuses} />
 
       {/* Recent Errors Table Section */}
-      <RecentErrorsTable errorCount={healthData?.errors_24h || 0} />
+      <RecentErrorsTable errorCount={healthData?.errors?.count_24h || 0} />
     </div>
   );
 };

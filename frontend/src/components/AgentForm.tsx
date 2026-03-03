@@ -131,8 +131,10 @@ export const AgentForm: React.FC<AgentFormProps> = ({
     },
   });
 
+  const handleFormSubmit = handleSubmit((data) => onSubmit(data));
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate aria-label="Agent form">
+    <form onSubmit={handleFormSubmit} noValidate aria-label="Agent form">
       {/* Server-side error */}
       {serverError && (
         <div
