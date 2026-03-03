@@ -6,7 +6,7 @@ This implementation plan covers the development of a full-stack web application 
 
 ## Tasks
 
-- [-] 1. Set up project structure and dependencies
+- [x] 1. Set up project structure and dependencies
   - Create backend directory structure (`api/`, `api/models/`, `api/routes/`, `api/services/`)
   - Create frontend directory structure (`frontend/src/`, `frontend/src/components/`, `frontend/src/contexts/`, `frontend/src/pages/`)
   - Set up Python virtual environment and install FastAPI, SQLAlchemy, Pydantic, cryptography, prometheus-client
@@ -15,37 +15,37 @@ This implementation plan covers the development of a full-stack web application 
   - _Requirements: 12.1, 12.2, 12.5_
 
 - [ ] 2. Database schema extensions and migrations
-  - [~] 2.1 Create Alembic migration for new tables
+  - [x] 2.1 Create Alembic migration for new tables
     - Create migration script for `users`, `sessions`, `audit_logs`, `template_versions`, `regex_profile_versions`, `settings` tables
     - Add indexes for performance optimization
     - Ensure backward compatibility with existing CLI tables
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5_
   
-  - [~] 2.2 Create SQLAlchemy models for new tables
+  - [x] 2.2 Create SQLAlchemy models for new tables
     - Implement `User`, `Session`, `AuditLog`, `TemplateVersion`, `RegexProfileVersion`, `Setting` models
     - Define relationships and foreign keys
     - _Requirements: 11.1, 11.2_
   
-  - [~] 2.3 Write unit tests for database models
+  - [x] 2.3 Write unit tests for database models
     - Test model creation, relationships, and constraints
     - Test migration rollback functionality
     - _Requirements: 24.4_
 
 - [ ] 3. Authentication and session management
-  - [~] 3.1 Implement authentication module
+  - [x] 3.1 Implement authentication module
     - Create `api/auth.py` with login, logout, and session validation functions
     - Implement bcrypt password hashing for user credentials
     - Generate cryptographically secure session tokens (64 bytes)
     - Create authentication dependency for protected routes
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 26.1, 26.2_
   
-  - [~] 3.2 Implement session management
+  - [x] 3.2 Implement session management
     - Create session storage and retrieval functions
     - Implement 24-hour session expiration with sliding window
     - Create session cleanup background task for expired sessions
     - _Requirements: 26.3, 26.4, 26.5, 26.6, 26.7_
   
-  - [~] 3.3 Write unit tests for authentication
+  - [x] 3.3 Write unit tests for authentication
     - Test login with valid and invalid credentials
     - Test session token generation and validation
     - Test session expiration handling
@@ -53,7 +53,7 @@ This implementation plan covers the development of a full-stack web application 
     - _Requirements: 24.1, 24.2_
 
 - [ ] 4. Core API application setup
-  - [~] 4.1 Create FastAPI application with middleware
+  - [x] 4.1 Create FastAPI application with middleware
     - Initialize FastAPI app in `api/main.py`
     - Configure CORS middleware with environment-based origins
     - Set up session cookie middleware
@@ -61,14 +61,14 @@ This implementation plan covers the development of a full-stack web application 
     - Mount API routes under `/api/v1` prefix
     - _Requirements: 12.1, 12.2, 27.1, 27.2, 27.3, 27.4, 27.5_
   
-  - [~] 4.2 Implement configuration management
+  - [x] 4.2 Implement configuration management
     - Create configuration parser reading from environment variables
     - Validate required configuration on startup
     - Implement configuration validation command
     - Log configuration values on startup (excluding sensitive data)
     - _Requirements: 12.1, 12.5, 25.1, 25.2, 25.3, 25.4, 25.5_
   
-  - [~] 4.3 Implement error handling and logging
+  - [x] 4.3 Implement error handling and logging
     - Create global exception handler returning structured errors
     - Implement structured JSON logging for all operations
     - Ensure no sensitive information in error responses
@@ -76,25 +76,25 @@ This implementation plan covers the development of a full-stack web application 
     - _Requirements: 22.1, 22.2, 22.3, 22.4, 8.8_
 
 - [ ] 5. Audit logging system
-  - [~] 5.1 Implement audit log recording
+  - [x] 5.1 Implement audit log recording
     - Create `record_audit_log()` helper function
     - Implement append-only audit log storage
     - Record timestamp, user, action type, resource type, resource ID, and details
     - _Requirements: 7.3, 7.6_
   
-  - [~] 5.2 Create audit log API endpoints
+  - [x] 5.2 Create audit log API endpoints
     - Implement `GET /api/v1/audit-logs` with pagination
     - Add filtering by action type, user_id, and date range
     - _Requirements: 7.1, 7.2, 7.4_
   
-  - [~] 5.3 Write unit tests for audit logging
+  - [x] 5.3 Write unit tests for audit logging
     - Test audit log recording for various actions
     - Test pagination and filtering
     - Test append-only constraint
     - _Requirements: 24.2_
 
 - [ ] 6. Agent management API
-  - [~] 6.1 Implement agent CRUD endpoints
+  - [x] 6.1 Implement agent CRUD endpoints
     - Create `POST /api/v1/agents` for agent creation with credential encryption
     - Create `GET /api/v1/agents` for listing agents (exclude credentials)
     - Create `GET /api/v1/agents/{agent_id}` for agent details
@@ -103,18 +103,18 @@ This implementation plan covers the development of a full-stack web application 
     - Integrate with `EncryptedDBCredentialsStore` from existing CLI system
     - _Requirements: 1.1, 1.2, 1.3, 21.1, 21.3_
   
-  - [~] 6.2 Implement agent deletion with watcher coordination
+  - [x] 6.2 Implement agent deletion with watcher coordination
     - Stop running watcher when agent is deleted
     - Record audit log for agent deletion
     - _Requirements: 1.7, 1.8_
   
-  - [~] 6.3 Implement input validation for agents
+  - [x] 6.3 Implement input validation for agents
     - Validate email format against RFC 5322
     - Sanitize all user input
     - Enforce maximum length limits
     - _Requirements: 1.5, 10.1, 10.4, 10.5_
   
-  - [~] 6.4 Write unit tests for agent endpoints
+  - [x] 6.4 Write unit tests for agent endpoints
     - Test agent creation with credential encryption
     - Test agent listing excludes credentials
     - Test agent update and deletion
@@ -122,7 +122,7 @@ This implementation plan covers the development of a full-stack web application 
     - _Requirements: 24.2_
 
 - [ ] 7. Lead source management API
-  - [~] 7.1 Implement lead source CRUD endpoints
+  - [x] 7.1 Implement lead source CRUD endpoints
     - Create `POST /api/v1/lead-sources` with regex validation
     - Create `GET /api/v1/lead-sources` for listing
     - Create `GET /api/v1/lead-sources/{id}` for details
@@ -130,28 +130,28 @@ This implementation plan covers the development of a full-stack web application 
     - Create `DELETE /api/v1/lead-sources/{id}` for deletion
     - _Requirements: 2.1, 2.2, 2.6_
   
-  - [~] 7.2 Implement regex testing harness endpoint
+  - [x] 7.2 Implement regex testing harness endpoint
     - Create `POST /api/v1/lead-sources/test-regex` endpoint
     - Implement 1000ms timeout using `signal.alarm()` (Unix) or `threading.Timer()` (Windows)
     - Return match results and captured groups
     - Validate regex syntax before execution
     - _Requirements: 2.3, 2.4, 14.1, 14.2, 14.3, 14.4_
   
-  - [~] 7.3 Implement regex profile versioning
+  - [x] 7.3 Implement regex profile versioning
     - Create version records on lead source updates
     - Implement `GET /api/v1/lead-sources/{id}/versions` endpoint
     - Implement `POST /api/v1/lead-sources/{id}/rollback` endpoint
     - Record audit logs for version changes
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.7_
   
-  - [~] 7.4 Write unit tests for lead source endpoints
+  - [x] 7.4 Write unit tests for lead source endpoints
     - Test regex validation and syntax checking
     - Test regex timeout enforcement
     - Test version history and rollback
     - _Requirements: 24.2_
 
 - [ ] 8. Template management API
-  - [~] 8.1 Implement template CRUD endpoints
+  - [x] 8.1 Implement template CRUD endpoints
     - Create `POST /api/v1/templates` with validation
     - Create `GET /api/v1/templates` for listing
     - Create `GET /api/v1/templates/{id}` for details
@@ -159,40 +159,40 @@ This implementation plan covers the development of a full-stack web application 
     - Create `DELETE /api/v1/templates/{id}` for deletion
     - _Requirements: 3.1, 3.2_
   
-  - [~] 8.2 Implement template validation
+  - [x] 8.2 Implement template validation
     - Validate against email header injection patterns (newlines in subject)
     - Validate placeholders: `{lead_name}`, `{agent_name}`, `{agent_phone}`, `{agent_email}`
     - Return validation errors for unsupported placeholders
     - _Requirements: 3.2, 3.4, 3.5, 10.2, 13.4, 13.5_
   
-  - [~] 8.3 Implement template preview endpoint
+  - [x] 8.3 Implement template preview endpoint
     - Create `POST /api/v1/templates/preview` endpoint
     - Substitute placeholders with sample data
     - Escape HTML in body for display
     - _Requirements: 3.3, 10.7, 13.1, 13.2, 13.3_
   
-  - [~] 8.4 Implement template versioning
+  - [x] 8.4 Implement template versioning
     - Create version records on template updates
     - Implement `GET /api/v1/templates/{id}/versions` endpoint
     - Implement `POST /api/v1/templates/{id}/rollback` endpoint
     - Record audit logs for all template operations
     - _Requirements: 3.6, 3.7, 3.8_
   
-  - [~] 8.5 Write unit tests for template endpoints
+  - [x] 8.5 Write unit tests for template endpoints
     - Test template validation (header injection, placeholders)
     - Test preview rendering
     - Test version history and rollback
     - _Requirements: 24.2, 24.6_
 
 - [ ] 9. Watcher controller and background task management
-  - [~] 9.1 Implement watcher registry
+  - [x] 9.1 Implement watcher registry
     - Create `WatcherRegistry` class managing background tasks
     - Implement watcher task lifecycle (start, stop, status)
     - Prevent multiple concurrent watchers for same agent
     - Track heartbeat and last sync timestamps
     - _Requirements: 4.2, 4.3, 4.4, 4.7, 20.1, 20.2_
   
-  - [~] 9.2 Implement watcher control endpoints
+  - [x] 9.2 Implement watcher control endpoints
     - Create `POST /api/v1/watchers/{agent_id}/start` endpoint
     - Create `POST /api/v1/watchers/{agent_id}/stop` endpoint
     - Create `POST /api/v1/watchers/{agent_id}/sync` for manual sync
@@ -200,14 +200,14 @@ This implementation plan covers the development of a full-stack web application 
     - Integrate with existing `GmailWatcher` from CLI system
     - _Requirements: 4.1, 4.5, 4.6, 21.1, 21.2_
   
-  - [~] 9.3 Implement watcher auto-restart and error handling
+  - [x] 9.3 Implement watcher auto-restart and error handling
     - Auto-restart failed watchers (max 3 retries)
     - Log all background task lifecycle events
     - Gracefully terminate all tasks on shutdown
     - Record watcher failures in error logs
     - _Requirements: 20.3, 20.4, 20.5, 8.7_
   
-  - [~] 9.4 Write unit tests for watcher controller
+  - [x] 9.4 Write unit tests for watcher controller
     - Test watcher start, stop, and sync operations
     - Test concurrent watcher prevention
     - Test auto-restart functionality
@@ -215,39 +215,39 @@ This implementation plan covers the development of a full-stack web application 
     - _Requirements: 24.3_
 
 - [ ] 10. Lead viewing and export API
-  - [~] 10.1 Implement lead listing endpoint
+  - [x] 10.1 Implement lead listing endpoint
     - Create `GET /api/v1/leads` with pagination
     - Implement filtering by agent_id, date range, processing status
     - Support sortable columns
     - _Requirements: 5.1, 5.2, 5.3_
   
-  - [~] 10.2 Implement lead detail endpoint
+  - [x] 10.2 Implement lead detail endpoint
     - Create `GET /api/v1/leads/{id}` for full lead content and metadata
     - Display processing status and response status
     - _Requirements: 5.4, 5.7_
   
-  - [~] 10.3 Implement CSV export endpoint
+  - [x] 10.3 Implement CSV export endpoint
     - Create `GET /api/v1/leads/export` endpoint
     - Apply same filters as list endpoint
     - Include all requested fields with proper CSV escaping
     - Set appropriate headers for file download
     - _Requirements: 5.5, 5.6, 19.1, 19.2, 19.3, 19.4_
   
-  - [~] 10.4 Write unit tests for lead endpoints
+  - [x] 10.4 Write unit tests for lead endpoints
     - Test pagination and filtering
     - Test CSV export with various filters
     - Test CSV special character escaping
     - _Requirements: 24.2_
 
 - [ ] 11. Health monitoring and metrics
-  - [~] 11.1 Implement health check endpoint
+  - [x] 11.1 Implement health check endpoint
     - Create `GET /api/v1/health` endpoint
     - Track database connection status
     - Track active watcher count and heartbeats
     - Track errors from last 24 hours
     - _Requirements: 8.1, 8.3, 8.4, 8.6_
   
-  - [~] 11.2 Implement Prometheus metrics endpoint
+  - [x] 11.2 Implement Prometheus metrics endpoint
     - Create `GET /metrics` endpoint in Prometheus text format
     - Track request count per endpoint
     - Track request duration per endpoint
@@ -256,14 +256,14 @@ This implementation plan covers the development of a full-stack web application 
     - Track error rate per endpoint
     - _Requirements: 8.2, 29.1, 29.2, 29.3, 29.4, 29.5, 29.6, 29.7_
   
-  - [~] 11.3 Write unit tests for health and metrics
+  - [x] 11.3 Write unit tests for health and metrics
     - Test health check response format
     - Test Prometheus metrics format
     - Test metric counters and histograms
     - _Requirements: 24.2_
 
 - [ ] 12. Settings management API
-  - [~] 12.1 Implement settings endpoints
+  - [x] 12.1 Implement settings endpoints
     - Create `GET /api/v1/settings` for retrieving all settings
     - Create `PUT /api/v1/settings` for updating settings
     - Support settings: `sync_interval_seconds`, `regex_timeout_ms`, `session_timeout_hours`, `max_leads_per_page`, `enable_auto_restart`
@@ -271,52 +271,52 @@ This implementation plan covers the development of a full-stack web application 
     - Record audit logs for settings modifications
     - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.5_
   
-  - [~] 12.2 Write unit tests for settings endpoints
+  - [x] 12.2 Write unit tests for settings endpoints
     - Test settings retrieval and updates
     - Test validation of setting values
     - _Requirements: 24.2_
 
 - [ ] 13. Static file serving and production setup
-  - [~] 13.1 Configure static file serving
+  - [x] 13.1 Configure static file serving
     - Mount frontend static files from configurable directory
     - Serve `index.html` for all non-API routes (client-side routing)
     - Set appropriate cache headers for static assets
     - Ensure API routes under `/api/v1` prefix take precedence
     - _Requirements: 12.6, 28.1, 28.2, 28.3, 28.4_
   
-  - [~] 13.2 Create seed data script
+  - [x] 13.2 Create seed data script
     - Create script to generate demo agents with encrypted credentials
     - Generate sample lead sources, templates, and leads
     - Make script idempotent and safe to run multiple times
     - Provide flag to clear existing data before seeding
     - _Requirements: 12.4, 30.1, 30.2, 30.3, 30.4, 30.5, 30.6, 30.7_
 
-- [ ] 14. Checkpoint - Backend API complete
+- [x] 14. Checkpoint - Backend API complete
   - Ensure all backend tests pass, verify API endpoints with manual testing or Postman, ask the user if questions arise.
 
-- [ ] 15. Frontend authentication and routing
-  - [~] 15.1 Create authentication context
+- [x] 15. Frontend authentication and routing
+  - [x] 15.1 Create authentication context
     - Implement `AuthProvider` in `src/contexts/AuthContext.tsx`
     - Manage authentication state (user, loading, error)
     - Provide login and logout functions
     - Handle session persistence and redirects on auth errors
     - _Requirements: 6.6, 23.3_
   
-  - [~] 15.2 Create routing structure
+  - [x] 15.2 Create routing structure
     - Set up React Router with protected routes
     - Create `LoginPage` component
     - Create `DashboardLayout` with sidebar and header
     - Create route guards for authenticated routes
     - _Requirements: 6.6_
   
-  - [~] 15.3 Write tests for authentication flow
+  - [x] 15.3 Write tests for authentication flow
     - Test login success and failure
     - Test logout functionality
     - Test protected route redirects
     - _Requirements: 23.3_
 
-- [ ] 16. Frontend dashboard and health monitoring
-  - [~] 16.1 Create dashboard page
+- [x] 16. Frontend dashboard and health monitoring
+  - [x] 16.1 Create dashboard page
     - Implement `DashboardPage` component
     - Create `HealthMetrics` component displaying system health
     - Create `WatcherStatusGrid` component with real-time status
@@ -324,20 +324,20 @@ This implementation plan covers the development of a full-stack web application 
     - Poll health endpoint every 5 seconds
     - _Requirements: 8.5, 8.6, 16.1, 16.2, 16.3_
   
-  - [~] 16.2 Write unit tests for dashboard components
+  - [x] 16.2 Write unit tests for dashboard components
     - Test health metrics display
     - Test watcher status updates
     - _Requirements: 23.4_
 
 - [ ] 17. Frontend agent management
-  - [~] 17.1 Create agent list page
+  - [x] 17.1 Create agent list page
     - Implement `AgentsPage` component
     - Create `AgentList` component displaying all agents with status
     - Display watcher status indicators
     - Add create, edit, delete actions
     - _Requirements: 1.4, 1.6_
   
-  - [~] 17.2 Create agent form
+  - [-] 17.2 Create agent form
     - Implement `AgentForm` component for create/edit
     - Validate email format and required fields
     - Show validation errors
@@ -504,7 +504,7 @@ This implementation plan covers the development of a full-stack web application 
     - _Requirements: 23.4, 23.5_
 
 - [ ] 23. Frontend toast notifications and error handling
-  - [~] 23.1 Create toast notification system
+  - [x] 23.1 Create toast notification system
     - Implement `ToastContainer` component
     - Show success toasts for successful operations (auto-dismiss after 3 seconds)
     - Show error toasts for failed operations (manual dismissal)
