@@ -60,7 +60,7 @@ export const LeadsPage: React.FC = () => {
 
   useEffect(() => {
     axios.get(`${API_BASE_URL}/companies`).then(r => setCompanies(Array.isArray(r.data) ? r.data : (r.data.companies || []))).catch(() => {});
-    axios.get(`${API_BASE_URL}/agents`).then(r => setAgents(r.data.agents || r.data)).catch(() => {});
+    axios.get(`${API_BASE_URL}/agents`).then(r => setAgents(Array.isArray(r.data) ? r.data : (r.data.agents || []))).catch(() => {});
   }, []);
 
   const buildParams = useCallback(() => {
@@ -99,7 +99,8 @@ export const LeadsPage: React.FC = () => {
     setExporting(true);
     try {
       const params = buildParams();
-      delete params.page; delete params.per_page;
+      delete params.page;
+      delete params.per_page;
       const res = await axios.get(`${API_BASE_URL}/leads/export`, { params, responseType: 'blob' });
       const url = URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement('a');
@@ -108,8 +109,11 @@ export const LeadsPage: React.FC = () => {
       a.click();
       URL.revokeObjectURL(url);
       success('CSV exported successfully');
-    } catch { toastError('Failed to export leads'); }
-    finally { setExporting(false); }
+    } catch {
+      toastError('Failed to export leads');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const statusBadge = (sent: boolean, status: string | null) => {
@@ -137,20 +141,26 @@ export const LeadsPage: React.FC = () => {
     return (
       <div className="space-y-6" data-testid="lead-detail">
         <div className="flex items-center gap-4">
-          <button onClick={() => setSelectedLead(null)} className="text-sm text-blue-600 hover:text-blue-800">← Back</button>
+          <button onClick={() => setSelectedLead(null)} className="text-sm text-blue-600 hover:text-blue-800">Back</button>
           <h1 className="text-2xl font-bold text-gray-800">Lead Detail</h1>
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <dl className="grid grid-cols-2 gap-4">
-            {([['ID', selectedLead.id], ['Name', selectedLead.name || '—'], ['Phone', selectedLead.phone || '—'],
-               ['Source Email', selectedLead.source_email || '—'], ['Agent', selectedLead.agent_name || selectedLead.agent_id || '—'],
-               ['Company', selectedLead.company_name || '—'], ['Gmail UID', selectedLead.gmail_uid || '—'],
-               ['Created', new Date(selectedLead.created_at).toLocaleString()],
-               ['Response Sent', selectedLead.response_sent ? 'Yes' : 'No'],
-               ['Response Status', selectedLead.response_status || '—']] as [string, string | number][]).map(([label, val]) => (
+            {([
+              ['ID', String(selectedLead.id)],
+              ['Name', selectedLead.name || ''],
+              ['Phone', selectedLead.phone || ''],
+              ['Source Email', selectedLead.source_email || ''],
+              ['Agent', selectedLead.agent_name || selectedLead.agent_id || ''],
+              ['Company', selectedLead.company_name || ''],
+              ['Gmail UID', selectedLead.gmail_uid || ''],
+              ['Created', new Date(selectedLead.created_at).toLocaleString()],
+              ['Response Sent', selectedLead.response_sent ? 'Yes' : 'No'],
+              ['Response Status', selectedLead.response_status || ''],
+            ] as [string, string][]).map(([label, val]) => (
               <div key={label}>
                 <dt className="text-xs text-gray-500 uppercase tracking-wide">{label}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{String(val)}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{val || '—'}</dd>
               </div>
             ))}
           </dl>
