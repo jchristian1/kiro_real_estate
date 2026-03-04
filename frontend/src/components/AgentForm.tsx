@@ -10,33 +10,27 @@ interface Company { id: number; name: string; }
 
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
-const createSchema = z.object({
-  agent_id: z.string().min(1, 'Agent ID is required').max(100)
-    .regex(/^[a-zA-Z0-9._-]+$/, 'Only letters, numbers, hyphens, underscores, and dots allowed'),
-  email: z.string().min(1, 'Email is required').regex(EMAIL_REGEX, 'Invalid email address'),
-  app_password: z.string().min(1, 'App password is required'),
-  display_name: z.string().max(255).optional(),
-  phone: z.string().max(50).optional(),
-  company_id: z.number().nullable().optional(),
-});
-
-const editSchema = z.object({
+// Single flat form schema — app_password optional (required enforced manually for create)
+const formSchema = z.object({
   agent_id: z.string().min(1, 'Agent ID is required').max(100)
     .regex(/^[a-zA-Z0-9._-]+$/, 'Only letters, numbers, hyphens, underscores, and dots allowed'),
   email: z.string().min(1, 'Email is required').regex(EMAIL_REGEX, 'Invalid email address'),
   app_password: z.string().optional(),
   display_name: z.string().max(255).optional(),
   phone: z.string().max(50).optional(),
-  company_id: z.number().nullable().optional(),
+  company_id: z.string().optional(), // kept as string; converted to number before submit
 });
 
-export type AgentFormValues = z.infer<typeof createSchema>;
-export type AgentEditFormValues = z.infer<typeof editSchema>;
+type FormValues = z.infer<typeof formSchema>;
+
+// What we send to the parent — company_id as number | null
+export type AgentFormValues = Omit<FormValues, 'company_id'> & { company_id: number | null };
+export type AgentEditFormValues = AgentFormValues;
 
 export interface AgentFormProps {
-  initialValues?: Partial<AgentFormValues & { display_name?: string; phone?: string; company_id?: number | null }>;
+  initialValues?: Partial<{ agent_id: string; email: string; display_name?: string; phone?: string; company_id?: number | null }>;
   isEditMode?: boolean;
-  onSubmit: (data: AgentFormValues | AgentEditFormValues) => Promise<void>;
+  onSubmit: (data: AgentFormValues) => Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
   serverError?: string | null;
@@ -67,21 +61,33 @@ export const AgentForm: React.FC<AgentFormProps> = ({
       .catch(() => {});
   }, []);
 
-  const schema = isEditMode ? editSchema : createSchema;
-  const { register, handleSubmit, formState: { errors } } = useForm<AgentFormValues | AgentEditFormValues>({
-    resolver: zodResolver(schema),
+  const { register, handleSubmit, formState: { errors }, setError } = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       agent_id: initialValues?.agent_id ?? '',
       email: initialValues?.email ?? '',
       app_password: '',
       display_name: initialValues?.display_name ?? '',
       phone: initialValues?.phone ?? '',
-      company_id: initialValues?.company_id ?? null,
+      company_id: initialValues?.company_id != null ? String(initialValues.company_id) : '',
     },
   });
 
+  const handleFormSubmit = (data: FormValues) => {
+    // Enforce app_password required on create
+    if (!isEditMode && !data.app_password) {
+      setError('app_password', { message: 'App password is required' });
+      return;
+    }
+    const payload: AgentFormValues = {
+      ...data,
+      company_id: data.company_id && data.company_id !== '' ? Number(data.company_id) : null,
+    };
+    return onSubmit(payload);
+  };
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate aria-label="Agent form">
+    <form onSubmit={handleSubmit(handleFormSubmit)} noValidate aria-label="Agent form">
       {serverError && (
         <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded" role="alert">{serverError}</div>
       )}
@@ -108,21 +114,20 @@ export const AgentForm: React.FC<AgentFormProps> = ({
           placeholder={isEditMode ? '(unchanged)' : '16-character app password'} className={inputClass(!!errors.app_password)} />
       </FormField>
 
-      <FormField label="Display Name" htmlFor="display_name" error={(errors as any).display_name?.message}
+      <FormField label="Display Name" htmlFor="display_name" error={errors.display_name?.message}
         hint="Used in email templates as {agent_name}">
         <input id="display_name" type="text" {...register('display_name')} disabled={isSubmitting}
-          placeholder="e.g. John Smith" className={inputClass(!!(errors as any).display_name)} />
+          placeholder="e.g. John Smith" className={inputClass(!!errors.display_name)} />
       </FormField>
 
-      <FormField label="Phone Number" htmlFor="phone" error={(errors as any).phone?.message}
+      <FormField label="Phone Number" htmlFor="phone" error={errors.phone?.message}
         hint="Used in email templates as {agent_phone}">
         <input id="phone" type="tel" {...register('phone')} disabled={isSubmitting}
-          placeholder="e.g. 555-123-4567" className={inputClass(!!(errors as any).phone)} />
+          placeholder="e.g. 555-123-4567" className={inputClass(!!errors.phone)} />
       </FormField>
 
       <FormField label="Company" htmlFor="company_id">
-        <select id="company_id" {...register('company_id', { setValueAs: (v) => v === '' ? null : Number(v) })}
-          disabled={isSubmitting} className={inputClass(false)}>
+        <select id="company_id" {...register('company_id')} disabled={isSubmitting} className={inputClass(false)}>
           <option value="">— No company —</option>
           {companies.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>

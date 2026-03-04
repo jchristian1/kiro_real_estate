@@ -312,7 +312,7 @@ def update_agent(
         )
     
     # Check if any fields to update
-    if not agent_data.email and not agent_data.app_password and agent_data.display_name is None and agent_data.phone is None:
+    if not agent_data.email and not agent_data.app_password and agent_data.display_name is None and agent_data.phone is None and agent_data.company_id is None:
         raise ValidationException(
             message="No fields to update",
             code=ErrorCode.VALIDATION_ERROR
