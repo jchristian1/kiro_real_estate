@@ -8,6 +8,6 @@
   },
   "then": {
     "type": "runCommand",
-    "command": "git add -A && git diff --cached --quiet || git commit -m \"auto: agent session changes $(date '+%Y-%m-%d %H:%M')\" && git push origin main"
+    "command": "git add -A && git diff --cached --quiet || git commit -m \"auto: agent session changes $(date '+%Y-%m-%d %H:%M')\" && git push origin develop"
   }
 }
