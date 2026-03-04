@@ -1092,24 +1092,124 @@ The following design decisions make SELL/RENT addition a configuration + seed-da
 
 ## Correctness Properties
 
-The following properties must hold for all valid inputs and tenant configurations:
+*A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
 
-1. **Score-bucket consistency**: For all submissions, `score.total >= HOT_threshold ⟹ score.bucket == HOT`, `WARM_threshold <= score.total < HOT_threshold ⟹ score.bucket == WARM`, `score.total < WARM_threshold ⟹ score.bucket == NURTURE`
+### Property 1: Score-Bucket Consistency
 
-2. **Token single-use**: For all form invitations, `invitation.used_at IS NOT NULL ⟹` any subsequent submission attempt with the same token returns 410
+*For any* submission and any valid scoring version, `score.total >= HOT_threshold ⟹ score.bucket == HOT`, `WARM_threshold <= score.total < HOT_threshold ⟹ score.bucket == WARM`, and `score.total < WARM_threshold ⟹ score.bucket == NURTURE`.
 
-3. **Token expiry**: For all form invitations, `now() > invitation.expires_at ⟹` submission attempt returns 410
+**Validates: Requirements 5.3, 5.4, 5.5**
 
-4. **State monotonicity**: For all leads, the sequence of states in `lead_state_transitions` ordered by `occurred_at` is a valid path through `VALID_TRANSITIONS`; no state is revisited
+### Property 2: Token Single-Use
 
-5. **Tenant isolation**: For all admin API calls, the response contains only records where `record.tenant_id == authenticated_user.tenant_id`
+*For any* form invitation, once `invitation.used_at` is set, any subsequent submission attempt with the same raw token returns HTTP 410.
 
-6. **Version exclusivity**: At any point in time, for any `(template_id, intent_type)` combination, at most one `form_version`, `scoring_version`, or `message_template_version` has `is_active=True`
+**Validates: Requirements 3.5, 4.6**
 
-7. **Score breakdown completeness**: `sum(item.points for item in score.breakdown) == score.total`
+### Property 3: Token Expiry
 
-8. **Template variable safety**: For all published template versions, every `{{variable}}` in `subject_template` and `body_template` is a member of `SUPPORTED_VARS`
+*For any* form invitation where `now() > invitation.expires_at`, a submission attempt returns HTTP 410.
 
-9. **Immutable audit trail**: Rows in `lead_state_transitions` and `lead_interactions` are never updated or deleted after insertion
+**Validates: Requirements 3.4, 4.6**
 
-10. **Invitation-submission linkage**: For all `form_submissions`, `submission.invitation_id` references a `form_invitation` where `used_at IS NOT NULL` and `used_at` equals `submission.submitted_at` (within the same transaction)
+### Property 4: State Transition Validity
+
+*For any* lead and any requested state transition, the transition succeeds if and only if `to_state` is in `VALID_TRANSITIONS[current_state]`; invalid transitions raise `InvalidTransitionError` and leave `leads.current_state` unchanged.
+
+**Validates: Requirements 1.2, 1.3**
+
+### Property 5: State Monotonicity
+
+*For any* lead, the sequence of states in `lead_state_transitions` ordered by `occurred_at` is a valid path through `VALID_TRANSITIONS`; no state is revisited.
+
+**Validates: Requirements 1.6, 1.4, 1.5**
+
+### Property 6: Tenant Isolation
+
+*For any* admin API call, the response contains only records where `record.tenant_id == authenticated_user.tenant_id`; requests targeting another tenant's resources return HTTP 404.
+
+**Validates: Requirements 17.1, 17.2**
+
+### Property 7: Version Exclusivity
+
+*For any* `template_id`, `scoring_config_id`, or `message_template_id`, at most one version record has `is_active=True` at any point in time, regardless of how many publish or rollback operations have been performed.
+
+**Validates: Requirements 2.5, 6.3, 7.3**
+
+### Property 8: Score Breakdown Completeness
+
+*For any* computed `ScoreResult`, `sum(item.points for item in score.breakdown) == score.total`, and `breakdown` contains exactly one entry per matched rule.
+
+**Validates: Requirements 5.7, 5.6**
+
+### Property 9: Template Variable Safety
+
+*For any* published `MessageTemplateVersion`, every `{{variable}}` token in `subject_template`, `body_template`, and all variant bodies is a member of `SUPPORTED_VARS`; publishing a template with an unknown variable is rejected.
+
+**Validates: Requirements 7.5, 8.1**
+
+### Property 10: Immutable Audit Trail
+
+*For any* sequence of system operations, rows in `lead_state_transitions` and `lead_interactions` are never updated or deleted after insertion; the row count for a given lead only ever increases.
+
+**Validates: Requirements 1.7, 20.1, 20.2**
+
+### Property 11: Invitation-Submission Linkage
+
+*For any* `FormSubmission`, `submission.invitation_id` references a `FormInvitation` where `used_at IS NOT NULL`, and the `SubmissionScore` record exists with `submission_id` matching the submission — all persisted within the same transaction.
+
+**Validates: Requirements 4.3, 20.3, 20.4**
+
+### Property 12: Token Hash Storage
+
+*For any* generated form invitation token, the value stored in `form_invitations.token_hash` equals `sha256(raw_token)`, and the raw token does not appear in any database column.
+
+**Validates: Requirements 3.2, 17.4**
+
+### Property 13: Token Uniqueness
+
+*For any* N independently generated form invitation tokens, all N SHA-256 hashes are distinct.
+
+**Validates: Requirements 3.6**
+
+### Property 14: HTML Escaping in Email Bodies
+
+*For any* context value containing HTML special characters (`<`, `>`, `&`, `"`, `'`), the rendered email body contains the HTML-escaped form of that value, not the raw characters.
+
+**Validates: Requirements 7.7, 17.7**
+
+### Property 15: Subject Newline Rejection
+
+*For any* `subject_template` string containing a newline character (`\n` or `\r`), publishing the `MessageTemplateVersion` is rejected with a descriptive error.
+
+**Validates: Requirements 7.6, 17.8**
+
+### Property 16: Template Rendering Idempotence
+
+*For any* `MessageTemplateVersion` and context dictionary, rendering the same template and context twice produces identical `RenderedMessage` output.
+
+**Validates: Requirements 8.4**
+
+### Property 17: Outbound Interaction Recording
+
+*For any* outbound email sent by the system (INITIAL_INVITE_EMAIL or POST_SUBMISSION_EMAIL), a `LeadInteraction` row is inserted with `channel=EMAIL`, `direction=outbound`, and `content_text` equal to the rendered email subject — not the full body.
+
+**Validates: Requirements 9.4, 10.3, 10.4, 17.6**
+
+### Property 18: Scoring Sentinel Matching
+
+*For any* rule with `answer_value="__any_range__"`, the rule matches any answer value except `"not_sure"`; for any rule with `answer_value="__present__"`, the rule matches any non-null, non-empty metadata value and does not match null or empty string.
+
+**Validates: Requirements 5.8, 5.9**
+
+### Property 19: Threshold Validity Enforcement
+
+*For any* `ScoringVersion` publish attempt, the request is rejected unless `thresholds["HOT"]` and `thresholds["WARM"]` are both present integers satisfying `thresholds["HOT"] > thresholds["WARM"] >= 0`.
+
+**Validates: Requirements 6.4**
+
+### Property 20: Active Version Used for Invitations
+
+*For any* tenant with an active `FormVersion` for BUY intent, every new `FormInvitation` created for that tenant references the currently active `FormVersion`.
+
+**Validates: Requirements 2.9, 9.1**
