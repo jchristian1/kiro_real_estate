@@ -136,6 +136,15 @@ def create_agent(
     # Retrieve the created credentials record
     credentials = db.query(Credentials).filter(Credentials.agent_id == agent_data.agent_id).first()
     
+    # Store display_name and phone if provided
+    if agent_data.display_name is not None or agent_data.phone is not None:
+        if agent_data.display_name is not None:
+            credentials.display_name = agent_data.display_name
+        if agent_data.phone is not None:
+            credentials.phone = agent_data.phone
+        db.commit()
+        db.refresh(credentials)
+    
     # Record audit log
     record_audit_log(
         db_session=db,
@@ -154,55 +163,47 @@ def create_agent(
         id=credentials.id,
         agent_id=credentials.agent_id,
         email=email,
+        display_name=credentials.display_name,
+        phone=credentials.phone,
         created_at=credentials.created_at,
         updated_at=credentials.updated_at,
-        watcher_status=None  # Will be populated by watcher controller in future tasks
+        watcher_status=None
     )
 
 
 @router.get("/agents", response_model=AgentListResponse)
-def list_agents(
+async def list_agents(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     credentials_store: EncryptedDBCredentialsStore = Depends(get_credentials_store)
 ):
     """
     List all agents with status indicators.
-    
-    Returns all agents with decrypted email addresses but excludes passwords
-    for security. Watcher status will be populated by the watcher controller.
-    
-    Args:
-        db: Database session
-        current_user: Authenticated user
-        credentials_store: Encrypted credentials store
-        
-    Returns:
-        List of all agents (credentials excluded)
-        
-    Requirements:
-        - 1.1: Provide endpoints for reading Agent records
-        - 1.3: Exclude decrypted credentials from API response
-        - 1.4: Display list of all configured Agents with status indicators
     """
-    # Get all credentials
+    from api.main import watcher_registry
+
     all_credentials = db.query(Credentials).order_by(Credentials.created_at.desc()).all()
-    
-    # Build response list
+
+    try:
+        all_statuses = await watcher_registry.get_all_statuses()
+    except Exception:
+        all_statuses = {}
+
     agents = []
     for creds in all_credentials:
-        # Decrypt email for display (safe to return)
         email = credentials_store.decrypt(creds.email_encrypted)
-        
+        watcher_info = all_statuses.get(creds.agent_id)
         agents.append(AgentResponse(
             id=creds.id,
             agent_id=creds.agent_id,
             email=email,
+            display_name=creds.display_name,
+            phone=creds.phone,
             created_at=creds.created_at,
             updated_at=creds.updated_at,
-            watcher_status=None  # Will be populated by watcher controller in future tasks
+            watcher_status=watcher_info["status"] if watcher_info else None
         ))
-    
+
     return AgentListResponse(agents=agents)
 
 
@@ -252,9 +253,11 @@ def get_agent(
         id=credentials.id,
         agent_id=credentials.agent_id,
         email=email,
+        display_name=credentials.display_name,
+        phone=credentials.phone,
         created_at=credentials.created_at,
         updated_at=credentials.updated_at,
-        watcher_status=None  # Will be populated by watcher controller in future tasks
+        watcher_status=None
     )
 
 
@@ -301,7 +304,7 @@ def update_agent(
         )
     
     # Check if any fields to update
-    if not agent_data.email and not agent_data.app_password:
+    if not agent_data.email and not agent_data.app_password and agent_data.display_name is None and agent_data.phone is None:
         raise ValidationException(
             message="No fields to update",
             code=ErrorCode.VALIDATION_ERROR
@@ -327,6 +330,13 @@ def update_agent(
             code=ErrorCode.VALIDATION_ERROR
         )
     
+    # Update display_name and phone if provided
+    if agent_data.display_name is not None:
+        credentials.display_name = agent_data.display_name
+    if agent_data.phone is not None:
+        credentials.phone = agent_data.phone
+    db.commit()
+    
     # Refresh credentials from database
     db.refresh(credentials)
     
@@ -351,9 +361,11 @@ def update_agent(
         id=credentials.id,
         agent_id=credentials.agent_id,
         email=new_email,
+        display_name=credentials.display_name,
+        phone=credentials.phone,
         created_at=credentials.created_at,
         updated_at=credentials.updated_at,
-        watcher_status=None  # Will be populated by watcher controller in future tasks
+        watcher_status=None
     )
 
 

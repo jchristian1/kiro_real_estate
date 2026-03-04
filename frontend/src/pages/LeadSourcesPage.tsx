@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios, { AxiosError } from 'axios';
 import { LeadSourceList, LeadSource } from '../components/LeadSourceList';
-import { LeadSourceForm, LeadSourceFormValues } from '../components/LeadSourceForm';
+import { LeadSourceForm, LeadSourceFormValues, Template } from '../components/LeadSourceForm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { RegexVersionHistory } from '../components/RegexVersionHistory';
 
@@ -11,6 +11,7 @@ type View = 'list' | 'create' | 'edit';
 
 export const LeadSourcesPage: React.FC = () => {
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>('list');
@@ -23,8 +24,12 @@ export const LeadSourcesPage: React.FC = () => {
   const fetchLeadSources = async () => {
     try {
       setLoading(true);
-      const res = await axios.get<{ lead_sources: LeadSource[] }>(`${API_BASE_URL}/lead-sources`);
-      setLeadSources(res.data.lead_sources);
+      const [lsRes, tplRes] = await Promise.all([
+        axios.get<{ lead_sources: LeadSource[] }>(`${API_BASE_URL}/lead-sources`),
+        axios.get<{ templates: Template[] }>(`${API_BASE_URL}/templates`),
+      ]);
+      setLeadSources(lsRes.data.lead_sources);
+      setTemplates(tplRes.data.templates);
       setError(null);
     } catch {
       setError('Failed to load lead sources');
@@ -83,7 +88,7 @@ export const LeadSourcesPage: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-800">Create Lead Source</h1>
         <div className="bg-white rounded-lg shadow p-6 max-w-2xl">
           <LeadSourceForm onSubmit={handleCreate} onCancel={() => { setView('list'); setServerError(null); }}
-            isSubmitting={submitting} serverError={serverError} />
+            isSubmitting={submitting} serverError={serverError} templates={templates} />
         </div>
       </div>
     );
@@ -97,7 +102,7 @@ export const LeadSourcesPage: React.FC = () => {
           <LeadSourceForm isEditMode initialValues={selected}
             onSubmit={handleEdit}
             onCancel={() => { setView('list'); setSelected(null); setServerError(null); }}
-            isSubmitting={submitting} serverError={serverError} />
+            isSubmitting={submitting} serverError={serverError} templates={templates} />
         </div>
       </div>
     );

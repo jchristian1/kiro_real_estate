@@ -120,6 +120,8 @@ class Credentials(Base):
     agent_id = Column(String(255), unique=True, nullable=False)
     email_encrypted = Column(Text, nullable=False)
     app_password_encrypted = Column(Text, nullable=False)
+    display_name = Column(String(255), nullable=True)
+    phone = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

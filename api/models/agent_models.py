@@ -32,17 +32,12 @@ class AgentCreateRequest(BaseModel):
     """
     Request model for creating a new agent.
     
-    Includes comprehensive validation:
-    - Agent ID: Alphanumeric with hyphens, underscores, dots only
-    - Email: RFC 5322 compliant format (via EmailStr)
-    - Password: Non-empty with sanitization
-    
-    All fields are sanitized to remove null bytes and control characters.
-    
     Attributes:
         agent_id: Unique identifier for the agent
         email: Gmail email address (validated against RFC 5322)
         app_password: Gmail app-specific password
+        display_name: Optional display name for template rendering
+        phone: Optional phone number for template rendering
     """
     agent_id: str = Field(
         ...,
@@ -61,6 +56,8 @@ class AgentCreateRequest(BaseModel):
         max_length=MAX_PASSWORD_LENGTH,
         description="Gmail app-specific password"
     )
+    display_name: Optional[str] = Field(None, max_length=255, description="Agent display name for templates")
+    phone: Optional[str] = Field(None, max_length=50, description="Agent phone number for templates")
     
     # Validators for sanitization and additional validation
     _validate_agent_id = validator('agent_id', allow_reuse=True)(validate_agent_id_field)
@@ -72,15 +69,11 @@ class AgentUpdateRequest(BaseModel):
     """
     Request model for updating an existing agent.
     
-    Includes comprehensive validation for optional fields:
-    - Email: RFC 5322 compliant format (via EmailStr)
-    - Password: Non-empty with sanitization
-    
-    All fields are sanitized to remove null bytes and control characters.
-    
     Attributes:
         email: Optional new Gmail email address
         app_password: Optional new Gmail app-specific password
+        display_name: Optional display name for template rendering
+        phone: Optional phone number for template rendering
     """
     email: Optional[EmailStr] = Field(
         None,
@@ -93,6 +86,8 @@ class AgentUpdateRequest(BaseModel):
         max_length=MAX_PASSWORD_LENGTH,
         description="New Gmail app-specific password"
     )
+    display_name: Optional[str] = Field(None, max_length=255, description="Agent display name for templates")
+    phone: Optional[str] = Field(None, max_length=50, description="Agent phone number for templates")
     
     # Validators for sanitization and additional validation
     _validate_email = validator('email', allow_reuse=True)(validate_email_field)
@@ -104,18 +99,12 @@ class AgentResponse(BaseModel):
     Response model for agent details.
     
     Note: Credentials are never included in responses for security.
-    
-    Attributes:
-        id: Database ID
-        agent_id: Unique agent identifier
-        email: Gmail email address (decrypted but safe to return)
-        created_at: Creation timestamp
-        updated_at: Last update timestamp
-        watcher_status: Optional watcher status (running, stopped, etc.)
     """
     id: int
     agent_id: str
     email: str
+    display_name: Optional[str] = None
+    phone: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
     watcher_status: Optional[str] = None

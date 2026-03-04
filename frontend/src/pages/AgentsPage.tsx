@@ -10,6 +10,8 @@ interface Agent {
   id: number;
   agent_id: string;
   email: string;
+  display_name: string | null;
+  phone: string | null;
   created_at: string;
   updated_at: string;
   watcher_status: string | null;
@@ -130,7 +132,7 @@ export const AgentsPage: React.FC = () => {
         <div className="bg-white rounded-lg shadow p-6 max-w-2xl">
           <AgentForm
             isEditMode
-            initialValues={{ agent_id: selectedAgent.agent_id, email: selectedAgent.email }}
+            initialValues={{ agent_id: selectedAgent.agent_id, email: selectedAgent.email, display_name: selectedAgent.display_name ?? '', phone: selectedAgent.phone ?? '' }}
             onSubmit={handleEdit}
             onCancel={() => { setView('list'); setSelectedAgent(null); setServerError(null); }}
             isSubmitting={submitting}
@@ -186,7 +188,7 @@ export const AgentsPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(agent.created_at).toLocaleDateString()}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
-                    <button className="text-blue-600 hover:text-blue-900" onClick={() => { setSelectedAgent(agent); setView('detail'); }}>View</button>
+                    <button className="text-blue-600 hover:text-blue-900" onClick={() => { setSelectedAgent(agent); setView('detail'); }}>View / Watcher</button>
                     <button className="text-gray-600 hover:text-gray-900" onClick={() => { setSelectedAgent(agent); setServerError(null); setView('edit'); }}>Edit</button>
                     <button className="text-red-600 hover:text-red-900" onClick={() => setDeleteTarget(agent)}>Delete</button>
                   </td>

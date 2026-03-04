@@ -544,9 +544,19 @@ class GmailWatcher:
                 logger.warning(f"Failed to fetch email {uid}: {status}")
                 return None
             
-            # Parse email message
-            email_body = msg_data[0][1]
-            email_message = email.message_from_bytes(email_body)
+            # Parse email message — msg_data is a list of tuples like [(b'... RFC822 ...', b'<raw bytes>'), b')']
+            # Find the first tuple element that contains bytes
+            raw_email = None
+            for part in msg_data:
+                if isinstance(part, tuple) and len(part) >= 2 and isinstance(part[1], bytes):
+                    raw_email = part[1]
+                    break
+            
+            if raw_email is None:
+                logger.warning(f"Could not extract raw email bytes for UID {uid}, msg_data: {type(msg_data)}")
+                return None
+            
+            email_message = email.message_from_bytes(raw_email)
             
             # Extract sender
             from_header = email_message.get('From', '')
@@ -655,14 +665,6 @@ class GmailWatcher:
                              date: datetime) -> None:
         """
         Process a single email: check if processed, parse, respond, log.
-        
-        Args:
-            gmail_uid: Unique Gmail identifier
-            sender: Sender email address
-            body: Email body text
-            date: Email received date
-            
-        Requirements: 3.1, 3.2, 3.3, 3.4, 8.1, 8.2, 8.3, 8.4
         """
         logger.info(f"Processing email {gmail_uid} from {sender} (date: {date})")
         

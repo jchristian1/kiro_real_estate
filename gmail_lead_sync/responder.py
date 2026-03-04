@@ -32,42 +32,35 @@ class TemplateRenderer:
     - {agent_email}: Agent's email address
     """
     
-    def render_template(self, template: Template, lead: Lead, agent_info: Dict[str, str]) -> str:
+    def render_template(self, template: Template, lead: Lead, agent_info: Dict[str, str]) -> tuple:
         """
         Render email template by replacing placeholders with actual values.
         
-        Args:
-            template: Template object containing subject and body with placeholders
-            lead: Lead object with extracted lead information
-            agent_info: Dictionary containing agent information with keys:
-                       'agent_name', 'agent_phone', 'agent_email'
-        
         Returns:
-            Rendered template body with all placeholders replaced
-            
-        Raises:
-            ValueError: If any placeholders remain unreplaced after rendering
+            Tuple of (rendered_subject, rendered_body)
         """
-        # Start with the template body
-        rendered = template.body
-        
-        # Replace lead placeholders
-        rendered = rendered.replace('{lead_name}', lead.name)
-        
-        # Replace agent placeholders
-        rendered = rendered.replace('{agent_name}', agent_info.get('agent_name', ''))
-        rendered = rendered.replace('{agent_phone}', agent_info.get('agent_phone', ''))
-        rendered = rendered.replace('{agent_email}', agent_info.get('agent_email', ''))
-        
-        # Validate that all placeholders are replaced
-        # Pattern: \{[^}]+\} matches any text within curly braces
-        remaining_placeholders = re.findall(r'\{[^}]+\}', rendered)
-        if remaining_placeholders:
+        replacements = {
+            '{lead_name}': lead.name,
+            '{agent_name}': agent_info.get('agent_name', ''),
+            '{agent_phone}': agent_info.get('agent_phone', ''),
+            '{agent_email}': agent_info.get('agent_email', ''),
+        }
+
+        rendered_subject = template.subject
+        rendered_body = template.body
+
+        for placeholder, value in replacements.items():
+            rendered_subject = rendered_subject.replace(placeholder, value)
+            rendered_body = rendered_body.replace(placeholder, value)
+
+        # Validate no unreplaced placeholders remain in body
+        remaining = re.findall(r'\{[^}]+\}', rendered_body)
+        if remaining:
             raise ValueError(
-                f'Template rendering incomplete. Unreplaced placeholders: {remaining_placeholders}'
+                f'Template rendering incomplete. Unreplaced placeholders: {remaining}'
             )
-        
-        return rendered
+
+        return rendered_subject, rendered_body
 
 
 class AutoResponder:
@@ -139,20 +132,25 @@ class AutoResponder:
             
             # Prepare agent info for template rendering
             if agent_info is None:
+                # Try to fetch display_name and phone from DB
+                from gmail_lead_sync.models import Credentials
+                creds_record = self.db_session.query(Credentials).filter(
+                    Credentials.agent_id == self.agent_id
+                ).first()
                 agent_info = {
-                    'agent_name': 'Agent',
-                    'agent_phone': '',
+                    'agent_name': (creds_record.display_name if creds_record and creds_record.display_name else self.agent_id),
+                    'agent_phone': (creds_record.phone if creds_record and creds_record.phone else ''),
                     'agent_email': email
                 }
             
             # Render template with lead and agent information
             template = lead_source.template
-            body = self.template_renderer.render_template(template, lead, agent_info)
+            rendered_subject, body = self.template_renderer.render_template(template, lead, agent_info)
             
             # Send email via SMTP
             success = self.send_email(
                 to_address=lead.source_email,
-                subject=template.subject,
+                subject=rendered_subject,
                 body=body,
                 from_address=email,
                 app_password=app_password

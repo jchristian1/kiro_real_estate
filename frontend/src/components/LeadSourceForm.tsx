@@ -16,6 +16,11 @@ const leadSourceSchema = z.object({
 
 export type LeadSourceFormValues = z.infer<typeof leadSourceSchema>;
 
+export interface Template {
+  id: number;
+  name: string;
+}
+
 export interface LeadSourceFormProps {
   initialValues?: Partial<LeadSourceFormValues>;
   isEditMode?: boolean;
@@ -23,6 +28,7 @@ export interface LeadSourceFormProps {
   onCancel: () => void;
   isSubmitting?: boolean;
   serverError?: string | null;
+  templates?: Template[];
 }
 
 const FormField: React.FC<{ label: string; htmlFor: string; error?: string; required?: boolean; children: React.ReactNode }> = ({ label, htmlFor, error, required, children }) => (
@@ -39,7 +45,7 @@ const inputClass = (hasError: boolean) =>
   `w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${hasError ? 'border-red-500' : 'border-gray-300'}`;
 
 export const LeadSourceForm: React.FC<LeadSourceFormProps> = ({
-  initialValues, isEditMode = false, onSubmit, onCancel, isSubmitting = false, serverError,
+  initialValues, isEditMode = false, onSubmit, onCancel, isSubmitting = false, serverError, templates = [],
 }) => {
   const { register, handleSubmit, formState: { errors } } = useForm<LeadSourceFormValues>({
     resolver: zodResolver(leadSourceSchema),
@@ -77,6 +83,18 @@ export const LeadSourceForm: React.FC<LeadSourceFormProps> = ({
       <FormField label="Phone Regex" htmlFor="phone_regex" error={errors.phone_regex?.message} required>
         <input id="phone_regex" type="text" {...register('phone_regex')} disabled={isSubmitting}
           placeholder="e.g. Phone:\s*([\d\-\(\)\s]+)" className={`${inputClass(!!errors.phone_regex)} font-mono text-sm`} />
+      </FormField>
+
+      <FormField label="Response Template" htmlFor="template_id" error={errors.template_id?.message}>
+        <select id="template_id" disabled={isSubmitting}
+          className={inputClass(!!errors.template_id)}
+          {...register('template_id', { setValueAs: (v) => (v === '' || v === null ? null : Number(v)) })}>
+          <option value="">— No template —</option>
+          {templates.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-gray-500">Required for auto-respond to work</p>
       </FormField>
 
       <div className="mb-4 flex items-center gap-2">

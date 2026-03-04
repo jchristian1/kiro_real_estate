@@ -114,6 +114,13 @@ console_handler = logging.StreamHandler()
 console_handler.setFormatter(JSONFormatter())
 logger.addHandler(console_handler)
 
+# Also propagate gmail_lead_sync logs through the same handler
+for module_logger_name in ['gmail_lead_sync', 'api.services.watcher_registry']:
+    module_logger = logging.getLogger(module_logger_name)
+    module_logger.setLevel(getattr(logging, config.log_level))
+    module_logger.addHandler(console_handler)
+    module_logger.propagate = False
+
 
 # Prometheus metrics
 # Requirements: 29.2, 29.3, 29.4, 29.5, 29.6

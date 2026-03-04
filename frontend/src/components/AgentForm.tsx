@@ -1,268 +1,116 @@
-/**
- * Agent Form Component
- *
- * Reusable form for creating and editing Gmail agents.
- * Supports both create and edit modes.
- *
- * Validates:
- * - Required fields (agent_id, email, Gmail credentials)
- * - Email format per RFC 5322
- * - Shows inline validation errors under each field
- *
- * Requirements: 1.5
- */
-
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
-// RFC 5322-compliant email regex
-const EMAIL_REGEX =
-  /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
-/**
- * Zod schema for agent form validation.
- * In edit mode, Gmail credential fields are optional (leave blank to keep existing).
- */
-const createAgentSchema = z.object({
-  agent_id: z
-    .string()
-    .min(1, 'Agent ID is required')
-    .max(100, 'Agent ID must be 100 characters or fewer'),
-  email: z
-    .string()
-    .min(1, 'Email is required')
-    .regex(EMAIL_REGEX, 'Invalid email address format'),
-  gmail_client_id: z
-    .string()
-    .min(1, 'Gmail Client ID is required'),
-  gmail_client_secret: z
-    .string()
-    .min(1, 'Gmail Client Secret is required'),
-  gmail_refresh_token: z
-    .string()
-    .min(1, 'Gmail Refresh Token is required'),
+const createSchema = z.object({
+  agent_id: z.string().min(1, 'Agent ID is required').max(100)
+    .regex(/^[a-zA-Z0-9._-]+$/, 'Only letters, numbers, hyphens, underscores, and dots allowed'),
+  email: z.string().min(1, 'Email is required').regex(EMAIL_REGEX, 'Invalid email address'),
+  app_password: z.string().min(1, 'App password is required'),
+  display_name: z.string().max(255).optional(),
+  phone: z.string().max(50).optional(),
 });
 
-const editAgentSchema = z.object({
-  agent_id: z
-    .string()
-    .min(1, 'Agent ID is required')
-    .max(100, 'Agent ID must be 100 characters or fewer'),
-  email: z
-    .string()
-    .min(1, 'Email is required')
-    .regex(EMAIL_REGEX, 'Invalid email address format'),
-  gmail_client_id: z.string().optional(),
-  gmail_client_secret: z.string().optional(),
-  gmail_refresh_token: z.string().optional(),
+const editSchema = z.object({
+  agent_id: z.string().min(1, 'Agent ID is required').max(100)
+    .regex(/^[a-zA-Z0-9._-]+$/, 'Only letters, numbers, hyphens, underscores, and dots allowed'),
+  email: z.string().min(1, 'Email is required').regex(EMAIL_REGEX, 'Invalid email address'),
+  app_password: z.string().optional(),
+  display_name: z.string().max(255).optional(),
+  phone: z.string().max(50).optional(),
 });
 
-export type AgentFormValues = z.infer<typeof createAgentSchema>;
-export type AgentEditFormValues = z.infer<typeof editAgentSchema>;
+export type AgentFormValues = z.infer<typeof createSchema>;
+export type AgentEditFormValues = z.infer<typeof editSchema>;
 
 export interface AgentFormProps {
-  /** Initial values for edit mode */
-  initialValues?: Partial<AgentFormValues>;
-  /** Whether the form is in edit mode */
+  initialValues?: Partial<AgentFormValues & { display_name?: string; phone?: string }>;
   isEditMode?: boolean;
-  /** Called with form data on successful submission */
   onSubmit: (data: AgentFormValues | AgentEditFormValues) => Promise<void>;
-  /** Called when the user cancels */
   onCancel: () => void;
-  /** Whether the form is currently submitting */
   isSubmitting?: boolean;
-  /** Server-side error message to display */
   serverError?: string | null;
 }
 
-/**
- * Reusable field wrapper that shows a label and inline validation error.
- */
-const FormField: React.FC<{
-  label: string;
-  htmlFor: string;
-  error?: string;
-  required?: boolean;
-  children: React.ReactNode;
-}> = ({ label, htmlFor, error, required, children }) => (
+const FormField: React.FC<{ label: string; htmlFor: string; error?: string; required?: boolean; hint?: string; children: React.ReactNode }> = ({ label, htmlFor, error, required, hint, children }) => (
   <div className="mb-4">
     <label htmlFor={htmlFor} className="block text-sm font-medium text-gray-700 mb-1">
-      {label}
-      {required && <span className="text-red-500 ml-1" aria-hidden="true">*</span>}
+      {label}{required && <span className="text-red-500 ml-1">*</span>}
     </label>
+    {hint && <p className="text-xs text-gray-500 mb-1">{hint}</p>}
     {children}
-    {error && (
-      <p className="mt-1 text-sm text-red-600" role="alert" data-testid={`error-${htmlFor}`}>
-        {error}
-      </p>
-    )}
+    {error && <p className="mt-1 text-sm text-red-600" role="alert">{error}</p>}
   </div>
 );
 
 const inputClass = (hasError: boolean) =>
-  `w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-    hasError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
-  }`;
+  `w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${hasError ? 'border-red-500' : 'border-gray-300'}`;
 
 export const AgentForm: React.FC<AgentFormProps> = ({
-  initialValues,
-  isEditMode = false,
-  onSubmit,
-  onCancel,
-  isSubmitting = false,
-  serverError,
+  initialValues, isEditMode = false, onSubmit, onCancel, isSubmitting = false, serverError,
 }) => {
-  const schema = isEditMode ? editAgentSchema : createAgentSchema;
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<AgentFormValues | AgentEditFormValues>({
+  const schema = isEditMode ? editSchema : createSchema;
+  const { register, handleSubmit, formState: { errors } } = useForm<AgentFormValues | AgentEditFormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       agent_id: initialValues?.agent_id ?? '',
       email: initialValues?.email ?? '',
-      gmail_client_id: initialValues?.gmail_client_id ?? '',
-      gmail_client_secret: initialValues?.gmail_client_secret ?? '',
-      gmail_refresh_token: initialValues?.gmail_refresh_token ?? '',
+      app_password: '',
+      display_name: initialValues?.display_name ?? '',
+      phone: initialValues?.phone ?? '',
     },
   });
 
-  const handleFormSubmit = handleSubmit((data) => onSubmit(data));
-
   return (
-    <form onSubmit={handleFormSubmit} noValidate aria-label="Agent form">
-      {/* Server-side error */}
+    <form onSubmit={handleSubmit(onSubmit)} noValidate aria-label="Agent form">
       {serverError && (
-        <div
-          className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded"
-          role="alert"
-          data-testid="server-error"
-        >
-          {serverError}
-        </div>
+        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded" role="alert">{serverError}</div>
       )}
 
-      {/* Agent ID */}
-      <FormField
-        label="Agent ID"
-        htmlFor="agent_id"
-        error={errors.agent_id?.message}
-        required
-      >
-        <input
-          id="agent_id"
-          type="text"
-          {...register('agent_id')}
-          disabled={isEditMode || isSubmitting}
-          placeholder="e.g. agent1"
-          className={inputClass(!!errors.agent_id)}
-          aria-describedby={errors.agent_id ? 'error-agent_id' : undefined}
-        />
+      <FormField label="Agent ID" htmlFor="agent_id" error={errors.agent_id?.message} required
+        hint="Letters, numbers, hyphens, underscores, and dots only. No spaces.">
+        <input id="agent_id" type="text" {...register('agent_id')} disabled={isEditMode || isSubmitting}
+          placeholder="e.g. my_gmail" className={inputClass(!!errors.agent_id)} />
       </FormField>
 
-      {/* Email */}
-      <FormField
-        label="Email"
-        htmlFor="email"
-        error={errors.email?.message}
-        required
-      >
-        <input
-          id="email"
-          type="email"
-          {...register('email')}
-          disabled={isSubmitting}
-          placeholder="agent@example.com"
-          className={inputClass(!!errors.email)}
-          aria-describedby={errors.email ? 'error-email' : undefined}
-        />
+      <FormField label="Gmail Address" htmlFor="email" error={errors.email?.message} required>
+        <input id="email" type="email" {...register('email')} disabled={isSubmitting}
+          placeholder="you@gmail.com" className={inputClass(!!errors.email)} />
       </FormField>
 
-      {/* Gmail Credentials section */}
-      <div className="mb-2">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">
-          Gmail Credentials
-          {isEditMode && (
-            <span className="ml-2 text-xs font-normal text-gray-500">
-              (leave blank to keep existing)
-            </span>
-          )}
-        </h3>
-      </div>
-
-      {/* Client ID */}
       <FormField
-        label="Client ID"
-        htmlFor="gmail_client_id"
-        error={errors.gmail_client_id?.message}
+        label="Gmail App Password"
+        htmlFor="app_password"
+        error={errors.app_password?.message}
         required={!isEditMode}
+        hint={isEditMode ? 'Leave blank to keep existing password' : 'Generate at myaccount.google.com/apppasswords — requires 2-Step Verification'}
       >
-        <input
-          id="gmail_client_id"
-          type="text"
-          {...register('gmail_client_id')}
-          disabled={isSubmitting}
-          placeholder="Google OAuth2 Client ID"
-          className={inputClass(!!errors.gmail_client_id)}
-          aria-describedby={errors.gmail_client_id ? 'error-gmail_client_id' : undefined}
-        />
+        <input id="app_password" type="password" {...register('app_password')} disabled={isSubmitting}
+          placeholder={isEditMode ? '(unchanged)' : '16-character app password'} className={inputClass(!!errors.app_password)} />
       </FormField>
 
-      {/* Client Secret */}
-      <FormField
-        label="Client Secret"
-        htmlFor="gmail_client_secret"
-        error={errors.gmail_client_secret?.message}
-        required={!isEditMode}
-      >
-        <input
-          id="gmail_client_secret"
-          type="password"
-          {...register('gmail_client_secret')}
-          disabled={isSubmitting}
-          placeholder="Google OAuth2 Client Secret"
-          className={inputClass(!!errors.gmail_client_secret)}
-          aria-describedby={errors.gmail_client_secret ? 'error-gmail_client_secret' : undefined}
-        />
+      <FormField label="Display Name" htmlFor="display_name" error={(errors as any).display_name?.message}
+        hint="Used in email templates as {agent_name}">
+        <input id="display_name" type="text" {...register('display_name')} disabled={isSubmitting}
+          placeholder="e.g. John Smith" className={inputClass(!!(errors as any).display_name)} />
       </FormField>
 
-      {/* Refresh Token */}
-      <FormField
-        label="Refresh Token"
-        htmlFor="gmail_refresh_token"
-        error={errors.gmail_refresh_token?.message}
-        required={!isEditMode}
-      >
-        <input
-          id="gmail_refresh_token"
-          type="password"
-          {...register('gmail_refresh_token')}
-          disabled={isSubmitting}
-          placeholder="Google OAuth2 Refresh Token"
-          className={inputClass(!!errors.gmail_refresh_token)}
-          aria-describedby={errors.gmail_refresh_token ? 'error-gmail_refresh_token' : undefined}
-        />
+      <FormField label="Phone Number" htmlFor="phone" error={(errors as any).phone?.message}
+        hint="Used in email templates as {agent_phone}">
+        <input id="phone" type="tel" {...register('phone')} disabled={isSubmitting}
+          placeholder="e.g. 555-123-4567" className={inputClass(!!(errors as any).phone)} />
       </FormField>
 
-      {/* Actions */}
       <div className="flex justify-end gap-3 mt-6">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isSubmitting}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
+        <button type="button" onClick={onCancel} disabled={isSubmitting}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">
           Cancel
         </button>
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
+        <button type="submit" disabled={isSubmitting}
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50">
           {isSubmitting ? 'Saving...' : isEditMode ? 'Update Agent' : 'Create Agent'}
         </button>
       </div>

@@ -45,6 +45,7 @@ class WatcherInfo:
     started_at: Optional[datetime]
     retry_count: int = 0
     last_error: Optional[str] = None
+    sync_event: Optional[asyncio.Event] = None
 
 
 class WatcherRegistry:
@@ -110,7 +111,8 @@ class WatcherRegistry:
                 error=None,
                 started_at=datetime.utcnow(),
                 retry_count=0,
-                last_error=None
+                last_error=None,
+                sync_event=asyncio.Event()
             )
             
             # Create background task
@@ -224,8 +226,7 @@ class WatcherRegistry:
         """
         Trigger a manual sync operation for the specified agent.
         
-        This method signals the watcher to perform an immediate sync
-        operation outside of its normal schedule.
+        Sets the sync event to wake the watcher loop immediately.
         
         Args:
             agent_id: Unique identifier for the agent
@@ -244,8 +245,10 @@ class WatcherRegistry:
                 logger.warning(f"Watcher for agent {agent_id} is not running (status: {watcher_info.status})")
                 return False
             
-            # For now, we'll just log the sync trigger
-            # In a full implementation, this would signal the watcher task
+            # Signal the watcher loop to run immediately
+            if watcher_info.sync_event:
+                watcher_info.sync_event.set()
+            
             logger.info(f"Manual sync triggered for agent {agent_id}")
             return True
     
@@ -275,84 +278,86 @@ class WatcherRegistry:
     async def _run_watcher(self, agent_id: str) -> None:
         """
         Background task that runs the GmailWatcher for an agent.
-        
-        This method runs in a loop, periodically checking for new emails
-        and updating heartbeat timestamps. It handles errors and updates
-        the watcher status accordingly. Failed watchers are automatically
-        restarted up to MAX_RETRIES times with exponential backoff.
-        
-        Args:
-            agent_id: Unique identifier for the agent
-            
-        Requirements: 20.1, 20.2, 20.3, 20.4, 20.5, 8.7
         """
         logger.info(f"Watcher task started for agent {agent_id}")
         
         watcher = None
+        db_session = None
         
         try:
-            # Create database session
-            with self.get_db_session() as db_session:
-                # Create GmailWatcher instance
-                watcher = GmailWatcher(
-                    credentials_store=self.credentials_store,
-                    db_session=db_session,
-                    agent_id=agent_id
-                )
-                
-                # Connect to Gmail
-                if not watcher.connect():
-                    raise Exception("Failed to connect to Gmail IMAP server")
-                
-                # Update status to running
-                async with self._lock:
-                    if agent_id in self._watchers:
-                        self._watchers[agent_id].status = WatcherStatus.RUNNING
-                        self._watchers[agent_id].last_heartbeat = datetime.utcnow()
-                        self._watchers[agent_id].error = None
-                
-                logger.info(f"Watcher for agent {agent_id} connected and running")
-                
-                # Get list of lead source senders
-                from gmail_lead_sync.models import LeadSource
-                lead_sources = db_session.query(LeadSource).all()
-                sender_list = [ls.sender_email for ls in lead_sources]
-                
-                if not sender_list:
-                    logger.warning(f"No lead sources configured for agent {agent_id}")
-                
-                # Main monitoring loop
-                while True:
-                    try:
-                        # Update heartbeat
+            # Create database session (SessionLocal() returns a plain session, not a context manager)
+            db_session = self.get_db_session()
+            
+            watcher = GmailWatcher(
+                credentials_store=self.credentials_store,
+                db_session=db_session,
+                agent_id=agent_id
+            )
+            
+            # Connect to Gmail
+            if not watcher.connect():
+                raise Exception("Failed to connect to Gmail IMAP server")
+            
+            # Update status to running
+            async with self._lock:
+                if agent_id in self._watchers:
+                    self._watchers[agent_id].status = WatcherStatus.RUNNING
+                    self._watchers[agent_id].last_heartbeat = datetime.utcnow()
+                    self._watchers[agent_id].error = None
+            
+            logger.info(f"Watcher for agent {agent_id} connected and running")
+            
+            # Get list of lead source senders
+            from gmail_lead_sync.models import LeadSource
+            lead_sources = db_session.query(LeadSource).all()
+            sender_list = [ls.sender_email for ls in lead_sources]
+            
+            if not sender_list:
+                logger.warning(f"No lead sources configured for agent {agent_id}")
+            
+            # Main monitoring loop
+            while True:
+                try:
+                    # Update heartbeat
+                    async with self._lock:
+                        if agent_id in self._watchers:
+                            self._watchers[agent_id].last_heartbeat = datetime.utcnow()
+                    
+                    # Refresh sender list each cycle in case lead sources changed
+                    lead_sources = db_session.query(LeadSource).all()
+                    sender_list = [ls.sender_email for ls in lead_sources]
+                    
+                    # Process unseen emails
+                    if sender_list:
+                        watcher.process_unseen_emails(sender_list)
+                        
+                        # Update last sync timestamp
                         async with self._lock:
                             if agent_id in self._watchers:
-                                self._watchers[agent_id].last_heartbeat = datetime.utcnow()
-                        
-                        # Process unseen emails
-                        if sender_list:
-                            watcher.process_unseen_emails(sender_list)
-                            
-                            # Update last sync timestamp
-                            async with self._lock:
-                                if agent_id in self._watchers:
-                                    self._watchers[agent_id].last_sync = datetime.utcnow()
-                        
-                        # Sleep for 60 seconds before next check
-                        await asyncio.sleep(60)
-                        
-                    except asyncio.CancelledError:
-                        logger.info(f"Watcher task for agent {agent_id} cancelled")
-                        raise
+                                self._watchers[agent_id].last_sync = datetime.utcnow()
                     
-                    except Exception as e:
-                        logger.error(f"Error in watcher loop for agent {agent_id}: {e}", exc_info=True)
-                        # Continue running despite errors
+                    # Wait 60 seconds or until a manual sync is triggered
+                    async with self._lock:
+                        sync_event = self._watchers[agent_id].sync_event if agent_id in self._watchers else None
+                    if sync_event:
+                        sync_event.clear()
+                        try:
+                            await asyncio.wait_for(sync_event.wait(), timeout=60)
+                        except asyncio.TimeoutError:
+                            pass  # Normal 60s cycle
+                    else:
                         await asyncio.sleep(60)
+                    
+                except asyncio.CancelledError:
+                    logger.info(f"Watcher task for agent {agent_id} cancelled")
+                    raise
+                
+                except Exception as e:
+                    logger.error(f"Error in watcher loop for agent {agent_id}: {e}", exc_info=True)
+                    await asyncio.sleep(60)
         
         except asyncio.CancelledError:
             logger.info(f"Watcher task for agent {agent_id} cancelled")
-            # Update status
             async with self._lock:
                 if agent_id in self._watchers:
                     self._watchers[agent_id].status = WatcherStatus.STOPPED
@@ -361,7 +366,6 @@ class WatcherRegistry:
             error_msg = str(e)
             logger.error(f"Fatal error in watcher task for agent {agent_id}: {error_msg}", exc_info=True)
             
-            # Update status to failed and record error
             async with self._lock:
                 if agent_id in self._watchers:
                     watcher_info = self._watchers[agent_id]
@@ -369,34 +373,26 @@ class WatcherRegistry:
                     watcher_info.error = error_msg
                     watcher_info.last_error = error_msg
                     
-                    # Check if we should retry
                     if watcher_info.retry_count < self.MAX_RETRIES:
                         retry_delay = self.RETRY_DELAYS[min(watcher_info.retry_count, len(self.RETRY_DELAYS) - 1)]
                         watcher_info.retry_count += 1
-                        
-                        logger.info(
-                            f"Scheduling auto-restart for agent {agent_id} "
-                            f"(retry {watcher_info.retry_count}/{self.MAX_RETRIES}) "
-                            f"in {retry_delay} seconds"
-                        )
-                        
-                        # Schedule restart after delay
+                        logger.info(f"Scheduling auto-restart for agent {agent_id} (retry {watcher_info.retry_count}/{self.MAX_RETRIES}) in {retry_delay}s")
                         asyncio.create_task(self._auto_restart_watcher(agent_id, retry_delay))
                     else:
-                        logger.error(
-                            f"Watcher for agent {agent_id} failed permanently after "
-                            f"{self.MAX_RETRIES} retries. Error: {error_msg}"
-                        )
+                        logger.error(f"Watcher for agent {agent_id} failed permanently after {self.MAX_RETRIES} retries.")
         
         finally:
-            # Disconnect from Gmail
             if watcher:
                 try:
                     watcher.disconnect()
                     logger.info(f"Watcher for agent {agent_id} disconnected")
                 except Exception as e:
                     logger.error(f"Error disconnecting watcher for agent {agent_id}: {e}", exc_info=True)
-            
+            if db_session:
+                try:
+                    db_session.close()
+                except Exception:
+                    pass
             logger.info(f"Watcher task stopped for agent {agent_id}")
     
     async def _auto_restart_watcher(self, agent_id: str, delay: int) -> None:
@@ -432,6 +428,7 @@ class WatcherRegistry:
                 watcher_info.status = WatcherStatus.STARTING
                 watcher_info.error = None
                 watcher_info.started_at = datetime.utcnow()
+                watcher_info.sync_event = asyncio.Event()
                 
                 # Create new background task
                 task = asyncio.create_task(self._run_watcher(agent_id))

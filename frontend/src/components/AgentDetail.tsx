@@ -23,6 +23,8 @@ export interface AgentDetailData {
   id: number;
   agent_id: string;
   email: string;
+  display_name: string | null;
+  phone: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -44,10 +46,13 @@ export interface AgentDetailProps {
 
 /**
  * Format a timestamp for human-readable display.
+ * Appends 'Z' if no timezone info present (backend returns UTC without Z).
  */
 const formatTimestamp = (timestamp: string | null): string => {
   if (!timestamp) return 'Never';
-  const date = new Date(timestamp);
+  // Ensure the timestamp is treated as UTC
+  const utcTimestamp = timestamp.endsWith('Z') || timestamp.includes('+') ? timestamp : timestamp + 'Z';
+  const date = new Date(utcTimestamp);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -111,6 +116,9 @@ export const AgentDetail: React.FC<AgentDetailProps> = ({ agentId, onBack }) => 
 
   useEffect(() => {
     fetchData();
+    // Poll every 15 seconds to keep status fresh
+    const interval = setInterval(fetchData, 15000);
+    return () => clearInterval(interval);
   }, [fetchData]);
 
   /**
@@ -220,6 +228,22 @@ export const AgentDetail: React.FC<AgentDetailProps> = ({ agentId, onBack }) => 
                 {agent.email}
               </dd>
             </div>
+            {agent.display_name && (
+              <div>
+                <dt className="text-xs text-gray-500 uppercase tracking-wide">Display Name</dt>
+                <dd className="mt-1 text-sm text-gray-900" data-testid="agent-display-name">
+                  {agent.display_name}
+                </dd>
+              </div>
+            )}
+            {agent.phone && (
+              <div>
+                <dt className="text-xs text-gray-500 uppercase tracking-wide">Phone</dt>
+                <dd className="mt-1 text-sm text-gray-900" data-testid="agent-phone">
+                  {agent.phone}
+                </dd>
+              </div>
+            )}
             <div>
               <dt className="text-xs text-gray-500 uppercase tracking-wide">Created</dt>
               <dd className="mt-1 text-sm text-gray-500" data-testid="agent-created-at">
