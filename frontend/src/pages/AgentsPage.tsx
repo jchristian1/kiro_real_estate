@@ -32,8 +32,18 @@ export const AgentsPage: React.FC = () => {
   const fetchAgents = async () => {
     try {
       setLoading(true);
-      const res = await axios.get<{ agents: Agent[] }>(`${API_BASE_URL}/agents`);
-      setAgents(res.data.agents);
+      const [agentsRes, watchersRes] = await Promise.all([
+        axios.get<{ agents: Agent[] }>(`${API_BASE_URL}/agents`),
+        axios.get<{ watchers: { agent_id: string; status: string }[] }>(`${API_BASE_URL}/watchers/status`).catch(() => ({ data: { watchers: [] } })),
+      ]);
+      const statusMap: Record<string, string> = {};
+      for (const w of watchersRes.data.watchers) {
+        statusMap[w.agent_id] = w.status;
+      }
+      setAgents(agentsRes.data.agents.map(a => ({
+        ...a,
+        watcher_status: statusMap[a.agent_id] ?? a.watcher_status,
+      })));
       setError(null);
     } catch {
       setError('Failed to load agents');
@@ -42,7 +52,11 @@ export const AgentsPage: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchAgents(); }, []);
+  useEffect(() => {
+    fetchAgents();
+    const interval = setInterval(fetchAgents, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleCreate = async (data: AgentFormValues | AgentEditFormValues) => {
     setSubmitting(true);

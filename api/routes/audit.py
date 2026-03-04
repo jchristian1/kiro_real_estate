@@ -21,16 +21,18 @@ from api.models.audit_models import AuditLogResponse, AuditLogListResponse
 router = APIRouter()
 
 
-# These will be imported from main.py when the router is included
-# For testing, they can be overridden using app.dependency_overrides
 def get_db_dependency():
-    """Database dependency - will be overridden by main.py."""
-    from api.main import get_db
-    return get_db()
+    """Database dependency."""
+    from api.main import SessionLocal
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 def get_current_user_dependency(request: Request, db: Session = Depends(get_db_dependency)) -> User:
-    """Authentication dependency - will be overridden by main.py."""
+    """Authentication dependency."""
     from api.auth import get_current_user
     return get_current_user(request, db)
 
