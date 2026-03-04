@@ -33,6 +33,10 @@ export const Sidebar: React.FC = () => {
             Agents
           </NavLink>
           
+          <NavLink to="/companies" className={navLinkClass}>
+            Companies
+          </NavLink>
+          
           <NavLink to="/lead-sources" className={navLinkClass}>
             Lead Sources
           </NavLink>

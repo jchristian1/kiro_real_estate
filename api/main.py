@@ -483,7 +483,7 @@ watcher_registry = WatcherRegistry(
 )
 
 # Mount API routes
-from api.routes import audit, agents, lead_sources, templates, watchers, leads, health, settings, auth
+from api.routes import audit, agents, lead_sources, templates, watchers, leads, health, settings, auth, companies
 from api.auth import get_current_user
 
 # Create wrapper for get_current_user that works with FastAPI dependency injection
@@ -501,6 +501,7 @@ app.include_router(templates.router, prefix="/api/v1", tags=["Templates"])
 app.include_router(watchers.router, prefix="/api/v1", tags=["Watchers"])
 app.include_router(leads.router, prefix="/api/v1", tags=["Leads"])
 app.include_router(settings.router, prefix="/api/v1", tags=["Settings"])
+app.include_router(companies.router, prefix="/api/v1", tags=["Companies"])
 
 
 # Static file serving for frontend (production mode)

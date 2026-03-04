@@ -31,13 +31,6 @@ from api.utils.validation import (
 class AgentCreateRequest(BaseModel):
     """
     Request model for creating a new agent.
-    
-    Attributes:
-        agent_id: Unique identifier for the agent
-        email: Gmail email address (validated against RFC 5322)
-        app_password: Gmail app-specific password
-        display_name: Optional display name for template rendering
-        phone: Optional phone number for template rendering
     """
     agent_id: str = Field(
         ...,
@@ -58,6 +51,7 @@ class AgentCreateRequest(BaseModel):
     )
     display_name: Optional[str] = Field(None, max_length=255, description="Agent display name for templates")
     phone: Optional[str] = Field(None, max_length=50, description="Agent phone number for templates")
+    company_id: Optional[int] = Field(None, description="Company this agent belongs to")
     
     # Validators for sanitization and additional validation
     _validate_agent_id = validator('agent_id', allow_reuse=True)(validate_agent_id_field)
@@ -68,12 +62,6 @@ class AgentCreateRequest(BaseModel):
 class AgentUpdateRequest(BaseModel):
     """
     Request model for updating an existing agent.
-    
-    Attributes:
-        email: Optional new Gmail email address
-        app_password: Optional new Gmail app-specific password
-        display_name: Optional display name for template rendering
-        phone: Optional phone number for template rendering
     """
     email: Optional[EmailStr] = Field(
         None,
@@ -88,6 +76,7 @@ class AgentUpdateRequest(BaseModel):
     )
     display_name: Optional[str] = Field(None, max_length=255, description="Agent display name for templates")
     phone: Optional[str] = Field(None, max_length=50, description="Agent phone number for templates")
+    company_id: Optional[int] = Field(None, description="Company this agent belongs to")
     
     # Validators for sanitization and additional validation
     _validate_email = validator('email', allow_reuse=True)(validate_email_field)
@@ -105,6 +94,8 @@ class AgentResponse(BaseModel):
     email: str
     display_name: Optional[str] = None
     phone: Optional[str] = None
+    company_id: Optional[int] = None
+    company_name: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
     watcher_status: Optional[str] = None

@@ -12,6 +12,8 @@ interface Agent {
   email: string;
   display_name: string | null;
   phone: string | null;
+  company_id: number | null;
+  company_name: string | null;
   created_at: string;
   updated_at: string;
   watcher_status: string | null;
@@ -146,7 +148,7 @@ export const AgentsPage: React.FC = () => {
         <div className="bg-white rounded-lg shadow p-6 max-w-2xl">
           <AgentForm
             isEditMode
-            initialValues={{ agent_id: selectedAgent.agent_id, email: selectedAgent.email, display_name: selectedAgent.display_name ?? '', phone: selectedAgent.phone ?? '' }}
+            initialValues={{ agent_id: selectedAgent.agent_id, email: selectedAgent.email, display_name: selectedAgent.display_name ?? '', phone: selectedAgent.phone ?? '', company_id: selectedAgent.company_id }}
             onSubmit={handleEdit}
             onCancel={() => { setView('list'); setSelectedAgent(null); setServerError(null); }}
             isSubmitting={submitting}
@@ -185,6 +187,7 @@ export const AgentsPage: React.FC = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent ID</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -195,6 +198,7 @@ export const AgentsPage: React.FC = () => {
                 <tr key={agent.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{agent.agent_id}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{agent.email}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.company_name || '—'}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(agent.watcher_status)}`}>
                       {agent.watcher_status || 'Not Started'}

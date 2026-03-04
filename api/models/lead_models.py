@@ -30,6 +30,8 @@ class LeadResponse(BaseModel):
     response_status: Optional[str] = None
     agent_id: Optional[str] = None
     agent_name: Optional[str] = None
+    company_id: Optional[int] = None
+    company_name: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -108,6 +108,20 @@ class Template(Base):
     lead_sources = relationship("LeadSource", back_populates="template")
 
 
+class Company(Base):
+    """Company that agents belong to."""
+    __tablename__ = 'companies'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False)
+    phone = Column(String(50), nullable=True)
+    email = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    credentials = relationship("Credentials", back_populates="company")
+
+
 class Credentials(Base):
     """
     Encrypted storage for Gmail credentials.
@@ -123,8 +137,12 @@ class Credentials(Base):
     app_password_encrypted = Column(Text, nullable=False)
     display_name = Column(String(255), nullable=True)
     phone = Column(String(50), nullable=True)
+    company_id = Column(Integer, ForeignKey('companies.id'), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    company = relationship("Company", back_populates="credentials")
 
 
 # Composite index for efficient ProcessingLog queries

@@ -13,6 +13,7 @@ import { DashboardLayout } from './components/DashboardLayout';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { AgentsPage } from './pages/AgentsPage';
+import { CompaniesPage } from './pages/CompaniesPage';
 import { LeadSourcesPage } from './pages/LeadSourcesPage';
 import { TemplatesPage } from './pages/TemplatesPage';
 import { LeadsPage } from './pages/LeadsPage';
@@ -40,6 +41,7 @@ function App() {
           >
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/agents" element={<AgentsPage />} />
+            <Route path="/companies" element={<CompaniesPage />} />
             <Route path="/lead-sources" element={<LeadSourcesPage />} />
             <Route path="/templates" element={<TemplatesPage />} />
             <Route path="/leads" element={<LeadsPage />} />

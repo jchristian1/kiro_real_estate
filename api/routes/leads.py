@@ -53,12 +53,17 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
 
 
 def _enrich_lead(lead: Lead, db: Session) -> LeadResponse:
-    """Build a LeadResponse enriched with agent_id and agent_name."""
+    """Build a LeadResponse enriched with agent_id, agent_name, and company info."""
     agent_name = None
+    company_id = None
+    company_name = None
     if lead.agent_id:
         creds = db.query(Credentials).filter(Credentials.agent_id == lead.agent_id).first()
         if creds:
             agent_name = creds.display_name or creds.agent_id
+            company_id = creds.company_id
+            if creds.company:
+                company_name = creds.company.name
 
     return LeadResponse(
         id=lead.id,
@@ -73,6 +78,8 @@ def _enrich_lead(lead: Lead, db: Session) -> LeadResponse:
         response_status=lead.response_status,
         agent_id=lead.agent_id,
         agent_name=agent_name,
+        company_id=company_id,
+        company_name=company_name,
     )
 
 
@@ -81,6 +88,7 @@ def list_leads(
     page: int = 1,
     per_page: int = 50,
     agent_id: Optional[str] = None,
+    company_id: Optional[int] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     response_sent: Optional[bool] = None,
@@ -123,6 +131,11 @@ def list_leads(
     # Apply filters
     if agent_id:
         query = query.filter(Lead.agent_id == agent_id)
+    
+    if company_id:
+        from gmail_lead_sync.models import Credentials as Creds
+        agent_ids = [c.agent_id for c in db.query(Creds).filter(Creds.company_id == company_id).all()]
+        query = query.filter(Lead.agent_id.in_(agent_ids))
     
     if start_date:
         from datetime import datetime

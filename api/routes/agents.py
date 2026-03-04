@@ -137,11 +137,13 @@ def create_agent(
     credentials = db.query(Credentials).filter(Credentials.agent_id == agent_data.agent_id).first()
     
     # Store display_name and phone if provided
-    if agent_data.display_name is not None or agent_data.phone is not None:
+    if agent_data.display_name is not None or agent_data.phone is not None or agent_data.company_id is not None:
         if agent_data.display_name is not None:
             credentials.display_name = agent_data.display_name
         if agent_data.phone is not None:
             credentials.phone = agent_data.phone
+        if agent_data.company_id is not None:
+            credentials.company_id = agent_data.company_id
         db.commit()
         db.refresh(credentials)
     
@@ -165,6 +167,8 @@ def create_agent(
         email=email,
         display_name=credentials.display_name,
         phone=credentials.phone,
+        company_id=credentials.company_id,
+        company_name=credentials.company.name if credentials.company else None,
         created_at=credentials.created_at,
         updated_at=credentials.updated_at,
         watcher_status=None
@@ -199,6 +203,8 @@ async def list_agents(
             email=email,
             display_name=creds.display_name,
             phone=creds.phone,
+            company_id=creds.company_id,
+            company_name=creds.company.name if creds.company else None,
             created_at=creds.created_at,
             updated_at=creds.updated_at,
             watcher_status=watcher_info["status"] if watcher_info else None
@@ -255,6 +261,8 @@ def get_agent(
         email=email,
         display_name=credentials.display_name,
         phone=credentials.phone,
+        company_id=credentials.company_id,
+        company_name=credentials.company.name if credentials.company else None,
         created_at=credentials.created_at,
         updated_at=credentials.updated_at,
         watcher_status=None
@@ -335,6 +343,8 @@ def update_agent(
         credentials.display_name = agent_data.display_name
     if agent_data.phone is not None:
         credentials.phone = agent_data.phone
+    if agent_data.company_id is not None:
+        credentials.company_id = agent_data.company_id
     db.commit()
     
     # Refresh credentials from database
@@ -375,6 +385,8 @@ def update_agent(
         email=new_email,
         display_name=credentials.display_name,
         phone=credentials.phone,
+        company_id=credentials.company_id,
+        company_name=credentials.company.name if credentials.company else None,
         created_at=credentials.created_at,
         updated_at=credentials.updated_at,
         watcher_status=None

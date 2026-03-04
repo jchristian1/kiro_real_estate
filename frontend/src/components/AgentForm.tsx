@@ -1,7 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import axios from 'axios';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+
+interface Company { id: number; name: string; }
 
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
@@ -12,6 +17,7 @@ const createSchema = z.object({
   app_password: z.string().min(1, 'App password is required'),
   display_name: z.string().max(255).optional(),
   phone: z.string().max(50).optional(),
+  company_id: z.number().nullable().optional(),
 });
 
 const editSchema = z.object({
@@ -21,13 +27,14 @@ const editSchema = z.object({
   app_password: z.string().optional(),
   display_name: z.string().max(255).optional(),
   phone: z.string().max(50).optional(),
+  company_id: z.number().nullable().optional(),
 });
 
 export type AgentFormValues = z.infer<typeof createSchema>;
 export type AgentEditFormValues = z.infer<typeof editSchema>;
 
 export interface AgentFormProps {
-  initialValues?: Partial<AgentFormValues & { display_name?: string; phone?: string }>;
+  initialValues?: Partial<AgentFormValues & { display_name?: string; phone?: string; company_id?: number | null }>;
   isEditMode?: boolean;
   onSubmit: (data: AgentFormValues | AgentEditFormValues) => Promise<void>;
   onCancel: () => void;
@@ -52,6 +59,14 @@ const inputClass = (hasError: boolean) =>
 export const AgentForm: React.FC<AgentFormProps> = ({
   initialValues, isEditMode = false, onSubmit, onCancel, isSubmitting = false, serverError,
 }) => {
+  const [companies, setCompanies] = useState<Company[]>([]);
+
+  useEffect(() => {
+    axios.get<{ companies: Company[] }>(`${API_BASE_URL}/companies`)
+      .then((r) => setCompanies(r.data.companies))
+      .catch(() => {});
+  }, []);
+
   const schema = isEditMode ? editSchema : createSchema;
   const { register, handleSubmit, formState: { errors } } = useForm<AgentFormValues | AgentEditFormValues>({
     resolver: zodResolver(schema),
@@ -61,6 +76,7 @@ export const AgentForm: React.FC<AgentFormProps> = ({
       app_password: '',
       display_name: initialValues?.display_name ?? '',
       phone: initialValues?.phone ?? '',
+      company_id: initialValues?.company_id ?? null,
     },
   });
 
@@ -102,6 +118,16 @@ export const AgentForm: React.FC<AgentFormProps> = ({
         hint="Used in email templates as {agent_phone}">
         <input id="phone" type="tel" {...register('phone')} disabled={isSubmitting}
           placeholder="e.g. 555-123-4567" className={inputClass(!!(errors as any).phone)} />
+      </FormField>
+
+      <FormField label="Company" htmlFor="company_id">
+        <select id="company_id" {...register('company_id', { setValueAs: (v) => v === '' ? null : Number(v) })}
+          disabled={isSubmitting} className={inputClass(false)}>
+          <option value="">— No company —</option>
+          {companies.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
       </FormField>
 
       <div className="flex justify-end gap-3 mt-6">
