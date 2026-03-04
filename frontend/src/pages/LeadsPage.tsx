@@ -59,7 +59,7 @@ export const LeadsPage: React.FC = () => {
   const [expandedLeads, setExpandedLeads] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/companies`).then(r => setCompanies(r.data)).catch(() => {});
+    axios.get(`${API_BASE_URL}/companies`).then(r => setCompanies(Array.isArray(r.data) ? r.data : (r.data.companies || []))).catch(() => {});
     axios.get(`${API_BASE_URL}/agents`).then(r => setAgents(r.data.agents || r.data)).catch(() => {});
   }, []);
 
