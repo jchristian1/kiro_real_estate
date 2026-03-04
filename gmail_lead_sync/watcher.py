@@ -675,7 +675,7 @@ class GmailWatcher:
         
         try:
             # Parse email to extract lead
-            lead = self.parser.parse_email(sender, body, gmail_uid)
+            lead = self.parser.parse_email(sender, body, gmail_uid, agent_id=self.agent_id)
             
             if lead:
                 # Lead successfully created

@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from gmail_lead_sync.models import Lead
+from gmail_lead_sync.models import Lead, LeadSource, Credentials
 from api.models.web_ui_models import User
 from api.models.lead_models import (
     LeadResponse,
@@ -50,6 +50,30 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     """Authentication dependency - will be overridden in tests."""
     from api.auth import get_current_user as auth_get_current_user
     return auth_get_current_user(request, db)
+
+
+def _enrich_lead(lead: Lead, db: Session) -> LeadResponse:
+    """Build a LeadResponse enriched with agent_id and agent_name."""
+    agent_name = None
+    if lead.agent_id:
+        creds = db.query(Credentials).filter(Credentials.agent_id == lead.agent_id).first()
+        if creds:
+            agent_name = creds.display_name or creds.agent_id
+
+    return LeadResponse(
+        id=lead.id,
+        name=lead.name,
+        phone=lead.phone,
+        source_email=lead.source_email,
+        lead_source_id=lead.lead_source_id,
+        gmail_uid=lead.gmail_uid,
+        created_at=lead.created_at,
+        updated_at=lead.updated_at,
+        response_sent=lead.response_sent,
+        response_status=lead.response_status,
+        agent_id=lead.agent_id,
+        agent_name=agent_name,
+    )
 
 
 @router.get("/leads", response_model=LeadListResponse)
@@ -97,7 +121,8 @@ def list_leads(
     query = db.query(Lead)
     
     # Apply filters
-    # TODO: Add agent_id filter (requires join with lead_sources and credentials)
+    if agent_id:
+        query = query.filter(Lead.agent_id == agent_id)
     
     if start_date:
         from datetime import datetime
@@ -122,8 +147,7 @@ def list_leads(
     # Get paginated results
     leads = query.order_by(Lead.created_at.desc()).offset(offset).limit(per_page).all()
     
-    # Build response
-    lead_responses = [LeadResponse.from_orm(lead) for lead in leads]
+    lead_responses = [_enrich_lead(lead, db) for lead in leads]
     
     return LeadListResponse(
         leads=lead_responses,
@@ -172,7 +196,8 @@ def export_leads_csv(
     query = db.query(Lead)
     
     # Apply filters
-    # TODO: Add agent_id filter (requires join with lead_sources and credentials)
+    if agent_id:
+        query = query.filter(Lead.agent_id == agent_id)
     
     if start_date:
         from datetime import datetime
@@ -196,27 +221,18 @@ def export_leads_csv(
     
     # Write header row
     writer.writerow([
-        'id',
-        'name',
-        'phone',
-        'source_email',
-        'lead_source_id',
-        'gmail_uid',
-        'created_at',
-        'updated_at',
-        'response_sent',
-        'response_status'
+        'id', 'name', 'phone', 'source_email', 'agent_id', 'agent_name',
+        'lead_source_id', 'gmail_uid', 'created_at', 'updated_at',
+        'response_sent', 'response_status'
     ])
     
     # Write data rows
     for lead in leads:
+        enriched = _enrich_lead(lead, db)
         writer.writerow([
-            lead.id,
-            lead.name,
-            lead.phone,
-            lead.source_email,
-            lead.lead_source_id,
-            lead.gmail_uid,
+            lead.id, lead.name, lead.phone, lead.source_email,
+            enriched.agent_id or '', enriched.agent_name or '',
+            lead.lead_source_id, lead.gmail_uid,
             lead.created_at.isoformat() if lead.created_at else '',
             lead.updated_at.isoformat() if lead.updated_at else '',
             lead.response_sent,
@@ -273,4 +289,4 @@ def get_lead(
             code=ErrorCode.NOT_FOUND_RESOURCE
         )
     
-    return LeadResponse.from_orm(lead)
+    return _enrich_lead(lead, db)

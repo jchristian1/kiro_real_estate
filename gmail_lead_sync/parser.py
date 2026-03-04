@@ -158,35 +158,24 @@ class LeadParser:
         self,
         lead_data: LeadData,
         gmail_uid: str,
-        lead_source_id: int
+        lead_source_id: int,
+        agent_id: str = None
     ) -> Optional[Lead]:
         """
         Validate lead data and create Lead record in database.
-        
-        The lead_data is already validated by Pydantic in extract_lead(),
-        but this method provides an additional validation layer and handles
-        database insertion.
-        
-        Args:
-            lead_data: Validated LeadData object
-            gmail_uid: Unique Gmail identifier for the email
-            lead_source_id: Foreign key to Lead_Source configuration
-            
-        Returns:
-            Created Lead object, or None if creation fails
         """
         try:
-            # Create Lead record
             lead = Lead(
                 name=lead_data.name,
                 phone=lead_data.phone,
                 source_email=lead_data.source_email,
                 gmail_uid=gmail_uid,
-                lead_source_id=lead_source_id
+                lead_source_id=lead_source_id,
+                agent_id=agent_id
             )
             
             self.db_session.add(lead)
-            self.db_session.flush()  # Get lead.id before commit
+            self.db_session.flush()
             
             logger.info(
                 f"Created Lead ID {lead.id} from Gmail UID {gmail_uid}: "
@@ -207,34 +196,14 @@ class LeadParser:
         self,
         sender_email: str,
         email_body: str,
-        gmail_uid: str
+        gmail_uid: str,
+        agent_id: str = None
     ) -> Optional[Lead]:
-        """
-        Complete email parsing workflow.
-        
-        This is a convenience method that orchestrates the full parsing process:
-        1. Sanitize email body for security
-        2. Find matching Lead_Source
-        3. Extract lead data
-        4. Create Lead record
-        5. Log processing result
-        
-        Args:
-            sender_email: Email address of the sender
-            email_body: Full text content of the email
-            gmail_uid: Unique Gmail identifier for the email
-            
-        Returns:
-            Created Lead object, or None if parsing fails at any step
-        """
-        # Sanitize email body to remove null bytes and limit size
+        """Complete email parsing workflow."""
         email_body = sanitize_email_body(email_body)
-        
-        # Truncate email body for logging (max 500 chars)
         email_snippet = email_body[:500] if len(email_body) > 500 else email_body
         
         try:
-            # Step 1: Find matching Lead_Source
             lead_source = self.get_lead_source(sender_email, email_body)
             if not lead_source:
                 self._log_parsing_failure(
@@ -246,7 +215,6 @@ class LeadParser:
                 )
                 return None
             
-            # Step 2: Extract lead data
             lead_data = self.extract_lead(email_body, lead_source)
             if not lead_data:
                 self._log_parsing_failure(
@@ -259,8 +227,7 @@ class LeadParser:
                 )
                 return None
             
-            # Step 3: Create Lead record
-            lead = self.validate_and_create_lead(lead_data, gmail_uid, lead_source.id)
+            lead = self.validate_and_create_lead(lead_data, gmail_uid, lead_source.id, agent_id=agent_id)
             if not lead:
                 self._log_parsing_failure(
                     gmail_uid=gmail_uid,
@@ -270,7 +237,6 @@ class LeadParser:
                 )
                 return None
             
-            # Step 4: Log success
             self._log_parsing_success(
                 gmail_uid=gmail_uid,
                 sender_email=sender_email,

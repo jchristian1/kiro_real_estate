@@ -35,6 +35,7 @@ class Lead(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     response_sent = Column(Boolean, default=False)
     response_status = Column(String(50))
+    agent_id = Column(String(255), nullable=True, index=True)
     
     # Relationships
     lead_source = relationship("LeadSource", back_populates="leads")
