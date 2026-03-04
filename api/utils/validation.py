@@ -221,6 +221,6 @@ def validate_email_field(cls, v):
 
 def validate_password_field(cls, v):
     """Pydantic validator for password fields."""
-    if v is None:
-        return v
+    if v is None or v == '':
+        return None
     return sanitize_password(v)

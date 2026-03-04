@@ -70,7 +70,6 @@ class AgentUpdateRequest(BaseModel):
     )
     app_password: Optional[str] = Field(
         None,
-        min_length=1,
         max_length=MAX_PASSWORD_LENGTH,
         description="New Gmail app-specific password"
     )

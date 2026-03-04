@@ -323,8 +323,7 @@ def update_agent(
     
     # Use new values if provided, otherwise keep current
     new_email = agent_data.email if agent_data.email else current_email
-    new_password = agent_data.app_password if agent_data.app_password else current_password
-    
+    new_password = agent_data.app_password if agent_data.app_password else current_password    
     # Update credentials (store_credentials handles updates automatically)
     try:
         credentials_store.store_credentials(
