@@ -64,7 +64,10 @@ def _assert_tenant(tid: int, current_user: User) -> None:
     Enforce tenant isolation (Req 17.1, 17.2).
 
     Raises NotFoundException (404) — not 403 — to prevent tenant enumeration.
+    Admin role bypasses tenant isolation.
     """
+    if getattr(current_user, 'role', None) == 'admin':
+        return
     if current_user.company_id != tid:
         raise NotFoundException(
             message="Tenant not found",
