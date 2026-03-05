@@ -681,6 +681,7 @@ class PreviewRequest(BaseModel):
     subject_template: str
     body_template: str
     sample_context: dict[str, str] = {}
+    context: dict[str, str] = {}  # alias accepted from frontend
 
 
 # ---------------------------------------------------------------------------
@@ -703,6 +704,39 @@ def list_message_templates(
         .all()
     )
     return [_message_template_to_dict(t) for t in templates]
+
+
+@router.get("/tenants/{tid}/message-templates/{mid}")
+def get_message_template(
+    tid: int,
+    mid: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return a single MessageTemplate (Req 7.1, 17.2)."""
+    _assert_tenant(tid, current_user)
+    template = _get_message_template_or_404(db, tid, mid)
+    return _message_template_to_dict(template)
+
+
+@router.get("/tenants/{tid}/message-templates/{mid}/versions")
+def list_message_template_versions(
+    tid: int,
+    mid: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all MessageTemplateVersion records for a template (Req 7.2)."""
+    from gmail_lead_sync.preapproval.models_preapproval import MessageTemplateVersion
+    _assert_tenant(tid, current_user)
+    _get_message_template_or_404(db, tid, mid)
+    versions = (
+        db.query(MessageTemplateVersion)
+        .filter(MessageTemplateVersion.template_id == mid)
+        .order_by(MessageTemplateVersion.version_number.desc())
+        .all()
+    )
+    return [_message_template_version_to_dict(v) for v in versions]
 
 
 @router.post("/tenants/{tid}/message-templates", status_code=status.HTTP_201_CREATED)
@@ -850,10 +884,34 @@ def preview_message_template(
     from gmail_lead_sync.preapproval.template_engine import TemplateRenderEngine
 
     engine = TemplateRenderEngine()
+    merged_context = {**body.context, **body.sample_context}
     result = engine.preview(
         subject_template=body.subject_template,
         body_template=body.body_template,
-        sample_context=body.sample_context,
+        sample_context=merged_context,
+    )
+    return {"subject": result.subject, "body": result.body}
+
+
+@router.post("/tenants/{tid}/message-templates/{mid}/preview")
+def preview_message_template_by_id(
+    tid: int,
+    mid: int,
+    body: PreviewRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Preview endpoint scoped to a specific template (Req 7.5, 8.1)."""
+    _assert_tenant(tid, current_user)
+    _get_message_template_or_404(db, tid, mid)
+    from gmail_lead_sync.preapproval.template_engine import TemplateRenderEngine
+
+    engine = TemplateRenderEngine()
+    merged_context = {**body.context, **body.sample_context}
+    result = engine.preview(
+        subject_template=body.subject_template,
+        body_template=body.body_template,
+        sample_context=merged_context,
     )
     return {"subject": result.subject, "body": result.body}
 

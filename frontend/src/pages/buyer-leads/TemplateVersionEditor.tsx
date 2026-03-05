@@ -142,7 +142,7 @@ export const TemplateVersionEditor: React.FC = () => {
         {
           subject_template: subject,
           body_template: body,
-          variants: hasVariants ? variants : undefined,
+          variants_json: hasVariants ? JSON.stringify(variants) : undefined,
         }
       );
       success('Template version published');
