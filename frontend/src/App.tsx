@@ -19,6 +19,15 @@ import { TemplatesPage } from './pages/TemplatesPage';
 import { LeadsPage } from './pages/LeadsPage';
 import { AuditLogsPage } from './pages/AuditLogsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { BuyerLeadsLayout } from './pages/buyer-leads/BuyerLeadsLayout';
+import { BuyerFormTab } from './pages/buyer-leads/BuyerFormTab';
+import { BuyerScoringTab } from './pages/buyer-leads/BuyerScoringTab';
+import { EmailTemplatesTab } from './pages/buyer-leads/EmailTemplatesTab';
+import { LeadStatesTab } from './pages/buyer-leads/LeadStatesTab';
+import { SimulationTab } from './pages/buyer-leads/SimulationTab';
+import { BuyerAuditTab } from './pages/buyer-leads/BuyerAuditTab';
+import { FormVersionEditor } from './pages/buyer-leads/FormVersionEditor';
+import { TemplateVersionEditor } from './pages/buyer-leads/TemplateVersionEditor';
 
 function App() {
   return (
@@ -47,6 +56,19 @@ function App() {
             <Route path="/leads" element={<LeadsPage />} />
             <Route path="/audit-logs" element={<AuditLogsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+
+            {/* Buyer Lead Automation */}
+            <Route path="/buyer-leads/:tenantId" element={<BuyerLeadsLayout />}>
+              <Route index element={<BuyerFormTab />} />
+              <Route path="forms" element={<BuyerFormTab />} />
+              <Route path="forms/:formId" element={<FormVersionEditor />} />
+              <Route path="scoring" element={<BuyerScoringTab />} />
+              <Route path="templates" element={<EmailTemplatesTab />} />
+              <Route path="templates/:templateId" element={<TemplateVersionEditor />} />
+              <Route path="states" element={<LeadStatesTab />} />
+              <Route path="simulate" element={<SimulationTab />} />
+              <Route path="audit" element={<BuyerAuditTab />} />
+            </Route>
           </Route>
           
           {/* Catch-all redirect to dashboard */}

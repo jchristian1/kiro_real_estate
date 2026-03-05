@@ -121,7 +121,7 @@ Implement the buyer lead qualification pipeline: DB migrations, backend services
     - Mount public router without auth middleware
     - _Requirements: 4.1_
 
-- [ ] 10. Admin API routes — buyer leads
+- [x] 10. Admin API routes — buyer leads
   - [x] 10.1 Create `api/routes/buyer_leads.py` with form template CRUD and version management
     - `GET/POST /tenants/{tid}/forms` — list/create form templates
     - `GET/PUT/DELETE /tenants/{tid}/forms/{fid}` — manage form template
@@ -143,70 +143,70 @@ Implement the buyer lead qualification pipeline: DB migrations, backend services
     - `GET /tenants/{tid}/leads/funnel` — count of leads at each state
     - `GET /tenants/{tid}/audit` — filterable audit log (date range, event type, lead ID)
     - _Requirements: 14.1, 14.2, 14.3, 16.1, 16.2, 16.3_
-  - [~] 10.5 Register admin router in `main.py` under `/api/v1/buyer-leads/`
+  - [x] 10.5 Register admin router in `main.py` under `/api/v1/buyer-leads/`
     - _Requirements: 2.1, 6.1, 7.1_
 
-- [ ] 11. Seed data
-  - [~] 11.1 Create seed script `gmail_lead_sync/preapproval/seed.py`
+- [x] 11. Seed data
+  - [x] 11.1 Create seed script `gmail_lead_sync/preapproval/seed.py`
     - Insert default buyer form template + form version with 7 questions (timeline, budget, financing, areas, contact_preference, has_agent, wants_tour) as defined in design doc
     - Insert default scoring config + scoring version with all 15 rules and thresholds `{"HOT": 80, "WARM": 50}`
     - Insert default `INITIAL_INVITE_EMAIL` and `POST_SUBMISSION_EMAIL` message templates with HOT/WARM/NURTURE variants for the post-submission template
     - Set `is_active=True` on all default versions
     - _Requirements: 9.1, 5.1, 7.1_
 
-- [~] 12. Checkpoint — Ensure all backend tests pass and routes are reachable
+- [x] 12. Checkpoint — Ensure all backend tests pass and routes are reachable
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 13. Frontend — routing and navigation
-  - [~] 13.1 Add React Router routes under `/tenants/:tenantId/buyer-leads/` in the router config
+- [x] 13. Frontend — routing and navigation
+  - [x] 13.1 Add React Router routes under `/tenants/:tenantId/buyer-leads/` in the router config
     - Routes: `forms`, `forms/:formId`, `scoring`, `scoring/:configId`, `templates`, `templates/:templateId`, `states`, `simulate`, `audit`
     - _Requirements: 11.1, 12.1, 13.1, 14.1, 15.1, 16.1_
-  - [~] 13.2 Add "Buyer Lead Automation" navigation link in the sidebar/dashboard layout
+  - [x] 13.2 Add "Buyer Lead Automation" navigation link in the sidebar/dashboard layout
     - Link to `/tenants/:tenantId/buyer-leads/forms`
     - _Requirements: 11.1_
 
-- [ ] 14. Frontend — BuyerFormTab and FormVersionEditor
-  - [~] 14.1 Create `frontend/src/pages/buyer-leads/BuyerFormTab.tsx`
+- [x] 14. Frontend — BuyerFormTab and FormVersionEditor
+  - [x] 14.1 Create `frontend/src/pages/buyer-leads/BuyerFormTab.tsx`
     - List form templates via `GET /api/v1/buyer-leads/tenants/{tid}/forms`
     - Create new template, publish version, rollback to previous version
     - Use existing table + pagination and modal patterns; Tailwind CSS; axios; useToast
     - _Requirements: 11.1, 11.2, 11.5_
-  - [~] 14.2 Create `frontend/src/pages/buyer-leads/FormVersionEditor.tsx`
+  - [x] 14.2 Create `frontend/src/pages/buyer-leads/FormVersionEditor.tsx`
     - Drag-and-drop question ordering, conditional logic rule builder, JSON schema preview
     - _Requirements: 11.3, 11.4_
 
-- [ ] 15. Frontend — BuyerScoringTab
-  - [~] 15.1 Create `frontend/src/pages/buyer-leads/BuyerScoringTab.tsx`
+- [x] 15. Frontend — BuyerScoringTab
+  - [x] 15.1 Create `frontend/src/pages/buyer-leads/BuyerScoringTab.tsx`
     - List scoring configs; inline rules table editor (question_key, answer_value, points, reason); HOT/WARM threshold inputs; version history display
     - Publish scoring version via `POST /api/v1/buyer-leads/tenants/{tid}/scoring/{sid}/versions`
     - _Requirements: 12.1, 12.2, 12.3, 12.4_
 
-- [ ] 16. Frontend — EmailTemplatesTab and TemplateVersionEditor
-  - [~] 16.1 Create `frontend/src/pages/buyer-leads/EmailTemplatesTab.tsx`
+- [x] 16. Frontend — EmailTemplatesTab and TemplateVersionEditor
+  - [x] 16.1 Create `frontend/src/pages/buyer-leads/EmailTemplatesTab.tsx`
     - List `INITIAL_INVITE_EMAIL` and `POST_SUBMISSION_EMAIL` templates
     - _Requirements: 13.1_
-  - [~] 16.2 Create `frontend/src/pages/buyer-leads/TemplateVersionEditor.tsx`
+  - [x] 16.2 Create `frontend/src/pages/buyer-leads/TemplateVersionEditor.tsx`
     - Variable picker listing all `SUPPORTED_VARS`, live preview panel (calls preview API), per-bucket variant editor for `POST_SUBMISSION_EMAIL`
     - _Requirements: 13.2, 13.3, 13.4_
 
-- [ ] 17. Frontend — LeadStatesTab
-  - [~] 17.1 Create `frontend/src/pages/buyer-leads/LeadStatesTab.tsx`
+- [x] 17. Frontend — LeadStatesTab
+  - [x] 17.1 Create `frontend/src/pages/buyer-leads/LeadStatesTab.tsx`
     - Paginated leads table with `current_state` and `current_state_updated_at`; filter by state and bucket
     - Funnel chart visualizing state-to-state conversion rates (data from `GET .../leads/funnel`)
     - _Requirements: 14.1, 14.2, 14.3, 14.4_
 
-- [ ] 18. Frontend — SimulationTab
-  - [~] 18.1 Create `frontend/src/pages/buyer-leads/SimulationTab.tsx`
+- [x] 18. Frontend — SimulationTab
+  - [x] 18.1 Create `frontend/src/pages/buyer-leads/SimulationTab.tsx`
     - Render active buyer qualification form questions dynamically
     - On submit, call `POST /api/v1/buyer-leads/tenants/{tid}/simulate` and display score breakdown + bucket + rendered `POST_SUBMISSION_EMAIL` preview
     - _Requirements: 15.1, 15.2, 15.3_
 
-- [ ] 19. Frontend — BuyerAuditTab
-  - [~] 19.1 Create `frontend/src/pages/buyer-leads/BuyerAuditTab.tsx`
+- [x] 19. Frontend — BuyerAuditTab
+  - [x] 19.1 Create `frontend/src/pages/buyer-leads/BuyerAuditTab.tsx`
     - Filterable, paginated audit log (date range, event type, lead ID) via `GET .../audit`
     - _Requirements: 16.1, 16.2, 16.3_
 
-- [~] 20. Final checkpoint — Ensure all tests pass
+- [x] 20. Final checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes
