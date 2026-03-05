@@ -13,16 +13,16 @@ interface AuditEntry {
   id: number;
   lead_id: number | null;
   event_type: string;
-  actor_type: string;
+  actor_type?: string;
   occurred_at: string;
   metadata_json?: string;
 }
 
 interface AuditResponse {
-  entries: AuditEntry[];
+  items: AuditEntry[];
   total: number;
   page: number;
-  pages: number;
+  page_size: number;
 }
 
 const EVENT_TYPES = [
@@ -53,18 +53,19 @@ export const BuyerAuditTab: React.FC = () => {
   const fetchAudit = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, string> = { page: String(page), per_page: '25' };
+      const params: Record<string, string> = { page: String(page), page_size: '25' };
       if (leadIdFilter) params.lead_id = leadIdFilter;
       if (eventTypeFilter) params.event_type = eventTypeFilter;
-      if (startDate) params.start_date = startDate;
-      if (endDate) params.end_date = endDate;
+      if (startDate) params.date_from = startDate;
+      if (endDate) params.date_to = endDate;
 
       const res = await axios.get<AuditResponse>(
         `${API}/buyer-leads/tenants/${tenantId}/audit`,
         { params }
       );
-      setEntries(res.data.entries);
-      setTotalPages(res.data.pages);
+      setEntries(res.data.items);
+      const pages = Math.max(1, Math.ceil(res.data.total / 25));
+      setTotalPages(pages);
       setTotal(res.data.total);
     } catch {
       toastError('Failed to load audit log');
@@ -165,7 +166,7 @@ export const BuyerAuditTab: React.FC = () => {
                       {new Date(entry.occurred_at).toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-800">{entry.event_type}</td>
-                    <td className="px-4 py-3">{actorBadge(entry.actor_type)}</td>
+                    <td className="px-4 py-3">{entry.actor_type ? actorBadge(entry.actor_type) : <span className="text-gray-400 text-xs">—</span>}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">{entry.lead_id ?? '—'}</td>
                     <td className="px-4 py-3 text-right">
                       {entry.metadata_json && (

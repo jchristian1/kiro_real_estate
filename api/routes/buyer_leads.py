@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from api.exceptions import NotFoundException, ValidationException
 from api.models.error_models import ErrorCode
 from api.models.web_ui_models import User
+from gmail_lead_sync.models import Lead
 from gmail_lead_sync.preapproval.models_preapproval import (
     FormLogicRule,
     FormQuestion,
@@ -201,6 +202,25 @@ def delete_form_template(
 # ---------------------------------------------------------------------------
 # Form Version management  (Req 2.2 – 2.8)
 # ---------------------------------------------------------------------------
+
+@router.get("/tenants/{tid}/forms/{fid}/versions")
+def list_form_versions(
+    tid: int,
+    fid: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all FormVersion records for a template (Req 2.2)."""
+    _assert_tenant(tid, current_user)
+    _get_template_or_404(db, tid, fid)
+    versions = (
+        db.query(FormVersion)
+        .filter(FormVersion.template_id == fid)
+        .order_by(FormVersion.version_number.desc())
+        .all()
+    )
+    return [_version_to_dict(v) for v in versions]
+
 
 @router.post("/tenants/{tid}/forms/{fid}/versions", status_code=status.HTTP_201_CREATED)
 def publish_form_version(
@@ -460,6 +480,25 @@ def create_scoring_config(
 # ---------------------------------------------------------------------------
 # Scoring Version management  (Req 6.2, 6.3, 6.4)
 # ---------------------------------------------------------------------------
+
+@router.get("/tenants/{tid}/scoring/{sid}/versions")
+def list_scoring_versions(
+    tid: int,
+    sid: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all ScoringVersion records for a config (Req 6.2)."""
+    _assert_tenant(tid, current_user)
+    _get_scoring_config_or_404(db, tid, sid)
+    versions = (
+        db.query(ScoringVersion)
+        .filter(ScoringVersion.scoring_config_id == sid)
+        .order_by(ScoringVersion.version_number.desc())
+        .all()
+    )
+    return [_scoring_version_to_dict(v) for v in versions]
+
 
 @router.post("/tenants/{tid}/scoring/{sid}/versions", status_code=status.HTTP_201_CREATED)
 def publish_scoring_version(

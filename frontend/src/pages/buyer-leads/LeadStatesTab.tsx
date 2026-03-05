@@ -10,18 +10,18 @@ import { useToast } from '../../contexts/ToastContext';
 const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 interface LeadStateRow {
-  id: number;
+  lead_id: number;
   name: string | null;
+  source_email: string | null;
   current_state: string | null;
   current_state_updated_at: string | null;
-  bucket: string | null;
 }
 
 interface LeadsStateResponse {
-  leads: LeadStateRow[];
+  items: LeadStateRow[];
   total: number;
   page: number;
-  pages: number;
+  page_size: number;
 }
 
 interface FunnelEntry { state: string; count: number; }
@@ -38,13 +38,6 @@ const STATE_OPTIONS = [
 ];
 
 const BUCKET_OPTIONS = ['HOT', 'WARM', 'NURTURE'];
-
-const bucketColor = (bucket: string | null) => {
-  if (bucket === 'HOT') return 'bg-red-100 text-red-700';
-  if (bucket === 'WARM') return 'bg-yellow-100 text-yellow-700';
-  if (bucket === 'NURTURE') return 'bg-blue-100 text-blue-700';
-  return 'bg-gray-100 text-gray-500';
-};
 
 export const LeadStatesTab: React.FC = () => {
   const { tenantId } = useParams<{ tenantId: string }>();
@@ -64,15 +57,16 @@ export const LeadStatesTab: React.FC = () => {
   const fetchLeads = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, string> = { page: String(page), per_page: '25' };
+      const params: Record<string, string> = { page: String(page), page_size: '25' };
       if (stateFilter) params.state = stateFilter;
       if (bucketFilter) params.bucket = bucketFilter;
       const res = await axios.get<LeadsStateResponse>(
         `${API}/buyer-leads/tenants/${tenantId}/leads/states`,
         { params }
       );
-      setLeads(res.data.leads);
-      setTotalPages(res.data.pages);
+      setLeads(res.data.items);
+      const pages = Math.max(1, Math.ceil(res.data.total / 25));
+      setTotalPages(pages);
       setTotal(res.data.total);
     } catch {
       toastError('Failed to load lead states');
@@ -84,10 +78,11 @@ export const LeadStatesTab: React.FC = () => {
   const fetchFunnel = useCallback(async () => {
     setFunnelLoading(true);
     try {
-      const res = await axios.get<FunnelEntry[]>(
+      const res = await axios.get<Record<string, number>>(
         `${API}/buyer-leads/tenants/${tenantId}/leads/funnel`
       );
-      setFunnel(res.data);
+      const entries = Object.entries(res.data).map(([state, count]) => ({ state, count }));
+      setFunnel(entries);
     } catch {
       // funnel is non-critical
     } finally {
@@ -166,22 +161,16 @@ export const LeadStatesTab: React.FC = () => {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lead</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">State</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bucket</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Updated</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {leads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{lead.name || `Lead #${lead.id}`}</td>
+                <tr key={lead.lead_id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{lead.name || `Lead #${lead.lead_id}`}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{lead.current_state || '—'}</td>
-                  <td className="px-4 py-3">
-                    {lead.bucket ? (
-                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${bucketColor(lead.bucket)}`}>
-                        {lead.bucket}
-                      </span>
-                    ) : '—'}
-                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{lead.source_email || '—'}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">
                     {lead.current_state_updated_at
                       ? new Date(lead.current_state_updated_at).toLocaleString()
