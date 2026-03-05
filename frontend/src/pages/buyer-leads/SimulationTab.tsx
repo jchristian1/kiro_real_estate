@@ -22,13 +22,13 @@ interface Question {
 
 interface BreakdownItem {
   question_key: string;
-  answer_value: string;
+  answer: string;
   points: number;
   reason: string;
 }
 
 interface SimulateResult {
-  total_score: number;
+  total: number;
   bucket: string;
   breakdown: BreakdownItem[];
   explanation: string;
@@ -66,8 +66,9 @@ export const SimulationTab: React.FC = () => {
       const activeVersion = (versRes.data as { is_active: boolean; schema_json: string }[])
         .find((v) => v.is_active);
       if (activeVersion?.schema_json) {
-        const schema = JSON.parse(activeVersion.schema_json) as Question[];
-        setQuestions(schema.sort((a, b) => a.order - b.order));
+        const schema = JSON.parse(activeVersion.schema_json) as { questions: Question[] };
+        const qs = Array.isArray(schema) ? schema : (schema.questions ?? []);
+        setQuestions(qs.sort((a, b) => a.order - b.order));
       }
     } catch {
       toastError('Failed to load form questions');
@@ -198,7 +199,7 @@ export const SimulationTab: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide opacity-70">Score</p>
-                  <p className="text-3xl font-bold">{result.total_score}</p>
+                  <p className="text-3xl font-bold">{result.total}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-medium uppercase tracking-wide opacity-70">Bucket</p>
@@ -228,7 +229,7 @@ export const SimulationTab: React.FC = () => {
                   {result.breakdown.map((item, i) => (
                     <tr key={i} className="hover:bg-gray-50">
                       <td className="px-4 py-2 text-xs text-gray-700">{item.question_key}</td>
-                      <td className="px-4 py-2 text-xs text-gray-500">{item.answer_value}</td>
+                      <td className="px-4 py-2 text-xs text-gray-500">{item.answer}</td>
                       <td className={`px-4 py-2 text-xs font-medium ${item.points >= 0 ? 'text-green-700' : 'text-red-600'}`}>
                         {item.points >= 0 ? '+' : ''}{item.points}
                       </td>

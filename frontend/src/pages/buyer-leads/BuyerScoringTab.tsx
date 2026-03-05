@@ -10,7 +10,7 @@ import { useToast } from '../../contexts/ToastContext';
 const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 interface ScoringRule {
-  question_key: string;
+  key: string;
   answer_value: string;
   points: number;
   reason: string;
@@ -82,7 +82,7 @@ export const BuyerScoringTab: React.FC = () => {
   };
 
   const addRule = () => {
-    setRules((rs) => [...rs, { question_key: '', answer_value: '', points: 0, reason: '' }]);
+    setRules((rs) => [...rs, { key: '', answer_value: '', points: 0, reason: '' }]);
   };
 
   const updateRule = (index: number, patch: Partial<ScoringRule>) => {
@@ -197,8 +197,8 @@ export const BuyerScoringTab: React.FC = () => {
                 <td className="px-4 py-2">
                   <input
                     type="text"
-                    value={rule.question_key}
-                    onChange={(e) => updateRule(i, { question_key: e.target.value })}
+                    value={rule.key}
+                    onChange={(e) => updateRule(i, { key: e.target.value })}
                     className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </td>
