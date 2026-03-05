@@ -117,7 +117,7 @@ class ScoringEngine:
 
         for rule in rules:
             source: str = rule.get("source", "answer")
-            key: str = rule["key"]
+            key: str = rule.get("key") or rule.get("question_key", "")
             answer_value = rule["answer_value"]
             points: int = rule["points"]          # Req 5.10: may be negative
             reason: str = rule.get("reason", "")
