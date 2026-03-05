@@ -15,6 +15,7 @@ Security features:
 - HTTP-only secure cookies for session management
 """
 
+import os
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
@@ -255,11 +256,12 @@ def set_session_cookie(response: Response, token: str) -> None:
         response: FastAPI response object
         token: Session token to set
     """
+    is_production = os.getenv("ENVIRONMENT", "development") == "production"
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
         value=token,
         httponly=True,  # Prevents JavaScript access (XSS protection)
-        secure=True,    # HTTPS only in production
+        secure=is_production,  # HTTPS only in production
         samesite="lax", # CSRF protection
         max_age=SESSION_EXPIRY_HOURS * 3600  # Convert hours to seconds
     )
@@ -272,10 +274,11 @@ def clear_session_cookie(response: Response) -> None:
     Args:
         response: FastAPI response object
     """
+    is_production = os.getenv("ENVIRONMENT", "development") == "production"
     response.delete_cookie(
         key=SESSION_COOKIE_NAME,
         httponly=True,
-        secure=True,
+        secure=is_production,
         samesite="lax"
     )
 
