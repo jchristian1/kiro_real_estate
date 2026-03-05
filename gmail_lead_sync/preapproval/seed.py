@@ -411,12 +411,17 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     import os
+    from dotenv import load_dotenv
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
-    db_url = os.getenv("DATABASE_URL", "sqlite:///./app.db")
+    load_dotenv()  # load .env so DATABASE_URL is available
+    db_url = os.getenv("DATABASE_URL", "sqlite:///./gmail_lead_sync.db")
     engine = create_engine(db_url, connect_args={"check_same_thread": False} if "sqlite" in db_url else {})
     SessionLocal = sessionmaker(bind=engine)
 
-    with SessionLocal() as session:
+    session = SessionLocal()
+    try:
         seed_all(session, args.tenant_id)
+    finally:
+        session.close()
