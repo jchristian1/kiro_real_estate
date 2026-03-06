@@ -24,6 +24,7 @@ export interface User {
   id: number;
   username: string;
   role: string;
+  company_id: number | null;
 }
 
 // Authentication context state

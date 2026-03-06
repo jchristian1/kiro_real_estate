@@ -2,30 +2,80 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Font ── */
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+    'Helvetica Neue', Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
+/* ── Dark theme (default) ── */
+:root, [data-theme="dark"] {
+  color-scheme: dark;
+  --bg-page:      #0a0a0f;
+  --bg-sidebar:   rgba(12,12,18,0.98);
+  --bg-card:      rgba(255,255,255,0.04);
+  --bg-card-hover:rgba(255,255,255,0.07);
+  --bg-input:     rgba(255,255,255,0.06);
+  --bg-header:    rgba(10,10,15,0.88);
+  --border:       rgba(255,255,255,0.08);
+  --border-focus: rgba(99,102,241,0.65);
+  --text:         #f0f0f5;
+  --text-secondary:rgba(255,255,255,0.7);
+  --text-muted:   rgba(255,255,255,0.45);
+  --text-faint:   rgba(255,255,255,0.25);
+  --scrollbar:    rgba(255,255,255,0.12);
+}
+
+/* ── Light theme ── */
+[data-theme="light"] {
+  color-scheme: light;
+  --bg-page:      #f5f5f7;
+  --bg-sidebar:   rgba(255,255,255,0.95);
+  --bg-card:      #ffffff;
+  --bg-card-hover:#f9f9fb;
+  --bg-input:     #ffffff;
+  --bg-header:    rgba(255,255,255,0.88);
+  --border:       rgba(0,0,0,0.08);
+  --border-focus: rgba(99,102,241,0.55);
+  --text:         #1c1c1e;
+  --text-secondary:rgba(0,0,0,0.65);
+  --text-muted:   rgba(0,0,0,0.45);
+  --text-faint:   rgba(0,0,0,0.28);
+  --scrollbar:    rgba(0,0,0,0.15);
+}
+
+/* ── Base ── */
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  background-color: var(--bg-page);
+  color: var(--text);
+  transition: background-color 0.2s, color 0.2s;
 }
 
 #root {
   width: 100%;
   min-height: 100vh;
+  display: flex;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { opacity: 0.8; }
+
+/* ── Selection ── */
+::selection {
+  background: rgba(99,102,241,0.3);
+  color: inherit;
 }

@@ -30,6 +30,7 @@ class User(Base):
     username = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(50), nullable=False, server_default='admin')
+    company_id = Column(Integer, ForeignKey('companies.id'), nullable=True, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     
     # Relationships

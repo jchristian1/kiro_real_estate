@@ -43,6 +43,7 @@ class UserResponse(BaseModel):
     id: int
     username: str
     role: str
+    company_id: int | None = None
     
     class Config:
         from_attributes = True
@@ -103,7 +104,8 @@ async def login(
         user=UserResponse(
             id=user.id,
             username=user.username,
-            role=user.role
+            role=user.role,
+            company_id=user.company_id,
         )
     )
 
@@ -171,5 +173,6 @@ async def get_me(
     return UserResponse(
         id=user.id,
         username=user.username,
-        role=user.role
+        role=user.role,
+        company_id=user.company_id,
     )

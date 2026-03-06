@@ -1,10 +1,5 @@
 /**
- * Dashboard Layout Component
- * 
- * Provides the main layout structure with sidebar, header, and content area.
- * Used for all authenticated pages.
- * 
- * Requirements: 6.6
+ * Dashboard Layout — theme-aware
  */
 
 import React from 'react';
@@ -13,18 +8,27 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { ToastProvider } from '../contexts/ToastContext';
 import { ToastContainer } from './ToastContainer';
+import { useTheme } from '../contexts/ThemeContext';
+import { getTokens } from '../utils/theme';
 
 export const DashboardLayout: React.FC = () => {
+  const { theme } = useTheme();
+  const t = getTokens(theme);
+
   return (
     <ToastProvider>
       <ToastContainer />
-      <div className="flex min-h-screen bg-gray-100">
+      <div style={{ display: 'flex', minHeight: '100vh', width: '100%', background: t.bgPage, transition: 'background 0.2s' }}>
         <Sidebar />
-        
-        <div className="flex-1 flex flex-col">
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <Header />
-          
-          <main className="flex-1 p-6">
+          <main style={{
+            flex: 1,
+            padding: '28px',
+            overflowY: 'auto',
+            background: t.bgPage,
+            transition: 'background 0.2s',
+          }}>
             <Outlet />
           </main>
         </div>
