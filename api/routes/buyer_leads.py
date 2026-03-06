@@ -1195,6 +1195,108 @@ def get_leads_funnel(
 
 
 # ---------------------------------------------------------------------------
+# Lead History  (per-lead preapproval timeline)
+# ---------------------------------------------------------------------------
+
+@router.get("/leads/{lead_id}/history")
+def get_lead_history(
+    lead_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Full preapproval history for a single lead.
+
+    Returns:
+    - state_transitions: chronological list of state changes
+    - submissions: form submissions with answers and score
+    - interactions: email/channel interactions
+    """
+    import json as _json
+    from gmail_lead_sync.preapproval.models_preapproval import (
+        FormSubmission,
+        FormVersion,
+        LeadInteraction,
+        LeadStateTransition,
+        SubmissionAnswer,
+        SubmissionScore,
+    )
+
+    # Fetch state transitions
+    transitions = (
+        db.query(LeadStateTransition)
+        .filter(LeadStateTransition.lead_id == lead_id)
+        .order_by(LeadStateTransition.occurred_at.asc())
+        .all()
+    )
+
+    # Fetch submissions with answers + score
+    submissions_raw = (
+        db.query(FormSubmission)
+        .filter(FormSubmission.lead_id == lead_id)
+        .order_by(FormSubmission.submitted_at.desc())
+        .all()
+    )
+
+    submissions = []
+    for sub in submissions_raw:
+        answers = [
+            {"question_key": a.question_key, "answer": _json.loads(a.answer_value_json)}
+            for a in sub.answers
+        ]
+        score = None
+        if sub.score:
+            score = {
+                "total": sub.score.total_score,
+                "bucket": sub.score.bucket,
+                "breakdown": _json.loads(sub.score.breakdown_json),
+                "explanation": sub.score.explanation_text,
+            }
+        submissions.append({
+            "id": sub.id,
+            "submitted_at": sub.submitted_at.isoformat() if sub.submitted_at else None,
+            "form_version_id": sub.form_version_id,
+            "answers": answers,
+            "score": score,
+        })
+
+    # Fetch interactions
+    interactions = (
+        db.query(LeadInteraction)
+        .filter(LeadInteraction.lead_id == lead_id)
+        .order_by(LeadInteraction.occurred_at.desc())
+        .all()
+    )
+
+    return {
+        "lead_id": lead_id,
+        "state_transitions": [
+            {
+                "id": t.id,
+                "from_state": t.from_state,
+                "to_state": t.to_state,
+                "occurred_at": t.occurred_at.isoformat() if t.occurred_at else None,
+                "actor_type": t.actor_type,
+                "metadata": _json.loads(t.metadata_json) if t.metadata_json else None,
+            }
+            for t in transitions
+        ],
+        "submissions": submissions,
+        "interactions": [
+            {
+                "id": i.id,
+                "channel": i.channel,
+                "direction": i.direction,
+                "occurred_at": i.occurred_at.isoformat() if i.occurred_at else None,
+                "content_text": i.content_text,
+                "metadata": _json.loads(i.metadata_json) if i.metadata_json else None,
+            }
+            for i in interactions
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
 # Audit Log  (Req 16.1, 16.2, 16.3)
 # ---------------------------------------------------------------------------
 
