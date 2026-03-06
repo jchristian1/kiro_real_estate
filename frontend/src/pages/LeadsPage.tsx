@@ -95,9 +95,10 @@ export const LeadsPage: React.FC = () => {
   const [exporting, setExporting] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [expandedCompanies, setExpandedCompanies] = useState<Set<string>>(new Set());
-  const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
+  const [expandedCompanies, setExpandedCompanies] = useState<Set<string>>(new Set(['__all__']));
+  const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set(['__all__']));
   const [expandedLeads, setExpandedLeads] = useState<Set<number>>(new Set());
+  const [flatView, setFlatView] = useState(true);
   const [leadHistory, setLeadHistory] = useState<LeadHistory | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -349,11 +350,17 @@ export const LeadsPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Leads <span className="text-sm font-normal text-gray-500">({total})</span></h1>
-        <button onClick={handleExport} disabled={exporting}
-          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md disabled:opacity-50"
-          data-testid="export-btn">
-          {exporting ? 'Exporting…' : 'Export CSV'}
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setFlatView(v => !v)}
+            className="px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-md">
+            {flatView ? 'Group by Company' : 'Flat List'}
+          </button>
+          <button onClick={handleExport} disabled={exporting}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md disabled:opacity-50"
+            data-testid="export-btn">
+            {exporting ? 'Exporting…' : 'Export CSV'}
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow p-4 grid grid-cols-2 md:grid-cols-5 gap-4" data-testid="lead-filters">
@@ -406,6 +413,40 @@ export const LeadsPage: React.FC = () => {
         <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500" data-testid="leads-empty">No leads found</div>
       ) : (
         <>
+          {flatView ? (
+            <div className="bg-white rounded-lg shadow overflow-hidden" data-testid="leads-table">
+              <table className="min-w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lead Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {leads.map(lead => (
+                    <tr key={lead.id} className="hover:bg-gray-50" data-testid={`lead-row-${lead.id}`}>
+                      <td className="px-6 py-3 text-sm font-medium text-gray-900">{lead.name || '—'}</td>
+                      <td className="px-6 py-3 text-sm text-gray-500">{lead.phone || '—'}</td>
+                      <td className="px-6 py-3 text-sm text-gray-500">{lead.source_email || '—'}</td>
+                      <td className="px-6 py-3 text-sm text-gray-700">{lead.agent_name || lead.agent_id || '—'}</td>
+                      <td className="px-6 py-3 text-sm text-gray-700">{lead.company_name || '—'}</td>
+                      <td className="px-6 py-3 text-sm text-gray-500">{new Date(lead.created_at).toLocaleDateString()}</td>
+                      <td className="px-6 py-3">{statusBadge(lead.response_sent, lead.response_status)}</td>
+                      <td className="px-6 py-3 text-right">
+                        <button onClick={() => handleSelectLead(lead)} className="text-blue-600 hover:text-blue-900 text-sm font-medium" data-testid={`view-lead-${lead.id}`}>View</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
           <div className="space-y-3" data-testid="leads-table">
             {Object.entries(grouped).map(([cKey, company]) => (
               <div key={cKey} className="bg-white rounded-lg shadow overflow-hidden">
@@ -476,6 +517,7 @@ export const LeadsPage: React.FC = () => {
               </div>
             ))}
           </div>
+          )}
           {totalPages > 1 && (
             <div className="flex items-center justify-between" data-testid="pagination">
               <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
