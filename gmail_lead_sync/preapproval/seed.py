@@ -164,70 +164,68 @@ DEFAULT_THRESHOLDS = {"HOT": 80, "WARM": 50}
 # Default message templates
 # ---------------------------------------------------------------------------
 
-INITIAL_INVITE_SUBJECT = "You have a new property inquiry — complete your buyer profile"
+INITIAL_INVITE_SUBJECT = "Complete your buyer profile — {{tenant.name}}"
 INITIAL_INVITE_BODY = """\
-Hi {{lead_name}},
+Hi {{lead.first_name}},
 
-Thank you for your interest in {{property_address}}.
+Thank you for your interest. To help us match you with the right properties, please take 2 minutes to complete your buyer profile:
 
-To help us match you with the right properties, please take 2 minutes to complete your buyer profile:
-
-{{form_url}}
+{{form.link}}
 
 This link expires in 48 hours.
 
 Best regards,
-{{agent_name}}
+{{tenant.name}}
 """
 
-POST_SUBMISSION_SUBJECT = "Thanks for completing your buyer profile, {{lead_name}}"
+POST_SUBMISSION_SUBJECT = "Thanks for completing your buyer profile, {{lead.first_name}}"
 POST_SUBMISSION_BODY = """\
-Hi {{lead_name}},
+Hi {{lead.first_name}},
 
 Thank you for completing your buyer profile. We'll be in touch shortly.
 
 Best regards,
-{{agent_name}}
+{{tenant.name}}
 """
 
 POST_SUBMISSION_VARIANTS = {
     "HOT": {
-        "subject": "Great news, {{lead_name}} — let's schedule your tour",
+        "subject": "Great news, {{lead.first_name}} — let's schedule your tour",
         "body": """\
-Hi {{lead_name}},
+Hi {{lead.first_name}},
 
 Based on your profile, you look like a great fit for properties in our portfolio.
 
 I'd love to schedule a tour at your earliest convenience. Reply to this email or call us directly.
 
 Best regards,
-{{agent_name}}
+{{tenant.name}}
 """,
     },
     "WARM": {
-        "subject": "Your buyer profile is ready, {{lead_name}}",
+        "subject": "Your buyer profile is ready, {{lead.first_name}}",
         "body": """\
-Hi {{lead_name}},
+Hi {{lead.first_name}},
 
 Thanks for completing your buyer profile. We have some great options that match your criteria.
 
 When you're ready to take the next step, we're here to help.
 
 Best regards,
-{{agent_name}}
+{{tenant.name}}
 """,
     },
     "NURTURE": {
-        "subject": "We're here when you're ready, {{lead_name}}",
+        "subject": "We're here when you're ready, {{lead.first_name}}",
         "body": """\
-Hi {{lead_name}},
+Hi {{lead.first_name}},
 
 Thank you for your interest. We'll keep you updated on new listings that match your preferences.
 
 Feel free to reach out whenever you're ready to move forward.
 
 Best regards,
-{{agent_name}}
+{{tenant.name}}
 """,
     },
 }

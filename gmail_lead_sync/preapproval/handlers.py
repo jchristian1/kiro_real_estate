@@ -80,7 +80,7 @@ def _build_form_url(raw_token: str) -> str:
     submission endpoint defined in Req 4.1.
     """
     base = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
-    return f"{base}/public/buyer-qualification/{raw_token}/submit"
+    return f"{base}/public/buyer-qualification/{raw_token}"
 
 
 def _resolve_active_form_version(
@@ -245,10 +245,16 @@ def on_buyer_lead_email_received(
     lead: Lead = db.get(Lead, lead_id)
     first_name = lead.name.split()[0] if lead.name else ""
 
+    # Resolve tenant name for {{tenant.name}}
+    from sqlalchemy import text as _text
+    tenant_row = db.execute(_text("SELECT name FROM companies WHERE id = :tid"), {"tid": tenant_id}).fetchone()
+    tenant_name = tenant_row[0] if tenant_row else ""
+
     context: dict = {
         "lead.first_name": first_name,
         "lead.email": lead.source_email,
         "form.link": _build_form_url(raw_token),
+        "tenant.name": tenant_name,
         **parsed_metadata,
     }
 
@@ -603,12 +609,17 @@ def on_buyer_form_submitted(
     lead: Lead = db.get(Lead, invitation.lead_id)
     first_name = lead.name.split()[0] if lead.name else ""
 
+    from sqlalchemy import text as _text
+    tenant_row = db.execute(_text("SELECT name FROM companies WHERE id = :tid"), {"tid": invitation.tenant_id}).fetchone()
+    tenant_name = tenant_row[0] if tenant_row else ""
+
     context: dict = {
         "lead.first_name": first_name,
         "lead.email": lead.source_email,
         "score.total": str(score_result.total),
         "score.bucket": score_result.bucket.value,
         "score.explanation": score_result.explanation,
+        "tenant.name": tenant_name,
         **{k: str(v) for k, v in request_metadata.items() if v is not None},
     }
 
