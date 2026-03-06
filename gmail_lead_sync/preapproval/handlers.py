@@ -379,7 +379,7 @@ def _validate_answers(answers_payload: dict, form_version) -> None:
     import json as _json
 
     schema = _json.loads(form_version.schema_json)
-    questions = schema.get("questions", [])
+    questions = schema if isinstance(schema, list) else schema.get("questions", [])
 
     errors: dict[str, str] = {}
     for q in questions:
