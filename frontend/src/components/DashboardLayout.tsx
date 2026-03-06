@@ -1,10 +1,5 @@
 /**
- * Dashboard Layout Component
- * 
- * Provides the main layout structure with sidebar, header, and content area.
- * Used for all authenticated pages.
- * 
- * Requirements: 6.6
+ * Dashboard Layout Component — Apple-inspired dark theme
  */
 
 import React from 'react';
@@ -18,13 +13,16 @@ export const DashboardLayout: React.FC = () => {
   return (
     <ToastProvider>
       <ToastContainer />
-      <div className="flex min-h-screen bg-gray-100">
+      <div style={{ display: 'flex', minHeight: '100vh', width: '100%', background: '#0a0a0f' }}>
         <Sidebar />
-        
-        <div className="flex-1 flex flex-col">
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <Header />
-          
-          <main className="flex-1 p-6">
+          <main style={{
+            flex: 1,
+            padding: '28px 28px',
+            overflowY: 'auto',
+            background: '#0a0a0f',
+          }}>
             <Outlet />
           </main>
         </div>

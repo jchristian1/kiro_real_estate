@@ -1,10 +1,5 @@
 /**
- * Login Page Component
- * 
- * Provides authentication interface for administrators.
- * Uses AuthContext for login functionality.
- * 
- * Requirements: 6.6
+ * Login Page — Apple-inspired dark theme
  */
 
 import React, { useState, FormEvent } from 'react';
@@ -19,60 +14,108 @@ export const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
     try {
       await login(username, password);
-      // On successful login, redirect to dashboard
       navigate('/dashboard');
-    } catch (err) {
-      // Error is handled by AuthContext
-      console.error('Login failed:', err);
+    } catch {
+      // handled by AuthContext
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">
-          Gmail Lead Sync
-        </h1>
-        <h2 className="text-xl text-gray-600 mb-6 text-center">
-          Admin Login
-        </h2>
+    <div style={{
+      minHeight: '100vh', width: '100%',
+      background: '#0a0a0f',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif',
+      padding: '0 16px',
+    }}>
+      {/* Subtle background glow */}
+      <div style={{
+        position: 'fixed', top: '20%', left: '50%', transform: 'translateX(-50%)',
+        width: 600, height: 400, borderRadius: '50%',
+        background: 'radial-gradient(ellipse, rgba(99,102,241,0.08) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      }} />
+
+      <div style={{
+        width: '100%', maxWidth: 380,
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 20,
+        padding: '40px 36px',
+        backdropFilter: 'blur(20px)',
+        boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+      }}>
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{
+            width: 52, height: 52, borderRadius: 14,
+            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 24, color: '#fff', fontWeight: 700, marginBottom: 16,
+            boxShadow: '0 8px 24px rgba(99,102,241,0.35)',
+          }}>L</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#f0f0f5', letterSpacing: '-0.4px' }}>LeadSync</div>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>Sign in to your account</div>
+        </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label htmlFor="username" className="block text-gray-700 font-medium mb-2">
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.5)', marginBottom: 6, letterSpacing: '0.3px', textTransform: 'uppercase' }}>
               Username
             </label>
             <input
               type="text"
-              id="username"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={e => setUsername(e.target.value)}
               required
               disabled={loading}
+              autoComplete="username"
+              style={{
+                width: '100%', padding: '11px 14px',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 10, fontSize: 14, color: '#f0f0f5',
+                outline: 'none', boxSizing: 'border-box',
+                transition: 'border-color 0.15s',
+              }}
+              onFocus={e => (e.target.style.borderColor = 'rgba(99,102,241,0.6)')}
+              onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.1)')}
             />
           </div>
 
-          <div className="mb-6">
-            <label htmlFor="password" className="block text-gray-700 font-medium mb-2">
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.5)', marginBottom: 6, letterSpacing: '0.3px', textTransform: 'uppercase' }}>
               Password
             </label>
             <input
               type="password"
-              id="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={e => setPassword(e.target.value)}
               required
               disabled={loading}
+              autoComplete="current-password"
+              style={{
+                width: '100%', padding: '11px 14px',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 10, fontSize: 14, color: '#f0f0f5',
+                outline: 'none', boxSizing: 'border-box',
+                transition: 'border-color 0.15s',
+              }}
+              onFocus={e => (e.target.style.borderColor = 'rgba(99,102,241,0.6)')}
+              onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.1)')}
             />
           </div>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            <div style={{
+              marginBottom: 16, padding: '10px 14px',
+              background: 'rgba(239,68,68,0.12)',
+              border: '1px solid rgba(239,68,68,0.25)',
+              borderRadius: 8, fontSize: 13, color: '#f87171',
+            }}>
               {error}
             </div>
           )}
@@ -80,9 +123,17 @@ export const LoginPage: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              width: '100%', padding: '12px',
+              background: loading ? 'rgba(99,102,241,0.4)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              border: 'none', borderRadius: 10,
+              fontSize: 14, fontWeight: 600, color: '#fff',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'opacity 0.15s',
+              boxShadow: loading ? 'none' : '0 4px 16px rgba(99,102,241,0.35)',
+            }}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
       </div>

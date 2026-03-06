@@ -1,44 +1,50 @@
 /**
- * Header Component
- * 
- * Displays user information and logout button.
- * 
- * Requirements: 6.6
+ * Header Component — Apple-inspired dark theme
  */
 
 import React from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+
+const PAGE_TITLES: Record<string, string> = {
+  '/dashboard':     'Dashboard',
+  '/leads':         'Leads',
+  '/buyer-leads':   'Buyer Automation',
+  '/agents':        'Agents',
+  '/companies':     'Companies',
+  '/lead-sources':  'Lead Sources',
+  '/templates':     'Templates',
+  '/audit-logs':    'Audit Logs',
+  '/settings':      'Settings',
+};
 
 export const Header: React.FC = () => {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
+  const location = useLocation();
+  const segment = '/' + location.pathname.split('/')[1];
+  const title = PAGE_TITLES[segment] || 'Dashboard';
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
-      <div className="px-6 py-4 flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-gray-800">
-          Admin Dashboard
-        </h2>
-        
-        <div className="flex items-center space-x-4">
-          <span className="text-gray-600">
-            Welcome, <span className="font-medium">{user?.username}</span>
-          </span>
-          
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md transition-colors"
-          >
-            Logout
-          </button>
-        </div>
-      </div>
+    <header style={{
+      height: 56,
+      background: 'rgba(10,10,15,0.85)',
+      borderBottom: '1px solid rgba(255,255,255,0.06)',
+      backdropFilter: 'blur(20px)',
+      display: 'flex',
+      alignItems: 'center',
+      padding: '0 24px',
+      flexShrink: 0,
+      position: 'sticky',
+      top: 0,
+      zIndex: 10,
+    }}>
+      <h1 style={{
+        margin: 0,
+        fontSize: 16,
+        fontWeight: 600,
+        color: '#f0f0f5',
+        letterSpacing: '-0.3px',
+      }}>
+        {title}
+      </h1>
     </header>
   );
 };
