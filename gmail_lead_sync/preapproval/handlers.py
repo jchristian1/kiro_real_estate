@@ -188,8 +188,15 @@ def on_buyer_lead_email_received(
         return  # Req 9.2 — no further action
 
     # ------------------------------------------------------------------
-    # 2. Transition: NEW_EMAIL_RECEIVED → FORM_INVITE_CREATED (Req 9.3)
+    # 2. Transition: NULL → NEW_EMAIL_RECEIVED → FORM_INVITE_CREATED (Req 9.3)
     # ------------------------------------------------------------------
+    _state_machine.transition(
+        db,
+        tenant_id=tenant_id,
+        lead_id=lead_id,
+        intent_type=IntentType.BUY,
+        to_state=LeadState.NEW_EMAIL_RECEIVED,
+    )
     _state_machine.transition(
         db,
         tenant_id=tenant_id,
