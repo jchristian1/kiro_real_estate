@@ -1,13 +1,5 @@
-/**
- * LeadSourceList Component
- *
- * Displays a table of lead sources with name, regex pattern (truncated),
- * description, created date, and action buttons.
- *
- * Requirements: 2.1
- */
-
 import React from 'react';
+import { useT } from '../utils/useT';
 
 export interface LeadSource {
   id: number;
@@ -29,97 +21,43 @@ interface LeadSourceListProps {
   onViewHistory?: (leadSource: LeadSource) => void;
 }
 
-export const LeadSourceList: React.FC<LeadSourceListProps> = ({
-  leadSources,
-  onEdit,
-  onDelete,
-  onView,
-  onViewHistory,
-}) => {
-  const truncate = (str: string, maxLen = 40): string =>
-    str.length > maxLen ? str.slice(0, maxLen) + '…' : str;
+export const LeadSourceList: React.FC<LeadSourceListProps> = ({ leadSources, onEdit, onDelete, onView, onViewHistory }) => {
+  const t = useT();
+  const truncate = (str: string, maxLen = 40) => str.length > maxLen ? str.slice(0, maxLen) + '…' : str;
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+    <div style={t.card}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Sender Email
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Identifier Snippet
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Name Regex
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Auto Respond
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Created
-            </th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Actions
-            </th>
+            {['Sender Email', 'Identifier Snippet', 'Name Regex', 'Auto Respond', 'Created', 'Actions'].map(h => (
+              <th key={h} style={{ ...t.th, textAlign: h === 'Actions' ? 'right' : 'left' }}>{h}</th>
+            ))}
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody>
           {leadSources.map((ls) => (
-            <tr key={ls.id} className="hover:bg-gray-50">
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm font-medium text-gray-900">{ls.sender_email}</div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm text-gray-500">{truncate(ls.identifier_snippet)}</div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <code
-                  className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded font-mono"
-                  title={ls.name_regex}
-                >
+            <tr key={ls.id} style={{ borderBottom: `1px solid ${t.border}` }}>
+              <td style={{ ...t.td, fontWeight: 500 }}>{ls.sender_email}</td>
+              <td style={{ ...t.td, color: t.textMuted }}>{truncate(ls.identifier_snippet)}</td>
+              <td style={t.td}>
+                <code style={{ fontSize: 11, background: t.bgBadge, color: t.textSecondary, padding: '2px 6px', borderRadius: 4, fontFamily: 'monospace' }} title={ls.name_regex}>
                   {truncate(ls.name_regex)}
                 </code>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                  ls.auto_respond_enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                }`}>
+              <td style={t.td}>
+                <span style={{ padding: '2px 8px', fontSize: 10, fontWeight: 600, background: ls.auto_respond_enabled ? t.greenBg : t.bgBadge, color: ls.auto_respond_enabled ? t.green : t.textMuted, borderRadius: 20 }}>
                   {ls.auto_respond_enabled ? 'Yes' : 'No'}
                 </span>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm text-gray-500">
-                  {new Date(ls.created_at).toLocaleDateString()}
+              <td style={{ ...t.td, color: t.textMuted }}>{new Date(ls.created_at).toLocaleDateString()}</td>
+              <td style={{ ...t.td, textAlign: 'right' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
+                  <button onClick={() => onView(ls)} style={{ color: t.accent, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>View</button>
+                  <button onClick={() => onEdit(ls)} style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>Edit</button>
+                  {onViewHistory && <button onClick={() => onViewHistory(ls)} style={{ color: t.textSecondary, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>History</button>}
+                  <button onClick={() => onDelete(ls)} style={{ color: t.red, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>Delete</button>
                 </div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <button
-                  className="text-blue-600 hover:text-blue-900 mr-4"
-                  onClick={() => onView(ls)}
-                >
-                  View
-                </button>
-                <button
-                  className="text-gray-600 hover:text-gray-900 mr-4"
-                  onClick={() => onEdit(ls)}
-                >
-                  Edit
-                </button>
-                {onViewHistory && (
-                  <button
-                    className="text-purple-600 hover:text-purple-900 mr-4"
-                    onClick={() => onViewHistory(ls)}
-                  >
-                    History
-                  </button>
-                )}
-                <button
-                  className="text-red-600 hover:text-red-900"
-                  onClick={() => onDelete(ls)}
-                >
-                  Delete
-                </button>
               </td>
             </tr>
           ))}

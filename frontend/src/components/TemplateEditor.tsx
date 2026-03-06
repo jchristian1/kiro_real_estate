@@ -1,11 +1,8 @@
-/**
- * TemplateEditor Component
- * Requirements: 3.3, 3.5
- */
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useT } from '../utils/useT';
 
 const PLACEHOLDERS = ['{lead_name}', '{agent_name}', '{agent_phone}', '{agent_email}'];
 
@@ -30,70 +27,65 @@ export interface TemplateEditorProps {
 export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   initialValues, isEditMode = false, onSubmit, onCancel, isSubmitting = false, serverError,
 }) => {
+  const t = useT();
   const { register, handleSubmit, setValue, getValues, formState: { errors } } = useForm<TemplateFormValues>({
     resolver: zodResolver(templateSchema),
     defaultValues: { name: initialValues?.name ?? '', subject: initialValues?.subject ?? '', body: initialValues?.body ?? '' },
   });
 
   const insertPlaceholder = (field: 'subject' | 'body', placeholder: string) => {
-    const current = getValues(field);
-    setValue(field, current + placeholder, { shouldValidate: true });
+    setValue(field, getValues(field) + placeholder, { shouldValidate: true });
   };
 
-  const inputCls = (err?: string) =>
-    `w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${err ? 'border-red-500' : 'border-gray-300'}`;
+  const fieldStyle = (hasError: boolean): React.CSSProperties => ({
+    ...t.input,
+    borderColor: hasError ? t.red : t.border,
+  });
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate aria-label="Template editor form" data-testid="template-editor-form">
       {serverError && (
-        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded" role="alert" data-testid="server-error">{serverError}</div>
+        <div style={{ marginBottom: 16, padding: '10px 14px', background: t.redBg, border: `1px solid ${t.red}40`, color: t.red, borderRadius: 10, fontSize: 13 }} role="alert" data-testid="server-error">{serverError}</div>
       )}
 
-      {/* Placeholder buttons */}
-      <div className="mb-4">
-        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Available Placeholders</p>
-        <div className="flex flex-wrap gap-2" data-testid="placeholder-buttons">
+      <div style={{ marginBottom: 16 }}>
+        <p style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Available Placeholders</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }} data-testid="placeholder-buttons">
           {PLACEHOLDERS.map((p) => (
-            <div key={p} className="flex gap-1">
+            <div key={p} style={{ display: 'flex', gap: 4 }}>
               <button type="button" onClick={() => insertPlaceholder('subject', p)}
-                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded font-mono" data-testid={`insert-subject-${p}`}>
-                +Subject
-              </button>
+                style={{ padding: '3px 8px', fontSize: 11, background: t.bgBadge, color: t.textMuted, border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'monospace' }}
+                data-testid={`insert-subject-${p}`}>+Subject</button>
               <button type="button" onClick={() => insertPlaceholder('body', p)}
-                className="px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 rounded font-mono" data-testid={`insert-body-${p}`}>
-                {p}
-              </button>
+                style={{ padding: '3px 8px', fontSize: 11, background: t.accentBg, color: t.accent, border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'monospace' }}
+                data-testid={`insert-body-${p}`}>{p}</button>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="mb-4">
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Name <span className="text-red-500">*</span></label>
-        <input id="name" type="text" {...register('name')} disabled={isSubmitting} className={inputCls(errors.name?.message)} data-testid="name-input" />
-        {errors.name && <p className="mt-1 text-sm text-red-600" role="alert" data-testid="error-name">{errors.name.message}</p>}
+      <div style={{ marginBottom: 16 }}>
+        <label htmlFor="name" style={t.labelStyle}>Name <span style={{ color: t.red }}>*</span></label>
+        <input id="name" type="text" {...register('name')} disabled={isSubmitting} style={fieldStyle(!!errors.name?.message)} data-testid="name-input" />
+        {errors.name && <p style={{ marginTop: 4, fontSize: 12, color: t.red }} role="alert" data-testid="error-name">{errors.name.message}</p>}
       </div>
 
-      <div className="mb-4">
-        <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">Subject <span className="text-red-500">*</span></label>
-        <input id="subject" type="text" {...register('subject')} disabled={isSubmitting} className={inputCls(errors.subject?.message)} data-testid="subject-input" />
-        {errors.subject && <p className="mt-1 text-sm text-red-600" role="alert" data-testid="error-subject">{errors.subject.message}</p>}
+      <div style={{ marginBottom: 16 }}>
+        <label htmlFor="subject" style={t.labelStyle}>Subject <span style={{ color: t.red }}>*</span></label>
+        <input id="subject" type="text" {...register('subject')} disabled={isSubmitting} style={fieldStyle(!!errors.subject?.message)} data-testid="subject-input" />
+        {errors.subject && <p style={{ marginTop: 4, fontSize: 12, color: t.red }} role="alert" data-testid="error-subject">{errors.subject.message}</p>}
       </div>
 
-      <div className="mb-4">
-        <label htmlFor="body" className="block text-sm font-medium text-gray-700 mb-1">Body <span className="text-red-500">*</span></label>
-        <textarea id="body" rows={8} {...register('body')} disabled={isSubmitting} className={inputCls(errors.body?.message)} data-testid="body-input" />
-        {errors.body && <p className="mt-1 text-sm text-red-600" role="alert" data-testid="error-body">{errors.body.message}</p>}
+      <div style={{ marginBottom: 16 }}>
+        <label htmlFor="body" style={t.labelStyle}>Body <span style={{ color: t.red }}>*</span></label>
+        <textarea id="body" rows={8} {...register('body')} disabled={isSubmitting} style={fieldStyle(!!errors.body?.message)} data-testid="body-input" />
+        {errors.body && <p style={{ marginTop: 4, fontSize: 12, color: t.red }} role="alert" data-testid="error-body">{errors.body.message}</p>}
       </div>
 
-      <div className="flex justify-end gap-3 mt-6">
-        <button type="button" onClick={onCancel} disabled={isSubmitting}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">
-          Cancel
-        </button>
-        <button type="submit" disabled={isSubmitting}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50" data-testid="submit-button">
-          {isSubmitting ? 'Saving...' : isEditMode ? 'Update Template' : 'Create Template'}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+        <button type="button" onClick={onCancel} disabled={isSubmitting} style={{ ...t.btnSecondary, opacity: isSubmitting ? 0.5 : 1 }}>Cancel</button>
+        <button type="submit" disabled={isSubmitting} style={{ ...t.btnPrimary, opacity: isSubmitting ? 0.5 : 1 }} data-testid="submit-button">
+          {isSubmitting ? 'Saving…' : isEditMode ? 'Update Template' : 'Create Template'}
         </button>
       </div>
     </form>

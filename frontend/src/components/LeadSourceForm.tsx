@@ -2,6 +2,7 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useT } from '../utils/useT';
 
 const isValidRegex = (val: string) => { try { new RegExp(val); return true; } catch { return false; } };
 
@@ -16,10 +17,7 @@ const leadSourceSchema = z.object({
 
 export type LeadSourceFormValues = z.infer<typeof leadSourceSchema>;
 
-export interface Template {
-  id: number;
-  name: string;
-}
+export interface Template { id: number; name: string; }
 
 export interface LeadSourceFormProps {
   initialValues?: Partial<LeadSourceFormValues>;
@@ -31,22 +29,10 @@ export interface LeadSourceFormProps {
   templates?: Template[];
 }
 
-const FormField: React.FC<{ label: string; htmlFor: string; error?: string; required?: boolean; children: React.ReactNode }> = ({ label, htmlFor, error, required, children }) => (
-  <div className="mb-4">
-    <label htmlFor={htmlFor} className="block text-sm font-medium text-gray-700 mb-1">
-      {label}{required && <span className="text-red-500 ml-1">*</span>}
-    </label>
-    {children}
-    {error && <p className="mt-1 text-sm text-red-600" role="alert">{error}</p>}
-  </div>
-);
-
-const inputClass = (hasError: boolean) =>
-  `w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${hasError ? 'border-red-500' : 'border-gray-300'}`;
-
 export const LeadSourceForm: React.FC<LeadSourceFormProps> = ({
   initialValues, isEditMode = false, onSubmit, onCancel, isSubmitting = false, serverError, templates = [],
 }) => {
+  const t = useT();
   const { register, handleSubmit, formState: { errors } } = useForm<LeadSourceFormValues>({
     resolver: zodResolver(leadSourceSchema),
     defaultValues: {
@@ -59,58 +45,50 @@ export const LeadSourceForm: React.FC<LeadSourceFormProps> = ({
     },
   });
 
+  const fieldStyle = (hasError: boolean): React.CSSProperties => ({
+    ...t.input,
+    borderColor: hasError ? t.red : t.border,
+  });
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate aria-label="Lead source form">
       {serverError && (
-        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded" role="alert">{serverError}</div>
+        <div style={{ marginBottom: 16, padding: '10px 14px', background: t.redBg, border: `1px solid ${t.red}40`, color: t.red, borderRadius: 10, fontSize: 13 }} role="alert">{serverError}</div>
       )}
 
-      <FormField label="Sender Email" htmlFor="sender_email" error={errors.sender_email?.message} required>
-        <input id="sender_email" type="email" {...register('sender_email')} disabled={isSubmitting}
-          placeholder="leads@zillow.com" className={inputClass(!!errors.sender_email)} />
-      </FormField>
+      {[
+        { id: 'sender_email', label: 'Sender Email', type: 'email', placeholder: 'leads@zillow.com', error: errors.sender_email?.message, mono: false },
+        { id: 'identifier_snippet', label: 'Identifier Snippet', type: 'text', placeholder: 'e.g. New Lead Notification', error: errors.identifier_snippet?.message, mono: false },
+        { id: 'name_regex', label: 'Name Regex', type: 'text', placeholder: 'e.g. Name:\\s*(.+)', error: errors.name_regex?.message, mono: true },
+        { id: 'phone_regex', label: 'Phone Regex', type: 'text', placeholder: 'e.g. Phone:\\s*([\\d\\-\\(\\)\\s]+)', error: errors.phone_regex?.message, mono: true },
+      ].map(({ id, label, type, placeholder, error, mono }) => (
+        <div key={id} style={{ marginBottom: 16 }}>
+          <label htmlFor={id} style={t.labelStyle}>{label} <span style={{ color: t.red }}>*</span></label>
+          <input id={id} type={type} {...register(id as keyof LeadSourceFormValues)} disabled={isSubmitting}
+            placeholder={placeholder} style={{ ...fieldStyle(!!error), fontFamily: mono ? 'monospace' : 'inherit' }} />
+          {error && <p style={{ marginTop: 4, fontSize: 12, color: t.red }} role="alert">{error}</p>}
+        </div>
+      ))}
 
-      <FormField label="Identifier Snippet" htmlFor="identifier_snippet" error={errors.identifier_snippet?.message} required>
-        <input id="identifier_snippet" type="text" {...register('identifier_snippet')} disabled={isSubmitting}
-          placeholder="e.g. New Lead Notification" className={inputClass(!!errors.identifier_snippet)} />
-      </FormField>
-
-      <FormField label="Name Regex" htmlFor="name_regex" error={errors.name_regex?.message} required>
-        <input id="name_regex" type="text" {...register('name_regex')} disabled={isSubmitting}
-          placeholder="e.g. Name:\s*(.+)" className={`${inputClass(!!errors.name_regex)} font-mono text-sm`} />
-      </FormField>
-
-      <FormField label="Phone Regex" htmlFor="phone_regex" error={errors.phone_regex?.message} required>
-        <input id="phone_regex" type="text" {...register('phone_regex')} disabled={isSubmitting}
-          placeholder="e.g. Phone:\s*([\d\-\(\)\s]+)" className={`${inputClass(!!errors.phone_regex)} font-mono text-sm`} />
-      </FormField>
-
-      <FormField label="Response Template" htmlFor="template_id" error={errors.template_id?.message}>
-        <select id="template_id" disabled={isSubmitting}
-          className={inputClass(!!errors.template_id)}
+      <div style={{ marginBottom: 16 }}>
+        <label htmlFor="template_id" style={t.labelStyle}>Response Template</label>
+        <select id="template_id" disabled={isSubmitting} style={fieldStyle(!!errors.template_id)}
           {...register('template_id', { setValueAs: (v) => (v === '' || v === null ? null : Number(v)) })}>
           <option value="">— No template —</option>
-          {templates.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
-          ))}
+          {templates.map((tmpl) => <option key={tmpl.id} value={tmpl.id}>{tmpl.name}</option>)}
         </select>
-        <p className="mt-1 text-xs text-gray-500">Required for auto-respond to work</p>
-      </FormField>
-
-      <div className="mb-4 flex items-center gap-2">
-        <input id="auto_respond_enabled" type="checkbox" {...register('auto_respond_enabled')}
-          disabled={isSubmitting} className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
-        <label htmlFor="auto_respond_enabled" className="text-sm font-medium text-gray-700">Auto-respond enabled</label>
+        <p style={{ marginTop: 4, fontSize: 11, color: t.textFaint }}>Required for auto-respond to work</p>
       </div>
 
-      <div className="flex justify-end gap-3 mt-6">
-        <button type="button" onClick={onCancel} disabled={isSubmitting}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">
-          Cancel
-        </button>
-        <button type="submit" disabled={isSubmitting}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50">
-          {isSubmitting ? 'Saving...' : isEditMode ? 'Update Lead Source' : 'Create Lead Source'}
+      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <input id="auto_respond_enabled" type="checkbox" {...register('auto_respond_enabled')} disabled={isSubmitting} style={{ accentColor: t.accent, width: 16, height: 16 }} />
+        <label htmlFor="auto_respond_enabled" style={{ fontSize: 13, color: t.text, cursor: 'pointer' }}>Auto-respond enabled</label>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+        <button type="button" onClick={onCancel} disabled={isSubmitting} style={{ ...t.btnSecondary, opacity: isSubmitting ? 0.5 : 1 }}>Cancel</button>
+        <button type="submit" disabled={isSubmitting} style={{ ...t.btnPrimary, opacity: isSubmitting ? 0.5 : 1 }}>
+          {isSubmitting ? 'Saving…' : isEditMode ? 'Update Lead Source' : 'Create Lead Source'}
         </button>
       </div>
     </form>

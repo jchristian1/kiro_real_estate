@@ -3,32 +3,40 @@
  */
 import React from 'react';
 import { NavLink, Outlet, useParams } from 'react-router-dom';
+import { useT } from '../../utils/useT';
 
 const TAB_LINKS = [
-  { to: 'forms',     label: 'Forms' },
-  { to: 'scoring',   label: 'Scoring' },
-  { to: 'states',    label: 'Lead States' },
-  { to: 'simulate',  label: 'Simulate' },
-  { to: 'audit',     label: 'Audit Log' },
+  { to: 'forms',    label: 'Forms' },
+  { to: 'scoring',  label: 'Scoring' },
+  { to: 'states',   label: 'Lead States' },
+  { to: 'simulate', label: 'Simulate' },
+  { to: 'audit',    label: 'Audit Log' },
 ];
 
 export const BuyerLeadsLayout: React.FC = () => {
   const { tenantId } = useParams<{ tenantId: string }>();
+  const t = useT();
   const base = `/buyer-leads/${tenantId}`;
 
-  const tabClass = ({ isActive }: { isActive: boolean }) =>
-    `px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-      isActive
-        ? 'border-blue-600 text-blue-600'
-        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-    }`;
-
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-gray-800">Buyer Lead Automation</h1>
-      <nav className="flex border-b border-gray-200 space-x-1">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, margin: 0 }}>Buyer Lead Automation</h1>
+      <nav style={{ display: 'flex', gap: 4, borderBottom: `1px solid ${t.border}` }}>
         {TAB_LINKS.map(({ to, label }) => (
-          <NavLink key={to} to={`${base}/${to}`} className={tabClass}>
+          <NavLink
+            key={to}
+            to={`${base}/${to}`}
+            style={({ isActive }) => ({
+              padding: '8px 16px',
+              fontSize: 13,
+              fontWeight: 500,
+              color: isActive ? t.accent : t.textMuted,
+              borderBottom: isActive ? `2px solid ${t.accent}` : '2px solid transparent',
+              textDecoration: 'none',
+              transition: 'all 0.15s',
+              marginBottom: -1,
+            })}
+          >
             {label}
           </NavLink>
         ))}

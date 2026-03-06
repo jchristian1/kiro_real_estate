@@ -6,6 +6,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useToast } from '../../contexts/ToastContext';
+import { useT } from '../../utils/useT';
 
 const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
@@ -25,22 +26,26 @@ interface MessageTemplateVersion {
 }
 
 const KEY_OPTIONS = ['INITIAL_INVITE_EMAIL', 'POST_SUBMISSION_EMAIL'];
-
 const KEY_LABELS: Record<string, string> = {
   INITIAL_INVITE_EMAIL: 'Initial Invite Email',
   POST_SUBMISSION_EMAIL: 'Post-Submission Email',
 };
 
+// Pagination
+const PAGE_SIZE = 20;
+
 export const EmailTemplatesTab: React.FC = () => {
   const { tenantId } = useParams<{ tenantId: string }>();
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
+  const t = useT();
 
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState<MessageTemplate | null>(null);
   const [versions, setVersions] = useState<MessageTemplateVersion[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
+  const [page, setPage] = useState(1);
 
   // Create modal
   const [showCreate, setShowCreate] = useState(false);
@@ -95,12 +100,12 @@ export const EmailTemplatesTab: React.FC = () => {
     }
   };
 
-  const handleDelete = async (t: MessageTemplate) => {
-    if (!confirm(`Delete "${KEY_LABELS[t.key] ?? t.key}"? This cannot be undone.`)) return;
+  const handleDelete = async (tmpl: MessageTemplate) => {
+    if (!confirm(`Delete "${KEY_LABELS[tmpl.key] ?? tmpl.key}"? This cannot be undone.`)) return;
     try {
-      await axios.delete(`${API}/buyer-leads/tenants/${tenantId}/message-templates/${t.id}`);
+      await axios.delete(`${API}/buyer-leads/tenants/${tenantId}/message-templates/${tmpl.id}`);
       success('Deleted');
-      if (selectedTemplate?.id === t.id) { setSelectedTemplate(null); setVersions([]); }
+      if (selectedTemplate?.id === tmpl.id) { setSelectedTemplate(null); setVersions([]); }
       fetchTemplates();
     } catch {
       toastError('Delete failed');
@@ -120,44 +125,50 @@ export const EmailTemplatesTab: React.FC = () => {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Loading…</div>;
+  const totalPages = Math.max(1, Math.ceil(templates.length / PAGE_SIZE));
+  const paged = templates.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  if (loading) {
+    return <div style={{ padding: 40, textAlign: 'center', color: t.textMuted }}>Loading…</div>;
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-700">Email Templates</h2>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md"
-        >
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: t.text, margin: 0 }}>Email Templates</h2>
+        <button onClick={() => setShowCreate(true)} style={t.btnPrimary}>
           New Template
         </button>
       </div>
 
       {/* Create modal */}
       {showCreate && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md space-y-4">
-            <h3 className="text-lg font-semibold">New Email Template</h3>
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
+        }}>
+          <div style={{
+            ...t.card,
+            width: '100%', maxWidth: 420,
+            display: 'flex', flexDirection: 'column', gap: 16,
+          }}>
+            <h3 style={{ fontSize: 15, fontWeight: 600, color: t.text, margin: 0 }}>New Email Template</h3>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Template Type</label>
+              <label style={t.labelStyle}>Template Type</label>
               <select
                 value={newKey}
                 onChange={(e) => setNewKey(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={t.input}
               >
                 {KEY_OPTIONS.map((k) => (
                   <option key={k} value={k}>{KEY_LABELS[k] ?? k}</option>
                 ))}
               </select>
             </div>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
-              <button
-                onClick={handleCreate}
-                disabled={creating}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md disabled:opacity-50"
-              >
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => setShowCreate(false)} style={t.btnSecondary}>Cancel</button>
+              <button onClick={handleCreate} disabled={creating} style={{ ...t.btnPrimary, opacity: creating ? 0.6 : 1 }}>
                 {creating ? 'Creating…' : 'Create'}
               </button>
             </div>
@@ -165,39 +176,43 @@ export const EmailTemplatesTab: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         {/* Template list */}
-        <div className="space-y-3">
-          {templates.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {paged.length === 0 ? (
+            <div style={{ ...t.card, textAlign: 'center', color: t.textMuted, padding: 40 }}>
               No templates found. Run the seed script or create one above.
             </div>
           ) : (
-            templates.map((t) => (
+            paged.map((tmpl) => (
               <div
-                key={t.id}
-                onClick={() => fetchVersions(t)}
-                className={`bg-white rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow ${
-                  selectedTemplate?.id === t.id ? 'ring-2 ring-blue-500' : ''
-                }`}
+                key={tmpl.id}
+                onClick={() => fetchVersions(tmpl)}
+                style={{
+                  ...t.card,
+                  cursor: 'pointer',
+                  outline: selectedTemplate?.id === tmpl.id ? `2px solid ${t.accent}` : 'none',
+                  outlineOffset: -2,
+                  padding: '14px 18px',
+                }}
               >
-                <div className="flex items-center justify-between">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                    <p className="text-sm font-semibold text-gray-800">
-                      {KEY_LABELS[t.key] ?? t.key}
+                    <p style={{ fontSize: 13, fontWeight: 600, color: t.text, margin: 0 }}>
+                      {KEY_LABELS[tmpl.key] ?? tmpl.key}
                     </p>
-                    <p className="text-xs text-gray-400 mt-0.5">{t.key}</p>
+                    <p style={{ fontSize: 11, color: t.textFaint, marginTop: 2 }}>{tmpl.key}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div style={{ display: 'flex', gap: 8 }}>
                     <button
-                      onClick={(e) => { e.stopPropagation(); navigate(`/buyer-leads/${tenantId}/templates/${t.id}`); }}
-                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md"
+                      onClick={(e) => { e.stopPropagation(); navigate(`/buyer-leads/${tenantId}/templates/${tmpl.id}`); }}
+                      style={{ ...t.btnPrimary, padding: '5px 12px', fontSize: 12 }}
                     >
                       Edit
                     </button>
                     <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(t); }}
-                      className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium rounded-md"
+                      onClick={(e) => { e.stopPropagation(); handleDelete(tmpl); }}
+                      style={{ ...t.btnDanger, padding: '5px 12px', fontSize: 12 }}
                     >
                       Delete
                     </button>
@@ -206,45 +221,80 @@ export const EmailTemplatesTab: React.FC = () => {
               </div>
             ))
           )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8 }}>
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                style={{ ...t.btnSecondary, padding: '5px 12px', fontSize: 12, opacity: page === 1 ? 0.4 : 1 }}
+              >
+                ‹ Prev
+              </button>
+              <span style={{ fontSize: 12, color: t.textMuted }}>
+                {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                style={{ ...t.btnSecondary, padding: '5px 12px', fontSize: 12, opacity: page === totalPages ? 0.4 : 1 }}
+              >
+                Next ›
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Version panel */}
         {selectedTemplate && (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-              <p className="text-sm font-semibold text-gray-700">
+          <div style={{ ...t.card, padding: 0, overflow: 'hidden' }}>
+            <div style={{
+              padding: '12px 18px',
+              borderBottom: `1px solid ${t.border}`,
+              background: t.bgCardHover,
+            }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: t.text, margin: 0 }}>
                 Versions — {KEY_LABELS[selectedTemplate.key] ?? selectedTemplate.key}
               </p>
             </div>
             {versionsLoading ? (
-              <div className="p-6 text-center text-gray-500">Loading…</div>
+              <div style={{ padding: 32, textAlign: 'center', color: t.textMuted }}>Loading…</div>
             ) : versions.length === 0 ? (
-              <div className="p-6 text-center text-gray-500">No versions yet</div>
+              <div style={{ padding: 32, textAlign: 'center', color: t.textMuted }}>No versions yet</div>
             ) : (
-              <table className="min-w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Version</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Active</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    {['Version', 'Subject', 'Active', 'Actions'].map((h, i) => (
+                      <th key={h} style={{
+                        ...t.th,
+                        padding: '10px 16px',
+                        textAlign: i === 3 ? 'right' : 'left',
+                      }}>{h}</th>
+                    ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody>
                   {versions.map((v) => (
-                    <tr key={v.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 text-sm text-gray-900">v{v.version_number}</td>
-                      <td className="px-4 py-2 text-sm text-gray-500 truncate max-w-xs">{v.subject_template}</td>
-                      <td className="px-4 py-2">
+                    <tr key={v.id} style={{ borderBottom: `1px solid ${t.border}` }}>
+                      <td style={{ ...t.td, padding: '10px 16px' }}>v{v.version_number}</td>
+                      <td style={{ ...t.td, padding: '10px 16px', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {v.subject_template}
+                      </td>
+                      <td style={{ ...t.td, padding: '10px 16px' }}>
                         {v.is_active && (
-                          <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">Active</span>
+                          <span style={{
+                            padding: '2px 8px', fontSize: 11, fontWeight: 600,
+                            background: t.greenBg, color: t.green, borderRadius: 20,
+                          }}>Active</span>
                         )}
                       </td>
-                      <td className="px-4 py-2 text-right">
+                      <td style={{ ...t.td, padding: '10px 16px', textAlign: 'right' }}>
                         {!v.is_active && (
                           <button
                             onClick={() => handleRollback(v.id)}
-                            className="text-blue-600 hover:text-blue-800 text-xs"
+                            style={{ ...t.btnSecondary, padding: '4px 10px', fontSize: 11 }}
                           >
                             Rollback
                           </button>

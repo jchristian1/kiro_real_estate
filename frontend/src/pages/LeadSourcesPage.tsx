@@ -4,12 +4,15 @@ import { LeadSourceList, LeadSource } from '../components/LeadSourceList';
 import { LeadSourceForm, LeadSourceFormValues, Template } from '../components/LeadSourceForm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { RegexVersionHistory } from '../components/RegexVersionHistory';
+import { useT } from '../utils/useT';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const PAGE_SIZE = 20;
 
 type View = 'list' | 'create' | 'edit';
 
 export const LeadSourcesPage: React.FC = () => {
+  const t = useT();
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +23,7 @@ export const LeadSourcesPage: React.FC = () => {
   const [historyTarget, setHistoryTarget] = useState<LeadSource | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   const fetchLeadSources = async () => {
     try {
@@ -84,9 +88,9 @@ export const LeadSourcesPage: React.FC = () => {
 
   if (view === 'create') {
     return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-800">Create Lead Source</h1>
-        <div className="bg-white rounded-lg shadow p-6 max-w-2xl">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, margin: 0 }}>Create Lead Source</h1>
+        <div style={{ ...t.card, maxWidth: 640 }}>
           <LeadSourceForm onSubmit={handleCreate} onCancel={() => { setView('list'); setServerError(null); }}
             isSubmitting={submitting} serverError={serverError} templates={templates} />
         </div>
@@ -96,9 +100,9 @@ export const LeadSourcesPage: React.FC = () => {
 
   if (view === 'edit' && selected) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-800">Edit Lead Source</h1>
-        <div className="bg-white rounded-lg shadow p-6 max-w-2xl">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, margin: 0 }}>Edit Lead Source</h1>
+        <div style={{ ...t.card, maxWidth: 640 }}>
           <LeadSourceForm isEditMode initialValues={selected}
             onSubmit={handleEdit}
             onCancel={() => { setView('list'); setSelected(null); setServerError(null); }}
@@ -108,30 +112,50 @@ export const LeadSourcesPage: React.FC = () => {
     );
   }
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="text-gray-600">Loading lead sources...</div></div>;
-  if (error)   return <div className="flex items-center justify-center h-64"><div className="text-red-600">{error}</div></div>;
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: t.textMuted }}>
+      Loading lead sources…
+    </div>
+  );
+  if (error) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: t.red }}>
+      {error}
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">Lead Sources</h1>
-        <button onClick={() => { setServerError(null); setView('create'); }}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, margin: 0 }}>Lead Sources</h1>
+        <button onClick={() => { setServerError(null); setView('create'); }} style={t.btnPrimary}>
           Create Lead Source
         </button>
       </div>
 
       {leadSources.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-8 text-center">
-          <div className="text-gray-500 mb-4">No lead sources configured</div>
-          <div className="text-sm text-gray-400">Create your first lead source to start matching incoming leads</div>
+        <div style={{ ...t.card, textAlign: 'center', padding: '48px 24px' }}>
+          <div style={{ color: t.textMuted, marginBottom: 8 }}>No lead sources configured</div>
+          <div style={{ fontSize: 12, color: t.textFaint }}>Create your first lead source to start matching incoming leads</div>
         </div>
       ) : (
-        <LeadSourceList leadSources={leadSources}
-          onView={(ls) => { setSelected(ls); }}
-          onEdit={(ls) => { setSelected(ls); setServerError(null); setView('edit'); }}
-          onDelete={(ls) => setDeleteTarget(ls)}
-          onViewHistory={(ls) => setHistoryTarget(ls)} />
+        <>
+          <LeadSourceList
+            leadSources={leadSources.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)}
+            onView={(ls) => { setSelected(ls); }}
+            onEdit={(ls) => { setSelected(ls); setServerError(null); setView('edit'); }}
+            onDelete={(ls) => setDeleteTarget(ls)}
+            onViewHistory={(ls) => setHistoryTarget(ls)}
+          />
+          {Math.ceil(leadSources.length / PAGE_SIZE) > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                style={{ ...t.btnSecondary, opacity: page === 1 ? 0.4 : 1 }}>Previous</button>
+              <span style={{ fontSize: 13, color: t.textMuted }}>Page {page} of {Math.ceil(leadSources.length / PAGE_SIZE)}</span>
+              <button onClick={() => setPage(p => Math.min(Math.ceil(leadSources.length / PAGE_SIZE), p + 1))} disabled={page === Math.ceil(leadSources.length / PAGE_SIZE)}
+                style={{ ...t.btnSecondary, opacity: page === Math.ceil(leadSources.length / PAGE_SIZE) ? 0.4 : 1 }}>Next</button>
+            </div>
+          )}
+        </>
       )}
 
       <ConfirmDialog isOpen={deleteTarget !== null} title="Delete Lead Source"
