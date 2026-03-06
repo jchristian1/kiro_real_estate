@@ -1,78 +1,128 @@
 /**
- * Login Page Component
- * 
- * Provides authentication interface for administrators.
- * Uses AuthContext for login functionality.
- * 
- * Requirements: 6.6
+ * Login Page — theme-aware, Apple-inspired
  */
 
 import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { getTokens } from '../utils/theme';
 
 export const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const { login, loading, error } = useAuth();
+  const { theme, toggle } = useTheme();
+  const t = getTokens(theme);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
     try {
       await login(username, password);
-      // On successful login, redirect to dashboard
       navigate('/dashboard');
-    } catch (err) {
-      // Error is handled by AuthContext
-      console.error('Login failed:', err);
-    }
+    } catch { /* handled by AuthContext */ }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">
-          Gmail Lead Sync
-        </h1>
-        <h2 className="text-xl text-gray-600 mb-6 text-center">
-          Admin Login
-        </h2>
+    <div style={{
+      minHeight: '100vh', width: '100%',
+      background: t.bgPage,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif',
+      padding: '0 16px',
+      transition: 'background 0.2s',
+      position: 'relative',
+    }}>
+      {/* Ambient glow */}
+      {theme === 'dark' && (
+        <div style={{
+          position: 'fixed', top: '15%', left: '50%', transform: 'translateX(-50%)',
+          width: 700, height: 500, borderRadius: '50%',
+          background: 'radial-gradient(ellipse, rgba(99,102,241,0.07) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+      )}
+
+      {/* Theme toggle top-right */}
+      <button
+        onClick={toggle}
+        style={{
+          position: 'fixed', top: 20, right: 20,
+          background: t.bgCard, border: `1px solid ${t.border}`,
+          borderRadius: 20, padding: '6px 14px',
+          fontSize: 12, fontWeight: 500, color: t.textMuted,
+          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+        }}
+      >
+        <span>{theme === 'dark' ? '☀️' : '🌙'}</span>
+        {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+      </button>
+
+      <div style={{
+        width: '100%', maxWidth: 380,
+        background: t.bgCard,
+        border: `1px solid ${t.border}`,
+        borderRadius: 22,
+        padding: '40px 36px',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        boxShadow: theme === 'dark'
+          ? '0 24px 80px rgba(0,0,0,0.5)'
+          : '0 8px 40px rgba(0,0,0,0.1)',
+        transition: 'background 0.2s, border-color 0.2s',
+      }}>
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{
+            width: 54, height: 54, borderRadius: 15,
+            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 26, color: '#fff', fontWeight: 800, marginBottom: 16,
+            boxShadow: '0 8px 24px rgba(99,102,241,0.4)',
+          }}>L</div>
+          <div style={{ fontSize: 21, fontWeight: 700, color: t.text, letterSpacing: '-0.5px' }}>LeadSync</div>
+          <div style={{ fontSize: 13, color: t.textMuted, marginTop: 4 }}>Sign in to your account</div>
+        </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label htmlFor="username" className="block text-gray-700 font-medium mb-2">
-              Username
-            </label>
-            <input
-              type="text"
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-              disabled={loading}
-            />
-          </div>
-
-          <div className="mb-6">
-            <label htmlFor="password" className="block text-gray-700 font-medium mb-2">
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-              disabled={loading}
-            />
-          </div>
+          {(['username', 'password'] as const).map((field, i) => (
+            <div key={field} style={{ marginBottom: i === 0 ? 14 : 20 }}>
+              <label style={{
+                display: 'block', fontSize: 11, fontWeight: 600,
+                color: t.textFaint, marginBottom: 6,
+                letterSpacing: '0.5px', textTransform: 'uppercase',
+              }}>
+                {field === 'username' ? 'Username' : 'Password'}
+              </label>
+              <input
+                type={field === 'password' ? 'password' : 'text'}
+                value={field === 'username' ? username : password}
+                onChange={e => field === 'username' ? setUsername(e.target.value) : setPassword(e.target.value)}
+                required
+                disabled={loading}
+                autoComplete={field === 'username' ? 'username' : 'current-password'}
+                style={{
+                  width: '100%', padding: '11px 14px',
+                  background: t.bgInput,
+                  border: `1.5px solid ${t.border}`,
+                  borderRadius: 11, fontSize: 14, color: t.text,
+                  outline: 'none', boxSizing: 'border-box',
+                  transition: 'border-color 0.15s, background 0.15s',
+                }}
+                onFocus={e => (e.target.style.borderColor = t.borderFocus)}
+                onBlur={e => (e.target.style.borderColor = t.border)}
+              />
+            </div>
+          ))}
 
           {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            <div style={{
+              marginBottom: 16, padding: '10px 14px',
+              background: t.redBg,
+              border: `1px solid ${t.red}30`,
+              borderRadius: 9, fontSize: 13, color: t.red,
+            }}>
               {error}
             </div>
           )}
@@ -80,9 +130,18 @@ export const LoginPage: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              width: '100%', padding: '12px',
+              background: loading ? t.accentBg : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              border: 'none', borderRadius: 11,
+              fontSize: 14, fontWeight: 600, color: '#fff',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              boxShadow: loading ? 'none' : '0 4px 16px rgba(99,102,241,0.4)',
+              transition: 'opacity 0.15s',
+              letterSpacing: '-0.1px',
+            }}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
       </div>
