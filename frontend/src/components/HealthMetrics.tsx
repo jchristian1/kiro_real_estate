@@ -1,97 +1,81 @@
 /**
  * Health Metrics Component
- * 
- * Displays system health metrics including:
- * - Overall system status
- * - Database connection status
- * - Active watcher count
- * - Failed watcher count
- * - Errors in last 24 hours
- * 
  * Requirements: 8.5, 16.1
  */
-
 import React from 'react';
 import { HealthData } from '../pages/DashboardPage';
+import { useT } from '../utils/useT';
 
 interface HealthMetricsProps {
   healthData: HealthData;
 }
 
 export const HealthMetrics: React.FC<HealthMetricsProps> = ({ healthData }) => {
+  const t = useT();
   const isHealthy = healthData.status === 'healthy';
   const isDatabaseConnected = healthData.database?.connected === true;
+  const errorCount = healthData.errors?.count_24h ?? 0;
+  const activeWatchers = healthData.watchers?.active_count ?? 0;
+
+  const statCard = (label: string, content: React.ReactNode) => (
+    <div style={{ ...t.card, padding: '14px 18px', flex: 1, minWidth: 120 }}>
+      <div style={t.labelStyle}>{label}</div>
+      <div style={{ marginTop: 6 }}>{content}</div>
+    </div>
+  );
+
+  const statusDot = (ok: boolean) => (
+    <span style={{
+      display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+      background: ok ? t.green : t.red, marginRight: 7, flexShrink: 0,
+      boxShadow: ok ? `0 0 6px ${t.green}80` : `0 0 6px ${t.red}80`,
+    }} />
+  );
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-xl font-semibold text-gray-800 mb-4">System Health</h2>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div style={{ ...t.card, padding: '20px 24px' }}>
+      <h2 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600, color: t.text }}>System Health</h2>
+
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         {/* Overall Status */}
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="text-sm text-gray-600 mb-1">Status</div>
-          <div className="flex items-center">
-            <span
-              className={`inline-block w-3 h-3 rounded-full mr-2 ${
-                isHealthy ? 'bg-green-500' : 'bg-red-500'
-              }`}
-            />
-            <span className={`text-lg font-semibold ${
-              isHealthy ? 'text-green-700' : 'text-red-700'
-            }`}>
+        {statCard('Status',
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {statusDot(isHealthy)}
+            <span style={{ fontSize: 14, fontWeight: 600, color: isHealthy ? t.green : t.red }}>
               {healthData.status}
             </span>
           </div>
-        </div>
+        )}
 
-        {/* Database Status */}
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="text-sm text-gray-600 mb-1">Database</div>
-          <div className="flex items-center">
-            <span
-              className={`inline-block w-3 h-3 rounded-full mr-2 ${
-                isDatabaseConnected ? 'bg-green-500' : 'bg-red-500'
-              }`}
-            />
-            <span className={`text-lg font-semibold ${
-              isDatabaseConnected ? 'text-green-700' : 'text-red-700'
-            }`}>
+        {/* Database */}
+        {statCard('Database',
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {statusDot(isDatabaseConnected)}
+            <span style={{ fontSize: 14, fontWeight: 600, color: isDatabaseConnected ? t.green : t.red }}>
               {isDatabaseConnected ? 'connected' : 'disconnected'}
             </span>
           </div>
-        </div>
+        )}
 
         {/* Active Watchers */}
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="text-sm text-gray-600 mb-1">Active Watchers</div>
-          <div className="text-2xl font-bold text-blue-600">
-            {healthData.watchers?.active_count ?? 0}
-          </div>
-        </div>
+        {statCard('Active Watchers',
+          <span style={{ fontSize: 22, fontWeight: 700, color: t.accent }}>{activeWatchers}</span>
+        )}
 
         {/* Failed Watchers */}
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="text-sm text-gray-600 mb-1">Failed Watchers</div>
-          <div className={`text-2xl font-bold ${
-            0 > 0 ? 'text-red-600' : 'text-gray-600'
-          }`}>
-            0
-          </div>
-        </div>
+        {statCard('Failed Watchers',
+          <span style={{ fontSize: 22, fontWeight: 700, color: t.textMuted }}>0</span>
+        )}
 
-        {/* Errors (24h) */}
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="text-sm text-gray-600 mb-1">Errors (24h)</div>
-          <div className={`text-2xl font-bold ${
-            (healthData.errors?.count_24h ?? 0) > 0 ? 'text-orange-600' : 'text-gray-600'
-          }`}>
-            {healthData.errors?.count_24h ?? 0}
-          </div>
-        </div>
+        {/* Errors 24h */}
+        {statCard('Errors (24h)',
+          <span style={{ fontSize: 22, fontWeight: 700, color: errorCount > 0 ? t.orange : t.textMuted }}>
+            {errorCount}
+          </span>
+        )}
       </div>
 
-      {/* Timestamp */}
-      <div className="mt-4 text-xs text-gray-500">
+      <div style={{ marginTop: 14, fontSize: 11, color: t.textFaint }}>
         Last updated: {new Date(healthData.timestamp).toLocaleString()}
       </div>
     </div>
