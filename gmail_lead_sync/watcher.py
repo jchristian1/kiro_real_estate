@@ -702,6 +702,59 @@ class GmailWatcher:
                         f"Error sending automated response for lead {lead.id}: {e}",
                         exc_info=True
                     )
+
+                # Trigger buyer lead preapproval pipeline if tenant is configured
+                try:
+                    from gmail_lead_sync.models import Credentials
+                    from gmail_lead_sync.preapproval.handlers import on_buyer_lead_email_received
+                    from gmail_lead_sync.preapproval.models_preapproval import FormTemplate
+
+                    # Resolve tenant_id via agent_id → Credentials.company_id
+                    tenant_id = None
+                    if lead.agent_id:
+                        creds = (
+                            self.db_session.query(Credentials)
+                            .filter(Credentials.agent_id == lead.agent_id)
+                            .first()
+                        )
+                        if creds and creds.company_id:
+                            tenant_id = creds.company_id
+
+                    if tenant_id:
+                        # Only trigger if tenant has an active BUY form
+                        has_form = (
+                            self.db_session.query(FormTemplate)
+                            .filter(
+                                FormTemplate.tenant_id == tenant_id,
+                                FormTemplate.intent_type == "BUY",
+                            )
+                            .first()
+                        )
+                        if has_form:
+                            logger.info(
+                                f"Triggering preapproval pipeline for lead {lead.id} "
+                                f"(tenant={tenant_id})"
+                            )
+                            on_buyer_lead_email_received(
+                                db=self.db_session,
+                                tenant_id=tenant_id,
+                                lead_id=lead.id,
+                                parsed_metadata={},
+                            )
+                        else:
+                            logger.debug(
+                                f"No BUY form for tenant {tenant_id}, skipping preapproval"
+                            )
+                    else:
+                        logger.debug(
+                            f"Cannot resolve tenant for lead {lead.id} "
+                            f"(agent_id={lead.agent_id}), skipping preapproval"
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"Error triggering preapproval pipeline for lead {lead.id}: {e}",
+                        exc_info=True,
+                    )
             else:
                 # Parsing failed (already logged by parser)
                 logger.info(f"Failed to extract lead from email {gmail_uid}")

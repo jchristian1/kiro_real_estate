@@ -28,6 +28,7 @@ import { SimulationTab } from './pages/buyer-leads/SimulationTab';
 import { BuyerAuditTab } from './pages/buyer-leads/BuyerAuditTab';
 import { FormVersionEditor } from './pages/buyer-leads/FormVersionEditor';
 import { TemplateVersionEditor } from './pages/buyer-leads/TemplateVersionEditor';
+import { PublicFormPage } from './pages/PublicFormPage';
 
 function App() {
   return (
@@ -36,6 +37,8 @@ function App() {
         <Routes>
           {/* Public route */}
           <Route path="/login" element={<LoginPage />} />
+          {/* Public tokenized form — no auth */}
+          <Route path="/public/buyer-qualification/:token" element={<PublicFormPage />} />
           
           {/* Redirect root to dashboard */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

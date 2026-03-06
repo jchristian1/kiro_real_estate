@@ -100,7 +100,37 @@ def get_db():
 # Endpoint
 # ---------------------------------------------------------------------------
 
-@router.post("/public/buyer-qualification/{token}/submit")
+@router.get("/public/buyer-qualification/{token}")
+async def get_buyer_qualification_form(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Return the form questions for a given invitation token.
+    No authentication required.
+    """
+    import hashlib, json as _json
+    from datetime import datetime as _dt
+    from gmail_lead_sync.preapproval.models_preapproval import FormInvitation, FormVersion
+
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    invitation = db.query(FormInvitation).filter(FormInvitation.token_hash == token_hash).first()
+
+    if not invitation:
+        return JSONResponse(status_code=404, content={"error": "Invalid link"})
+    if invitation.used_at is not None:
+        return JSONResponse(status_code=410, content={"error": "This link has already been used"})
+    if invitation.expires_at < _dt.utcnow():
+        return JSONResponse(status_code=410, content={"error": "This link has expired"})
+
+    form_version = db.get(FormVersion, invitation.form_version_id)
+    schema = _json.loads(form_version.schema_json)
+    questions = schema if isinstance(schema, list) else schema.get("questions", [])
+
+    return {"token": token, "questions": questions}
+
+
+
 async def submit_buyer_qualification(
     request: Request,
     token: str,
