@@ -1,19 +1,74 @@
 /**
- * Shared design tokens — Apple-inspired dark theme
+ * Design tokens for dark and light themes.
+ * Apple-inspired — clean, modern, professional.
  */
 
-export const colors = {
-  bg:           '#0a0a0f',
-  surface:      'rgba(255,255,255,0.04)',
-  surfaceHover: 'rgba(255,255,255,0.07)',
-  border:       'rgba(255,255,255,0.07)',
-  borderFocus:  'rgba(99,102,241,0.6)',
+export type Theme = 'dark' | 'light';
+
+export interface ThemeTokens {
+  // Backgrounds
+  bgPage: string;
+  bgSidebar: string;
+  bgCard: string;
+  bgCardHover: string;
+  bgInput: string;
+  bgInputFocus: string;
+  bgHeader: string;
+  bgBadge: string;
+
+  // Borders
+  border: string;
+  borderFocus: string;
+
+  // Text
+  text: string;
+  textSecondary: string;
+  textMuted: string;
+  textFaint: string;
+
+  // Accent
+  accent: string;
+  accentGrad: string;
+  accentGlow: string;
+  accentBg: string;
+
+  // Status
+  green: string;
+  greenBg: string;
+  red: string;
+  redBg: string;
+  orange: string;
+  orangeBg: string;
+  yellow: string;
+  yellowBg: string;
+
+  // Scrollbar
+  scrollbar: string;
+}
+
+export const dark: ThemeTokens = {
+  bgPage:       '#0a0a0f',
+  bgSidebar:    'rgba(12,12,18,0.98)',
+  bgCard:       'rgba(255,255,255,0.04)',
+  bgCardHover:  'rgba(255,255,255,0.07)',
+  bgInput:      'rgba(255,255,255,0.06)',
+  bgInputFocus: 'rgba(255,255,255,0.09)',
+  bgHeader:     'rgba(10,10,15,0.88)',
+  bgBadge:      'rgba(255,255,255,0.08)',
+
+  border:       'rgba(255,255,255,0.08)',
+  borderFocus:  'rgba(99,102,241,0.65)',
+
   text:         '#f0f0f5',
-  textMuted:    'rgba(255,255,255,0.4)',
+  textSecondary:'rgba(255,255,255,0.7)',
+  textMuted:    'rgba(255,255,255,0.45)',
   textFaint:    'rgba(255,255,255,0.25)',
+
   accent:       '#6366f1',
-  accentGrad:   'linear-gradient(135deg, #6366f1, #8b5cf6)',
+  accentGrad:   'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
   accentGlow:   'rgba(99,102,241,0.35)',
+  accentBg:     'rgba(99,102,241,0.15)',
+
   green:        '#34d399',
   greenBg:      'rgba(52,211,153,0.12)',
   red:          '#f87171',
@@ -21,57 +76,46 @@ export const colors = {
   orange:       '#fb923c',
   orangeBg:     'rgba(251,146,60,0.12)',
   yellow:       '#fbbf24',
+  yellowBg:     'rgba(251,191,36,0.12)',
+
+  scrollbar:    'rgba(255,255,255,0.12)',
 };
 
-export const card: React.CSSProperties = {
-  background: colors.surface,
-  border: `1px solid ${colors.border}`,
-  borderRadius: 16,
-  padding: '20px 24px',
+export const light: ThemeTokens = {
+  bgPage:       '#f5f5f7',
+  bgSidebar:    'rgba(255,255,255,0.95)',
+  bgCard:       '#ffffff',
+  bgCardHover:  '#f9f9fb',
+  bgInput:      '#ffffff',
+  bgInputFocus: '#fafafe',
+  bgHeader:     'rgba(255,255,255,0.88)',
+  bgBadge:      'rgba(0,0,0,0.05)',
+
+  border:       'rgba(0,0,0,0.08)',
+  borderFocus:  'rgba(99,102,241,0.55)',
+
+  text:         '#1c1c1e',
+  textSecondary:'rgba(0,0,0,0.65)',
+  textMuted:    'rgba(0,0,0,0.45)',
+  textFaint:    'rgba(0,0,0,0.28)',
+
+  accent:       '#6366f1',
+  accentGrad:   'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+  accentGlow:   'rgba(99,102,241,0.25)',
+  accentBg:     'rgba(99,102,241,0.08)',
+
+  green:        '#059669',
+  greenBg:      'rgba(5,150,105,0.1)',
+  red:          '#dc2626',
+  redBg:        'rgba(220,38,38,0.08)',
+  orange:       '#ea580c',
+  orangeBg:     'rgba(234,88,12,0.1)',
+  yellow:       '#d97706',
+  yellowBg:     'rgba(217,119,6,0.1)',
+
+  scrollbar:    'rgba(0,0,0,0.15)',
 };
 
-export const labelStyle: React.CSSProperties = {
-  fontSize: 11, fontWeight: 600,
-  color: colors.textFaint,
-  textTransform: 'uppercase',
-  letterSpacing: '0.6px',
-  marginBottom: 6,
-};
+export const tokens = { dark, light };
 
-export const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '10px 14px',
-  background: 'rgba(255,255,255,0.06)',
-  border: `1px solid ${colors.border}`,
-  borderRadius: 10, fontSize: 13,
-  color: colors.text, outline: 'none',
-  boxSizing: 'border-box',
-  transition: 'border-color 0.15s',
-};
-
-export const btnPrimary: React.CSSProperties = {
-  padding: '9px 18px',
-  background: colors.accentGrad,
-  border: 'none', borderRadius: 10,
-  fontSize: 13, fontWeight: 600, color: '#fff',
-  cursor: 'pointer',
-  boxShadow: `0 4px 14px ${colors.accentGlow}`,
-  transition: 'opacity 0.15s',
-};
-
-export const btnSecondary: React.CSSProperties = {
-  padding: '9px 18px',
-  background: colors.surface,
-  border: `1px solid ${colors.border}`,
-  borderRadius: 10, fontSize: 13,
-  fontWeight: 500, color: colors.textMuted,
-  cursor: 'pointer', transition: 'all 0.15s',
-};
-
-export const badge = (color: string, bg: string): React.CSSProperties => ({
-  display: 'inline-block', padding: '3px 10px',
-  borderRadius: 20, fontSize: 11, fontWeight: 600,
-  color, background: bg,
-});
-
-// Need React for CSSProperties
-import type React from 'react';
+export const getTokens = (theme: Theme): ThemeTokens => tokens[theme];

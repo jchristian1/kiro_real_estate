@@ -1,12 +1,13 @@
 /**
- * Settings Page Component
- * Requirements: 18.1, 18.2, 18.3
+ * Settings Page — theme-aware, with appearance section
  */
 import React, { useEffect, useState } from 'react';
 import axios, { AxiosError } from 'axios';
 import { useToast } from '../contexts/ToastContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { getTokens } from '../utils/theme';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 interface Settings {
   sync_interval_seconds: number;
@@ -35,6 +36,9 @@ const FIELDS: FieldConfig[] = [
 
 export const SettingsPage: React.FC = () => {
   const { success, error: toastError } = useToast();
+  const { theme, setTheme } = useTheme();
+  const t = getTokens(theme);
+
   const [settings, setSettings] = useState<Settings | null>(null);
   const [draft, setDraft] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,14 +48,14 @@ export const SettingsPage: React.FC = () => {
 
   useEffect(() => {
     axios.get<Settings>(`${API_BASE_URL}/settings`)
-      .then((r) => { setSettings(r.data); setDraft(r.data); })
+      .then(r => { setSettings(r.data); setDraft(r.data); })
       .catch(() => setFetchError('Failed to load settings'))
       .finally(() => setLoading(false));
   }, []);
 
-  const validate = (d: Settings): Partial<Record<keyof Settings, string>> => {
+  const validate = (d: Settings) => {
     const errs: Partial<Record<keyof Settings, string>> = {};
-    FIELDS.forEach((f) => {
+    FIELDS.forEach(f => {
       if (f.type === 'number' && f.min !== undefined && f.max !== undefined) {
         const v = d[f.key] as number;
         if (v < f.min || v > f.max) errs[f.key] = `Must be between ${f.min} and ${f.max}`;
@@ -64,8 +68,7 @@ export const SettingsPage: React.FC = () => {
     if (!draft) return;
     const updated = { ...draft, [key]: typeof val === 'boolean' ? val : Number(val) };
     setDraft(updated);
-    const errs = validate(updated);
-    setValidationErrors(errs);
+    setValidationErrors(validate(updated));
   };
 
   const handleSave = async () => {
@@ -75,50 +78,127 @@ export const SettingsPage: React.FC = () => {
     setSaving(true);
     try {
       const res = await axios.put<Settings>(`${API_BASE_URL}/settings`, draft);
-      setSettings(res.data);
-      setDraft(res.data);
-      success('Settings saved successfully');
+      setSettings(res.data); setDraft(res.data);
+      success('Settings saved');
     } catch (err) {
       const e = err as AxiosError<{ detail?: string; message?: string }>;
       toastError(e.response?.data?.detail || e.response?.data?.message || 'Failed to save settings');
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const handleReset = () => { if (settings) { setDraft(settings); setValidationErrors({}); } };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><span className="text-gray-500">Loading settings...</span></div>;
-  if (fetchError) return <div className="flex items-center justify-center h-64"><span className="text-red-600">{fetchError}</span></div>;
-  if (!draft) return null;
+  const card: React.CSSProperties = {
+    background: t.bgCard,
+    border: `1px solid ${t.border}`,
+    borderRadius: 16,
+    padding: '24px',
+    marginBottom: 20,
+    transition: 'background 0.2s',
+  };
 
+  const sectionTitle: React.CSSProperties = {
+    fontSize: 13, fontWeight: 600, color: t.textMuted,
+    textTransform: 'uppercase', letterSpacing: '0.5px',
+    marginBottom: 18,
+  };
+
+  const fieldRow: React.CSSProperties = {
+    display: 'flex', alignItems: 'flex-start',
+    justifyContent: 'space-between', gap: 24,
+    paddingBottom: 18, marginBottom: 18,
+    borderBottom: `1px solid ${t.border}`,
+  };
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: t.textFaint, fontSize: 14 }}>
+      Loading settings…
+    </div>
+  );
+
+  if (fetchError) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: t.red, fontSize: 14 }}>
+      {fetchError}
+    </div>
+  );
+
+  if (!draft) return null;
   const isDirty = JSON.stringify(draft) !== JSON.stringify(settings);
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">Settings</h1>
+    <div style={{ maxWidth: 680 }}>
 
-      <div className="bg-white rounded-lg shadow p-6 space-y-6" data-testid="settings-form">
-        {FIELDS.map((f) => (
-          <div key={f.key} className="flex items-start justify-between gap-6">
-            <div className="flex-1">
-              <label htmlFor={f.key} className="block text-sm font-medium text-gray-900">{f.label}</label>
-              <p className="text-xs text-gray-500 mt-0.5">{f.description}</p>
+      {/* ── Appearance ── */}
+      <div style={card}>
+        <div style={sectionTitle}>Appearance</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: t.text, marginBottom: 3 }}>Theme</div>
+            <div style={{ fontSize: 12, color: t.textMuted }}>Choose between dark and light interface</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {(['dark', 'light'] as const).map(opt => (
+              <button
+                key={opt}
+                onClick={() => setTheme(opt)}
+                style={{
+                  padding: '7px 18px',
+                  borderRadius: 10,
+                  border: `1.5px solid ${theme === opt ? t.accent : t.border}`,
+                  background: theme === opt ? t.accentBg : t.bgCard,
+                  color: theme === opt ? t.accent : t.textMuted,
+                  fontSize: 13, fontWeight: theme === opt ? 600 : 400,
+                  cursor: 'pointer', transition: 'all 0.15s',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                <span>{opt === 'dark' ? '🌙' : '☀️'}</span>
+                {opt.charAt(0).toUpperCase() + opt.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── System Settings ── */}
+      <div style={card} data-testid="settings-form">
+        <div style={sectionTitle}>System</div>
+
+        {FIELDS.map((f, i) => (
+          <div key={f.key} style={{ ...fieldRow, ...(i === FIELDS.length - 1 ? { borderBottom: 'none', marginBottom: 0, paddingBottom: 0 } : {}) }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 500, color: t.text, marginBottom: 2 }}>{f.label}</div>
+              <div style={{ fontSize: 12, color: t.textMuted }}>{f.description}</div>
               {validationErrors[f.key] && (
-                <p className="text-xs text-red-600 mt-1" role="alert" data-testid={`error-${f.key}`}>{validationErrors[f.key]}</p>
+                <div style={{ fontSize: 12, color: t.red, marginTop: 4 }} role="alert" data-testid={`error-${f.key}`}>
+                  {validationErrors[f.key]}
+                </div>
               )}
             </div>
-            <div className="flex-shrink-0">
+            <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
               {f.type === 'boolean' ? (
                 <button
                   type="button"
                   role="switch"
                   aria-checked={draft[f.key] as boolean}
                   onClick={() => handleChange(f.key, !(draft[f.key] as boolean))}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${draft[f.key] ? 'bg-blue-600' : 'bg-gray-200'}`}
                   data-testid={`toggle-${f.key}`}
+                  style={{
+                    position: 'relative', width: 44, height: 26,
+                    borderRadius: 13, border: 'none', cursor: 'pointer',
+                    background: draft[f.key] ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : t.border,
+                    transition: 'background 0.2s',
+                    padding: 0,
+                  }}
                 >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${draft[f.key] ? 'translate-x-6' : 'translate-x-1'}`} />
+                  <span style={{
+                    position: 'absolute', top: 3,
+                    left: draft[f.key] ? 21 : 3,
+                    width: 20, height: 20, borderRadius: '50%',
+                    background: '#fff',
+                    transition: 'left 0.2s',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
+                  }} />
                 </button>
               ) : (
                 <input
@@ -127,24 +207,54 @@ export const SettingsPage: React.FC = () => {
                   value={draft[f.key] as number}
                   min={f.min}
                   max={f.max}
-                  onChange={(e) => handleChange(f.key, e.target.value)}
-                  className={`w-32 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${validationErrors[f.key] ? 'border-red-500' : 'border-gray-300'}`}
+                  onChange={e => handleChange(f.key, e.target.value)}
                   data-testid={`input-${f.key}`}
+                  style={{
+                    width: 110, padding: '8px 12px',
+                    background: t.bgInput,
+                    border: `1.5px solid ${validationErrors[f.key] ? t.red : t.border}`,
+                    borderRadius: 9, fontSize: 13, color: t.text,
+                    outline: 'none', textAlign: 'right',
+                    transition: 'border-color 0.15s',
+                  }}
+                  onFocus={e => (e.target.style.borderColor = t.borderFocus)}
+                  onBlur={e => (e.target.style.borderColor = validationErrors[f.key] ? t.red : t.border)}
                 />
               )}
             </div>
           </div>
         ))}
 
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-          <button onClick={handleReset} disabled={!isDirty || saving}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
-            data-testid="reset-btn">
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20, paddingTop: 18, borderTop: `1px solid ${t.border}` }}>
+          <button
+            onClick={handleReset}
+            disabled={!isDirty || saving}
+            data-testid="reset-btn"
+            style={{
+              padding: '8px 18px',
+              background: t.bgCard, border: `1px solid ${t.border}`,
+              borderRadius: 9, fontSize: 13, fontWeight: 500,
+              color: t.textMuted, cursor: isDirty ? 'pointer' : 'not-allowed',
+              opacity: isDirty ? 1 : 0.4, transition: 'all 0.15s',
+            }}
+          >
             Reset
           </button>
-          <button onClick={handleSave} disabled={!isDirty || saving || Object.keys(validationErrors).length > 0}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
-            data-testid="save-btn">
+          <button
+            onClick={handleSave}
+            disabled={!isDirty || saving || Object.keys(validationErrors).length > 0}
+            data-testid="save-btn"
+            style={{
+              padding: '8px 20px',
+              background: isDirty && !saving ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : t.accentBg,
+              border: 'none', borderRadius: 9,
+              fontSize: 13, fontWeight: 600, color: '#fff',
+              cursor: isDirty && !saving ? 'pointer' : 'not-allowed',
+              opacity: isDirty && !saving ? 1 : 0.5,
+              boxShadow: isDirty ? '0 4px 14px rgba(99,102,241,0.35)' : 'none',
+              transition: 'all 0.15s',
+            }}
+          >
             {saving ? 'Saving…' : 'Save Settings'}
           </button>
         </div>
