@@ -1,45 +1,27 @@
-/**
- * BuyerFormTab — list form templates with rename/delete, publish versions, rollback.
- * Requirements: 11.1, 11.2, 11.5
- */
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useToast } from '../../contexts/ToastContext';
+import { useT } from '../../utils/useT';
 
 const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
-interface FormTemplate {
-  id: number;
-  name: string;
-  status: string;
-  intent_type: string;
-  created_at: string;
-}
-
-interface FormVersion {
-  id: number;
-  version_number: number;
-  is_active: boolean;
-  published_at: string | null;
-}
+interface FormTemplate { id: number; name: string; status: string; intent_type: string; created_at: string; }
+interface FormVersion { id: number; version_number: number; is_active: boolean; published_at: string | null; }
 
 export const BuyerFormTab: React.FC = () => {
   const { tenantId } = useParams<{ tenantId: string }>();
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
+  const t = useT();
 
   const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
-
-  // Inline rename state
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
-
-  // Version panel state
   const [selectedTemplate, setSelectedTemplate] = useState<FormTemplate | null>(null);
   const [versions, setVersions] = useState<FormVersion[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
@@ -47,137 +29,82 @@ export const BuyerFormTab: React.FC = () => {
   const fetchTemplates = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axios.get<FormTemplate[]>(
-        `${API}/buyer-leads/tenants/${tenantId}/forms`
-      );
+      const res = await axios.get<FormTemplate[]>(`${API}/buyer-leads/tenants/${tenantId}/forms`);
       setTemplates(res.data);
-    } catch {
-      toastError('Failed to load form templates');
-    } finally {
-      setLoading(false);
-    }
+    } catch { toastError('Failed to load form templates'); } finally { setLoading(false); }
   }, [tenantId]);
 
   useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
 
-  const fetchVersions = async (template: FormTemplate) => {
-    setSelectedTemplate(template);
-    setVersionsLoading(true);
+  const fetchVersions = async (tmpl: FormTemplate) => {
+    setSelectedTemplate(tmpl); setVersionsLoading(true);
     try {
-      const res = await axios.get<FormVersion[]>(
-        `${API}/buyer-leads/tenants/${tenantId}/forms/${template.id}/versions`
-      );
+      const res = await axios.get<FormVersion[]>(`${API}/buyer-leads/tenants/${tenantId}/forms/${tmpl.id}/versions`);
       setVersions(res.data);
-    } catch {
-      toastError('Failed to load versions');
-    } finally {
-      setVersionsLoading(false);
-    }
+    } catch { toastError('Failed to load versions'); } finally { setVersionsLoading(false); }
   };
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
     setCreating(true);
     try {
-      await axios.post(`${API}/buyer-leads/tenants/${tenantId}/forms`, {
-        name: newName.trim(),
-        intent_type: 'BUY',
-      });
-      success('Form template created');
-      setNewName('');
-      setShowCreate(false);
-      fetchTemplates();
-    } catch {
-      toastError('Failed to create form template');
-    } finally {
-      setCreating(false);
-    }
+      await axios.post(`${API}/buyer-leads/tenants/${tenantId}/forms`, { name: newName.trim(), intent_type: 'BUY' });
+      success('Form template created'); setNewName(''); setShowCreate(false); fetchTemplates();
+    } catch { toastError('Failed to create form template'); } finally { setCreating(false); }
   };
 
-  const handleRename = async (t: FormTemplate) => {
-    if (!editName.trim() || editName === t.name) { setEditingId(null); return; }
+  const handleRename = async (tmpl: FormTemplate) => {
+    if (!editName.trim() || editName === tmpl.name) { setEditingId(null); return; }
     try {
-      await axios.put(`${API}/buyer-leads/tenants/${tenantId}/forms/${t.id}`, { name: editName.trim() });
-      success('Renamed');
-      setEditingId(null);
-      fetchTemplates();
-    } catch {
-      toastError('Rename failed');
-    }
+      await axios.put(`${API}/buyer-leads/tenants/${tenantId}/forms/${tmpl.id}`, { name: editName.trim() });
+      success('Renamed'); setEditingId(null); fetchTemplates();
+    } catch { toastError('Rename failed'); }
   };
 
-  const handleDelete = async (t: FormTemplate) => {
-    if (!confirm(`Delete "${t.name}"? This cannot be undone.`)) return;
+  const handleDelete = async (tmpl: FormTemplate) => {
+    if (!confirm(`Delete "${tmpl.name}"?`)) return;
     try {
-      await axios.delete(`${API}/buyer-leads/tenants/${tenantId}/forms/${t.id}`);
+      await axios.delete(`${API}/buyer-leads/tenants/${tenantId}/forms/${tmpl.id}`);
       success('Deleted');
-      if (selectedTemplate?.id === t.id) { setSelectedTemplate(null); setVersions([]); }
+      if (selectedTemplate?.id === tmpl.id) { setSelectedTemplate(null); setVersions([]); }
       fetchTemplates();
-    } catch {
-      toastError('Delete failed');
-    }
+    } catch { toastError('Delete failed'); }
   };
 
   const handleRollback = async (templateId: number, versionId: number) => {
     try {
-      await axios.post(
-        `${API}/buyer-leads/tenants/${tenantId}/forms/${templateId}/versions/${versionId}/rollback`
-      );
+      await axios.post(`${API}/buyer-leads/tenants/${tenantId}/forms/${templateId}/versions/${versionId}/rollback`);
       success('Rolled back to version');
       if (selectedTemplate) fetchVersions(selectedTemplate);
-    } catch {
-      toastError('Rollback failed');
-    }
+    } catch { toastError('Rollback failed'); }
   };
 
   const statusBadge = (status: string) => {
-    const colors: Record<string, string> = {
-      active: 'bg-green-100 text-green-800',
-      draft: 'bg-yellow-100 text-yellow-800',
-      archived: 'bg-gray-100 text-gray-600',
+    const colors: Record<string, { bg: string; color: string }> = {
+      active: { bg: t.greenBg, color: t.green },
+      draft: { bg: t.yellowBg, color: t.yellow },
+      archived: { bg: t.bgBadge, color: t.textMuted },
     };
-    return (
-      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${colors[status] ?? 'bg-gray-100 text-gray-600'}`}>
-        {status}
-      </span>
-    );
+    const c = colors[status] ?? { bg: t.bgBadge, color: t.textMuted };
+    return <span style={{ padding: '2px 8px', fontSize: 10, fontWeight: 600, background: c.bg, color: c.color, borderRadius: 20 }}>{status}</span>;
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-700">Buyer Qualification Forms</h2>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md"
-        >
-          New Form Template
-        </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: t.text, margin: 0 }}>Buyer Qualification Forms</h2>
+        <button onClick={() => setShowCreate(true)} style={t.btnPrimary}>New Form Template</button>
       </div>
 
-      {/* Create modal */}
       {showCreate && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md space-y-4">
-            <h3 className="text-lg font-semibold">New Form Template</h3>
-            <input
-              type="text"
-              placeholder="Template name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              autoFocus
-            />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">
-                Cancel
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={creating || !newName.trim()}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md disabled:opacity-50"
-              >
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ ...t.card, width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: t.text, margin: 0 }}>New Form Template</h3>
+            <input type="text" placeholder="Template name" value={newName} onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreate()} style={t.input} autoFocus />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => setShowCreate(false)} style={t.btnSecondary}>Cancel</button>
+              <button onClick={handleCreate} disabled={creating || !newName.trim()} style={{ ...t.btnPrimary, opacity: creating || !newName.trim() ? 0.5 : 1 }}>
                 {creating ? 'Creating…' : 'Create'}
               </button>
             </div>
@@ -185,73 +112,41 @@ export const BuyerFormTab: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Templates list */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={t.card}>
           {loading ? (
-            <div className="p-8 text-center text-gray-500">Loading…</div>
+            <div style={{ padding: 32, textAlign: 'center', color: t.textMuted }}>Loading…</div>
           ) : templates.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">No form templates yet</div>
+            <div style={{ padding: 32, textAlign: 'center', color: t.textMuted }}>No form templates yet</div>
           ) : (
-            <table className="min-w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {templates.map((t) => (
-                  <tr
-                    key={t.id}
-                    className={`hover:bg-gray-50 cursor-pointer ${selectedTemplate?.id === t.id ? 'bg-blue-50' : ''}`}
-                    onClick={() => { if (editingId !== t.id) fetchVersions(t); }}
-                  >
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                      {editingId === t.id ? (
-                        <input
-                          type="text"
-                          value={editName}
-                          autoFocus
-                          onChange={(e) => setEditName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleRename(t);
-                            if (e.key === 'Escape') setEditingId(null);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-full px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                      ) : t.name}
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead><tr>
+                {['Name', 'Status', ''].map(h => <th key={h} style={{ ...t.th, textAlign: h === '' ? 'right' : 'left' }}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {templates.map((tmpl) => (
+                  <tr key={tmpl.id} onClick={() => { if (editingId !== tmpl.id) fetchVersions(tmpl); }}
+                    style={{ borderBottom: `1px solid ${t.border}`, cursor: 'pointer', background: selectedTemplate?.id === tmpl.id ? t.accentBg : 'transparent' }}>
+                    <td style={{ ...t.td, fontWeight: 500 }}>
+                      {editingId === tmpl.id ? (
+                        <input type="text" value={editName} autoFocus onChange={(e) => setEditName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleRename(tmpl); if (e.key === 'Escape') setEditingId(null); }}
+                          onClick={(e) => e.stopPropagation()} style={{ ...t.input, width: 'auto' }} />
+                      ) : tmpl.name}
                     </td>
-                    <td className="px-4 py-3">{statusBadge(t.status)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {editingId === t.id ? (
+                    <td style={t.td}>{statusBadge(tmpl.status)}</td>
+                    <td style={{ ...t.td, textAlign: 'right' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+                        {editingId === tmpl.id ? (
                           <>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleRename(t); }}
-                              className="text-green-600 hover:text-green-800 text-xs font-medium"
-                            >Save</button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setEditingId(null); }}
-                              className="text-gray-400 hover:text-gray-600 text-xs"
-                            >Cancel</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleRename(tmpl); }} style={{ color: t.green, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Save</button>
+                            <button onClick={(e) => { e.stopPropagation(); setEditingId(null); }} style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>Cancel</button>
                           </>
                         ) : (
                           <>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setEditingId(t.id); setEditName(t.name); }}
-                              className="text-gray-500 hover:text-gray-700 text-xs"
-                            >Rename</button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); navigate(`/buyer-leads/${tenantId}/forms/${t.id}`); }}
-                              className="text-blue-600 hover:text-blue-800 text-xs"
-                            >Edit</button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleDelete(t); }}
-                              className="text-red-400 hover:text-red-600 text-xs"
-                            >Delete</button>
+                            <button onClick={(e) => { e.stopPropagation(); setEditingId(tmpl.id); setEditName(tmpl.name); }} style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>Rename</button>
+                            <button onClick={(e) => { e.stopPropagation(); navigate(`/buyer-leads/${tenantId}/forms/${tmpl.id}`); }} style={{ color: t.accent, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Edit</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleDelete(tmpl); }} style={{ color: t.red, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>Delete</button>
                           </>
                         )}
                       </div>
@@ -263,49 +158,26 @@ export const BuyerFormTab: React.FC = () => {
           )}
         </div>
 
-        {/* Version panel */}
         {selectedTemplate && (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-              <p className="text-sm font-semibold text-gray-700">
-                Versions — {selectedTemplate.name}
-              </p>
-            </div>
+          <div style={t.card}>
+            <div style={{ ...t.sectionTitle, marginBottom: 12 }}>Versions — {selectedTemplate.name}</div>
             {versionsLoading ? (
-              <div className="p-6 text-center text-gray-500">Loading…</div>
+              <div style={{ padding: 24, textAlign: 'center', color: t.textMuted }}>Loading…</div>
             ) : versions.length === 0 ? (
-              <div className="p-6 text-center text-gray-500">No versions published yet</div>
+              <div style={{ padding: 24, textAlign: 'center', color: t.textMuted }}>No versions published yet</div>
             ) : (
-              <table className="min-w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Version</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Published</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Active</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead><tr>
+                  {['Version', 'Published', 'Active', ''].map(h => <th key={h} style={{ ...t.th, textAlign: h === '' ? 'right' : 'left' }}>{h}</th>)}
+                </tr></thead>
+                <tbody>
                   {versions.map((v) => (
-                    <tr key={v.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">v{v.version_number}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
-                        {v.published_at ? new Date(v.published_at).toLocaleDateString() : '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        {v.is_active && (
-                          <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">Active</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {!v.is_active && (
-                          <button
-                            onClick={() => handleRollback(selectedTemplate.id, v.id)}
-                            className="text-blue-600 hover:text-blue-800 text-xs"
-                          >
-                            Rollback
-                          </button>
-                        )}
+                    <tr key={v.id} style={{ borderBottom: `1px solid ${t.border}` }}>
+                      <td style={t.td}>v{v.version_number}</td>
+                      <td style={{ ...t.td, color: t.textMuted }}>{v.published_at ? new Date(v.published_at).toLocaleDateString() : '—'}</td>
+                      <td style={t.td}>{v.is_active && <span style={{ padding: '2px 8px', fontSize: 10, fontWeight: 600, background: t.greenBg, color: t.green, borderRadius: 20 }}>Active</span>}</td>
+                      <td style={{ ...t.td, textAlign: 'right' }}>
+                        {!v.is_active && <button onClick={() => handleRollback(selectedTemplate.id, v.id)} style={{ color: t.accent, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Rollback</button>}
                       </td>
                     </tr>
                   ))}

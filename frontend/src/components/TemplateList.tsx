@@ -1,8 +1,5 @@
-/**
- * TemplateList Component
- * Requirements: 3.1
- */
 import React from 'react';
+import { useT } from '../utils/useT';
 
 export interface Template {
   id: number;
@@ -21,28 +18,31 @@ interface TemplateListProps {
 }
 
 export const TemplateList: React.FC<TemplateListProps> = ({ templates, onEdit, onDelete, onViewHistory }) => {
+  const t = useT();
   const truncate = (s: string, n = 60) => s.length > n ? s.slice(0, n) + '…' : s;
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+    <div style={t.card}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
           <tr>
-            {['Name', 'Subject', 'Updated', 'Actions'].map((h) => (
-              <th key={h} className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider${h === 'Actions' ? ' text-right' : ''}`}>{h}</th>
+            {['Name', 'Subject', 'Updated', 'Actions'].map(h => (
+              <th key={h} style={{ ...t.th, textAlign: h === 'Actions' ? 'right' : 'left' }}>{h}</th>
             ))}
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {templates.map((t) => (
-            <tr key={t.id} className="hover:bg-gray-50">
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{t.name}</td>
-              <td className="px-6 py-4 text-sm text-gray-500">{truncate(t.subject)}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(t.updated_at).toLocaleDateString()}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
-                <button className="text-gray-600 hover:text-gray-900" onClick={() => onEdit(t)}>Edit</button>
-                <button className="text-purple-600 hover:text-purple-900" onClick={() => onViewHistory(t)}>History</button>
-                <button className="text-red-600 hover:text-red-900" onClick={() => onDelete(t)}>Delete</button>
+        <tbody>
+          {templates.map((tmpl) => (
+            <tr key={tmpl.id} style={{ borderBottom: `1px solid ${t.border}` }}>
+              <td style={{ ...t.td, fontWeight: 500 }}>{tmpl.name}</td>
+              <td style={{ ...t.td, color: t.textMuted }}>{truncate(tmpl.subject)}</td>
+              <td style={{ ...t.td, color: t.textMuted, whiteSpace: 'nowrap' }}>{new Date(tmpl.updated_at).toLocaleDateString()}</td>
+              <td style={{ ...t.td, textAlign: 'right' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
+                  <button onClick={() => onEdit(tmpl)} style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>Edit</button>
+                  <button onClick={() => onViewHistory(tmpl)} style={{ color: t.textSecondary, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>History</button>
+                  <button onClick={() => onDelete(tmpl)} style={{ color: t.red, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>Delete</button>
+                </div>
               </td>
             </tr>
           ))}

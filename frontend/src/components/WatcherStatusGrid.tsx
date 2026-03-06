@@ -1,119 +1,71 @@
-/**
- * Watcher Status Grid Component
- * 
- * Displays real-time status of all watchers in a grid layout.
- * Shows agent ID, status, last heartbeat, and last sync time.
- * 
- * Requirements: 16.2, 16.3, 16.4, 16.5
- */
-
 import React from 'react';
 import { WatcherStatus } from '../pages/DashboardPage';
+import { useT } from '../utils/useT';
 
 interface WatcherStatusGridProps {
   watchers: WatcherStatus[];
   onRefresh: () => void;
 }
 
+const formatTimestamp = (timestamp: string | null): string => {
+  if (!timestamp) return 'Never';
+  const date = new Date(timestamp);
+  const diffMins = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return date.toLocaleString();
+};
+
 export const WatcherStatusGrid: React.FC<WatcherStatusGridProps> = ({ watchers = [], onRefresh }) => {
-  /**
-   * Get status badge color based on watcher status
-   */
-  const getStatusColor = (status: string): string => {
+  const t = useT();
+
+  const statusStyle = (status: string): { bg: string; color: string } => {
     switch (status.toLowerCase()) {
-      case 'running':
-        return 'bg-green-100 text-green-800';
-      case 'stopped':
-        return 'bg-gray-100 text-gray-800';
-      case 'failed':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-yellow-100 text-yellow-800';
+      case 'running': return { bg: t.greenBg, color: t.green };
+      case 'failed': return { bg: t.redBg, color: t.red };
+      case 'stopped': return { bg: t.bgBadge, color: t.textMuted };
+      default: return { bg: t.yellowBg, color: t.yellow };
     }
   };
 
-  /**
-   * Format timestamp for display
-   */
-  const formatTimestamp = (timestamp: string | null): string => {
-    if (!timestamp) return 'Never';
-    
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    
-    return date.toLocaleString();
-  };
-
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-gray-800">Watcher Status</h2>
-        <button
-          onClick={onRefresh}
-          className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
-        >
-          Refresh
-        </button>
+    <div style={t.card}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: t.text, margin: 0 }}>Watcher Status</h2>
+        <button onClick={onRefresh} style={t.btnSecondary}>Refresh</button>
       </div>
 
       {watchers.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
+        <div style={{ textAlign: 'center', padding: '32px 0', color: t.textMuted }}>
           No watchers configured. Create an agent to get started.
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {watchers.map((watcher) => (
-            <div
-              key={watcher.agent_id}
-              className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-            >
-              {/* Agent ID */}
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-gray-800 truncate" title={watcher.agent_id}>
-                  {watcher.agent_id}
-                </h3>
-                <span
-                  className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                    watcher.status
-                  )}`}
-                >
-                  {watcher.status}
-                </span>
-              </div>
-
-              {/* Last Heartbeat */}
-              <div className="mb-2">
-                <div className="text-xs text-gray-500">Last Heartbeat</div>
-                <div className="text-sm text-gray-700">
-                  {formatTimestamp(watcher.last_heartbeat)}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+          {watchers.map((watcher) => {
+            const sc = statusStyle(watcher.status);
+            return (
+              <div key={watcher.agent_id} style={{ background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 12, padding: '14px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <h3 style={{ fontSize: 13, fontWeight: 600, color: t.text, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={watcher.agent_id}>{watcher.agent_id}</h3>
+                  <span style={{ padding: '2px 8px', fontSize: 10, fontWeight: 600, background: sc.bg, color: sc.color, borderRadius: 20 }}>{watcher.status}</span>
                 </div>
+                {[['Last Heartbeat', watcher.last_heartbeat], ['Last Sync', watcher.last_sync]].map(([label, val]) => (
+                  <div key={label as string} style={{ marginBottom: 6 }}>
+                    <div style={{ fontSize: 10, color: t.textFaint }}>{label}</div>
+                    <div style={{ fontSize: 12, color: t.textSecondary }}>{formatTimestamp(val as string | null)}</div>
+                  </div>
+                ))}
+                {watcher.error && (
+                  <div style={{ marginTop: 8, padding: '6px 10px', background: t.redBg, border: `1px solid ${t.red}30`, borderRadius: 8 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: t.red, marginBottom: 2 }}>Error</div>
+                    <div style={{ fontSize: 11, color: t.red }}>{watcher.error}</div>
+                  </div>
+                )}
               </div>
-
-              {/* Last Sync */}
-              <div className="mb-2">
-                <div className="text-xs text-gray-500">Last Sync</div>
-                <div className="text-sm text-gray-700">
-                  {formatTimestamp(watcher.last_sync)}
-                </div>
-              </div>
-
-              {/* Error Message (if any) */}
-              {watcher.error && (
-                <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded">
-                  <div className="text-xs text-red-600 font-medium mb-1">Error</div>
-                  <div className="text-xs text-red-700">{watcher.error}</div>
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
