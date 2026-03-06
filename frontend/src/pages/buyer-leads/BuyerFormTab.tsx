@@ -1,5 +1,5 @@
 /**
- * BuyerFormTab — list form templates, publish versions, rollback.
+ * BuyerFormTab — list form templates with rename/delete, publish versions, rollback.
  * Requirements: 11.1, 11.2, 11.5
  */
 import React, { useEffect, useState, useCallback } from 'react';
@@ -34,6 +34,10 @@ export const BuyerFormTab: React.FC = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
+
+  // Inline rename state
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState('');
 
   // Version panel state
   const [selectedTemplate, setSelectedTemplate] = useState<FormTemplate | null>(null);
@@ -90,6 +94,30 @@ export const BuyerFormTab: React.FC = () => {
     }
   };
 
+  const handleRename = async (t: FormTemplate) => {
+    if (!editName.trim() || editName === t.name) { setEditingId(null); return; }
+    try {
+      await axios.put(`${API}/buyer-leads/tenants/${tenantId}/forms/${t.id}`, { name: editName.trim() });
+      success('Renamed');
+      setEditingId(null);
+      fetchTemplates();
+    } catch {
+      toastError('Rename failed');
+    }
+  };
+
+  const handleDelete = async (t: FormTemplate) => {
+    if (!confirm(`Delete "${t.name}"? This cannot be undone.`)) return;
+    try {
+      await axios.delete(`${API}/buyer-leads/tenants/${tenantId}/forms/${t.id}`);
+      success('Deleted');
+      if (selectedTemplate?.id === t.id) { setSelectedTemplate(null); setVersions([]); }
+      fetchTemplates();
+    } catch {
+      toastError('Delete failed');
+    }
+  };
+
   const handleRollback = async (templateId: number, versionId: number) => {
     try {
       await axios.post(
@@ -137,6 +165,7 @@ export const BuyerFormTab: React.FC = () => {
               placeholder="Template name"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoFocus
             />
@@ -177,17 +206,55 @@ export const BuyerFormTab: React.FC = () => {
                   <tr
                     key={t.id}
                     className={`hover:bg-gray-50 cursor-pointer ${selectedTemplate?.id === t.id ? 'bg-blue-50' : ''}`}
-                    onClick={() => fetchVersions(t)}
+                    onClick={() => { if (editingId !== t.id) fetchVersions(t); }}
                   >
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{t.name}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                      {editingId === t.id ? (
+                        <input
+                          type="text"
+                          value={editName}
+                          autoFocus
+                          onChange={(e) => setEditName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleRename(t);
+                            if (e.key === 'Escape') setEditingId(null);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-full px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      ) : t.name}
+                    </td>
                     <td className="px-4 py-3">{statusBadge(t.status)}</td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); navigate(`/buyer-leads/${tenantId}/forms/${t.id}`); }}
-                        className="text-blue-600 hover:text-blue-800 text-xs"
-                      >
-                        Edit
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        {editingId === t.id ? (
+                          <>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleRename(t); }}
+                              className="text-green-600 hover:text-green-800 text-xs font-medium"
+                            >Save</button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setEditingId(null); }}
+                              className="text-gray-400 hover:text-gray-600 text-xs"
+                            >Cancel</button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setEditingId(t.id); setEditName(t.name); }}
+                              className="text-gray-500 hover:text-gray-700 text-xs"
+                            >Rename</button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); navigate(`/buyer-leads/${tenantId}/forms/${t.id}`); }}
+                              className="text-blue-600 hover:text-blue-800 text-xs"
+                            >Edit</button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDelete(t); }}
+                              className="text-red-400 hover:text-red-600 text-xs"
+                            >Delete</button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

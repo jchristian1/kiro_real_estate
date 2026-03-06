@@ -477,6 +477,67 @@ def create_scoring_config(
     return _scoring_config_to_dict(config)
 
 
+@router.put("/tenants/{tid}/scoring/{sid}")
+def update_scoring_config(
+    tid: int,
+    sid: int,
+    body: CreateScoringConfigRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Rename a ScoringConfig (Req 6.1)."""
+    _assert_tenant(tid, current_user)
+    config = _get_scoring_config_or_404(db, tid, sid)
+    config.name = body.name
+    db.commit()
+    db.refresh(config)
+    return _scoring_config_to_dict(config)
+
+
+@router.delete("/tenants/{tid}/scoring/{sid}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_scoring_config(
+    tid: int,
+    sid: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a ScoringConfig and all its versions (Req 6.1)."""
+    _assert_tenant(tid, current_user)
+    config = _get_scoring_config_or_404(db, tid, sid)
+    db.delete(config)
+    db.commit()
+
+
+@router.post("/tenants/{tid}/scoring/{sid}/versions/{vid}/rollback")
+def rollback_scoring_version(
+    tid: int,
+    sid: int,
+    vid: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Rollback to a previous ScoringVersion."""
+    _assert_tenant(tid, current_user)
+    _get_scoring_config_or_404(db, tid, sid)
+    target = (
+        db.query(ScoringVersion)
+        .filter(ScoringVersion.id == vid, ScoringVersion.scoring_config_id == sid)
+        .first()
+    )
+    if not target:
+        raise NotFoundException(
+            message=f"ScoringVersion {vid} not found",
+            code=ErrorCode.NOT_FOUND_RESOURCE,
+        )
+    db.query(ScoringVersion).filter(ScoringVersion.scoring_config_id == sid).update(
+        {"is_active": False}, synchronize_session="fetch"
+    )
+    target.is_active = True
+    db.commit()
+    db.refresh(target)
+    return _scoring_version_to_dict(target)
+
+
 # ---------------------------------------------------------------------------
 # Scoring Version management  (Req 6.2, 6.3, 6.4)
 # ---------------------------------------------------------------------------
