@@ -100,7 +100,7 @@ def get_db():
 # Endpoint
 # ---------------------------------------------------------------------------
 
-@router.get("/public/buyer-qualification/{token}")
+@router.get("/api/v1/public/buyer-qualification/{token}")
 async def get_buyer_qualification_form(
     token: str,
     db: Session = Depends(get_db),
@@ -131,6 +131,7 @@ async def get_buyer_qualification_form(
 
 
 
+@router.post("/api/v1/public/buyer-qualification/{token}/submit")
 async def submit_buyer_qualification(
     request: Request,
     token: str,

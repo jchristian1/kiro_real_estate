@@ -7,10 +7,10 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 
-// Use relative URLs so the Vite dev proxy (and production reverse proxy) handles routing.
-// Avoids hardcoding the backend port, which caused the browser to hit the API directly
-// and receive raw JSON instead of the React form.
-const PUBLIC_API = '';
+// Use relative URLs so the Vite dev proxy handles routing.
+// API calls go to /api/v1/public/... (proxied to backend).
+// The page itself lives at /public/buyer-qualification/:token (React Router).
+const PUBLIC_API = '/api/v1';
 
 interface Option { value: string; label: string; }
 interface Question {
