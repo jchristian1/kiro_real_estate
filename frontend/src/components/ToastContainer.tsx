@@ -1,101 +1,45 @@
-/**
- * Toast Container Component
- * 
- * Displays toast notifications in the top-right corner of the screen.
- * Handles different toast types with appropriate styling and icons.
- * 
- * Requirements: 17.1, 17.2, 17.3, 17.4, 17.5
- */
-
 import React from 'react';
-import { useToast, Toast, ToastType } from '../contexts/ToastContext';
+import { useToast, ToastType } from '../contexts/ToastContext';
+import { useT } from '../utils/useT';
+
+const TOAST_COLORS: Record<ToastType, { bg: string; border: string; color: string; dot: string }> = {
+  success: { bg: 'rgba(52,211,153,0.1)',  border: 'rgba(52,211,153,0.3)',  color: '#34d399', dot: '#34d399' },
+  error:   { bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.3)', color: '#f87171', dot: '#f87171' },
+  warning: { bg: 'rgba(251,191,36,0.1)',  border: 'rgba(251,191,36,0.3)',  color: '#fbbf24', dot: '#fbbf24' },
+  info:    { bg: 'rgba(99,102,241,0.1)',  border: 'rgba(99,102,241,0.3)',  color: '#818cf8', dot: '#818cf8' },
+};
 
 export const ToastContainer: React.FC = () => {
   const { toasts, dismissToast } = useToast();
+  const t = useT();
 
-  /**
-   * Get toast styling based on type
-   */
-  const getToastStyles = (type: ToastType): string => {
-    switch (type) {
-      case 'success':
-        return 'bg-green-50 border-green-400 text-green-800';
-      case 'error':
-        return 'bg-red-50 border-red-400 text-red-800';
-      case 'warning':
-        return 'bg-yellow-50 border-yellow-400 text-yellow-800';
-      case 'info':
-        return 'bg-blue-50 border-blue-400 text-blue-800';
-      default:
-        return 'bg-gray-50 border-gray-400 text-gray-800';
-    }
-  };
-
-  /**
-   * Get icon for toast type
-   */
-  const getToastIcon = (type: ToastType): JSX.Element => {
-    switch (type) {
-      case 'success':
-        return (
-          <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-        );
-      case 'error':
-        return (
-          <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        );
-      case 'warning':
-        return (
-          <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-        );
-      case 'info':
-        return (
-          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
-      default:
-        return <></>;
-    }
-  };
-
-  if (toasts.length === 0) {
-    return null;
-  }
+  if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-md">
-      {toasts.map((toast) => (
-        <div
-          key={toast.id}
-          className={`flex items-start p-4 border rounded-lg shadow-lg ${getToastStyles(toast.type)} animate-slide-in`}
-          role="alert"
-        >
-          <div className="flex-shrink-0 mr-3">
-            {getToastIcon(toast.type)}
+    <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 100, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 360 }}>
+      {toasts.map(toast => {
+        const c = TOAST_COLORS[toast.type] || TOAST_COLORS.info;
+        return (
+          <div key={toast.id} role="alert" style={{
+            display: 'flex', alignItems: 'flex-start', gap: 10,
+            padding: '12px 14px',
+            background: t.isDark ? c.bg : '#fff',
+            border: `1px solid ${c.border}`,
+            borderRadius: 12,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+            backdropFilter: 'blur(12px)',
+          }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.dot, flexShrink: 0, marginTop: 4 }} />
+            <span style={{ flex: 1, fontSize: 13, color: t.isDark ? c.color : '#1c1c1e', fontWeight: 500, lineHeight: 1.5 }}>
+              {toast.message}
+            </span>
+            <button onClick={() => dismissToast(toast.id)} aria-label="Dismiss"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textFaint, fontSize: 16, lineHeight: 1, padding: 0, flexShrink: 0 }}>
+              ×
+            </button>
           </div>
-          
-          <div className="flex-1 mr-2">
-            <p className="text-sm font-medium">{toast.message}</p>
-          </div>
-          
-          <button
-            onClick={() => dismissToast(toast.id)}
-            className="flex-shrink-0 ml-2 text-gray-400 hover:text-gray-600 focus:outline-none"
-            aria-label="Dismiss"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };
