@@ -7,8 +7,10 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
-const PUBLIC_API = API_BASE_URL.replace('/api/v1', '');
+// Use relative URLs so the Vite dev proxy (and production reverse proxy) handles routing.
+// Avoids hardcoding the backend port, which caused the browser to hit the API directly
+// and receive raw JSON instead of the React form.
+const PUBLIC_API = '';
 
 interface Option { value: string; label: string; }
 interface Question {
