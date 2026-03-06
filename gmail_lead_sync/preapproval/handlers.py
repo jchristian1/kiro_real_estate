@@ -76,10 +76,10 @@ def _build_form_url(raw_token: str) -> str:
     """Return the public submission URL containing *raw_token*.
 
     The base URL is read from the ``PUBLIC_BASE_URL`` environment variable,
-    defaulting to ``http://localhost:8000``.  The path matches the public
-    submission endpoint defined in Req 4.1.
+    defaulting to ``http://localhost:5173`` (Vite dev server).  The path
+    matches the React route defined in App.tsx.
     """
-    base = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
+    base = os.environ.get("PUBLIC_BASE_URL", "http://localhost:5173").rstrip("/")
     return f"{base}/public/buyer-qualification/{raw_token}"
 
 
