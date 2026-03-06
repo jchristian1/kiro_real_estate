@@ -153,7 +153,7 @@ class Config:
             logger: Logger instance to use for logging
         """
         logger.info("Configuration loaded:")
-        logger.info(f"  DATABASE_URL: {self._mask_sensitive(self.database_url)}")
+        logger.info(f"  DATABASE_URL: {self.database_url}")  # Mostrar completo para debug
         logger.info(f"  ENCRYPTION_KEY: {'*' * 8} (masked)")
         logger.info(f"  SECRET_KEY: {'*' * 8} (masked)")
         logger.info(f"  API_HOST: {self.api_host}")
