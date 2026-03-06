@@ -7,7 +7,6 @@ import { NavLink, Outlet, useParams } from 'react-router-dom';
 const TAB_LINKS = [
   { to: 'forms',     label: 'Forms' },
   { to: 'scoring',   label: 'Scoring' },
-  { to: 'templates', label: 'Email Templates' },
   { to: 'states',    label: 'Lead States' },
   { to: 'simulate',  label: 'Simulate' },
   { to: 'audit',     label: 'Audit Log' },

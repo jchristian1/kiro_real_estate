@@ -146,7 +146,7 @@ export const TemplateVersionEditor: React.FC = () => {
         }
       );
       success('Template version published');
-      navigate(`/buyer-leads/${tenantId}/templates`);
+      navigate(`/templates`);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       toastError(msg || 'Failed to publish template version');
@@ -162,7 +162,7 @@ export const TemplateVersionEditor: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <button
-            onClick={() => navigate(`/buyer-leads/${tenantId}/templates`)}
+            onClick={() => navigate(`/templates`)}
             className="text-sm text-blue-600 hover:text-blue-800 mb-1"
           >
             ← Back to Templates
