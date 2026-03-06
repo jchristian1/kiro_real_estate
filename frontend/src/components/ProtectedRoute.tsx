@@ -9,6 +9,8 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { getTokens } from '../utils/theme';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -16,12 +18,13 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user, loading } = useAuth();
+  const { theme } = useTheme();
+  const t = getTokens(theme);
 
-  // Show loading state while checking authentication
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
+      <div style={{ minHeight: '100vh', background: t.bgPage, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: t.textMuted, fontSize: 14 }}>Loading…</div>
       </div>
     );
   }

@@ -4,6 +4,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useT } from '../utils/useT';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+const PAGE_SIZE = 20;
 
 interface Company { id: number; name: string; phone: string | null; email: string | null; created_at: string; }
 interface FormState { name: string; phone: string; email: string; }
@@ -19,6 +20,7 @@ export const CompaniesPage: React.FC = () => {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   const fetchCompanies = async () => {
     try {
@@ -103,31 +105,43 @@ export const CompaniesPage: React.FC = () => {
       ) : companies.length === 0 ? (
         <div style={{ ...t.card, textAlign: 'center', padding: 60, color: t.textFaint }}>No companies yet</div>
       ) : (
-        <div style={t.card}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr>
-                {['Name', 'Phone', 'Email', 'Created', 'Actions'].map(h => (
-                  <th key={h} style={{ ...t.th, textAlign: h === 'Actions' ? 'right' : 'left' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {companies.map((c, i) => (
-                <tr key={c.id} style={{ borderBottom: i < companies.length - 1 ? `1px solid ${t.border}` : 'none' }}>
-                  <td style={{ ...t.td, fontWeight: 600 }}>{c.name}</td>
-                  <td style={{ ...t.td, color: t.textMuted }}>{c.phone || '—'}</td>
-                  <td style={{ ...t.td, color: t.textMuted }}>{c.email || '—'}</td>
-                  <td style={{ ...t.td, color: t.textMuted }}>{new Date(c.created_at).toLocaleDateString()}</td>
-                  <td style={{ ...t.td, textAlign: 'right' }}>
-                    <button onClick={() => openEdit(c)} style={{ ...t.btnSecondary, padding: '5px 12px', fontSize: 12, marginRight: 8 }}>Edit</button>
-                    <button onClick={() => handleDelete(c)} style={{ ...t.btnDanger, padding: '5px 12px', fontSize: 12 }}>Delete</button>
-                  </td>
+        <>
+          <div style={t.card}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr>
+                  {['Name', 'Phone', 'Email', 'Created', 'Actions'].map(h => (
+                    <th key={h} style={{ ...t.th, textAlign: h === 'Actions' ? 'right' : 'left' }}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {companies.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((c, i) => (
+                  <tr key={c.id} style={{ borderBottom: i < Math.min(PAGE_SIZE, companies.length - (page - 1) * PAGE_SIZE) - 1 ? `1px solid ${t.border}` : 'none' }}>
+                    <td style={{ ...t.td, fontWeight: 600 }}>{c.name}</td>
+                    <td style={{ ...t.td, color: t.textMuted }}>{c.phone || '—'}</td>
+                    <td style={{ ...t.td, color: t.textMuted }}>{c.email || '—'}</td>
+                    <td style={{ ...t.td, color: t.textMuted }}>{new Date(c.created_at).toLocaleDateString()}</td>
+                    <td style={{ ...t.td, textAlign: 'right' }}>
+                      <button onClick={() => openEdit(c)} style={{ ...t.btnSecondary, padding: '5px 12px', fontSize: 12, marginRight: 8 }}>Edit</button>
+                      <button onClick={() => handleDelete(c)} style={{ ...t.btnDanger, padding: '5px 12px', fontSize: 12 }}>Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {Math.ceil(companies.length / PAGE_SIZE) > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                style={{ ...t.btnSecondary, opacity: page === 1 ? 0.4 : 1 }}>Previous</button>
+              <span style={{ fontSize: 13, color: t.textMuted }}>Page {page} of {Math.ceil(companies.length / PAGE_SIZE)}</span>
+              <button onClick={() => setPage(p => Math.min(Math.ceil(companies.length / PAGE_SIZE), p + 1))} disabled={page === Math.ceil(companies.length / PAGE_SIZE)}
+                style={{ ...t.btnSecondary, opacity: page === Math.ceil(companies.length / PAGE_SIZE) ? 0.4 : 1 }}>Next</button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
