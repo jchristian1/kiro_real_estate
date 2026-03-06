@@ -822,6 +822,69 @@ def create_message_template(
     return _message_template_to_dict(template)
 
 
+@router.put("/tenants/{tid}/message-templates/{mid}")
+def update_message_template(
+    tid: int,
+    mid: int,
+    body: CreateMessageTemplateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update a MessageTemplate key/intent_type (Req 7.1)."""
+    _assert_tenant(tid, current_user)
+    template = _get_message_template_or_404(db, tid, mid)
+    template.key = body.key
+    template.intent_type = body.intent_type
+    db.commit()
+    db.refresh(template)
+    return _message_template_to_dict(template)
+
+
+@router.delete("/tenants/{tid}/message-templates/{mid}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_message_template(
+    tid: int,
+    mid: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a MessageTemplate and all its versions (Req 7.1)."""
+    _assert_tenant(tid, current_user)
+    template = _get_message_template_or_404(db, tid, mid)
+    db.delete(template)
+    db.commit()
+
+
+@router.post("/tenants/{tid}/message-templates/{mid}/versions/{vid}/rollback")
+def rollback_message_template_version(
+    tid: int,
+    mid: int,
+    vid: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Rollback to a previous MessageTemplateVersion (Req 7.3)."""
+    from gmail_lead_sync.preapproval.models_preapproval import MessageTemplateVersion
+    _assert_tenant(tid, current_user)
+    _get_message_template_or_404(db, tid, mid)
+    target = (
+        db.query(MessageTemplateVersion)
+        .filter(MessageTemplateVersion.id == vid, MessageTemplateVersion.template_id == mid)
+        .first()
+    )
+    if not target:
+        raise NotFoundException(
+            message=f"MessageTemplateVersion {vid} not found",
+            code=ErrorCode.NOT_FOUND_RESOURCE,
+        )
+    db.query(MessageTemplateVersion).filter(MessageTemplateVersion.template_id == mid).update(
+        {"is_active": False}, synchronize_session="fetch"
+    )
+    target.is_active = True
+    db.commit()
+    db.refresh(target)
+    return _message_template_version_to_dict(target)
+
+
 # ---------------------------------------------------------------------------
 # Message Template Version management  (Req 7.2, 7.3, 7.5, 7.6, 17.8)
 # ---------------------------------------------------------------------------
