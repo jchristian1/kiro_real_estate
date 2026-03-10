@@ -113,7 +113,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
   - [x] 9.3 Implement `GET /api/v1/agent/leads/{id}` — enriched lead, scoring breakdown, timeline, rendered emails, notes; return 403 for cross-agent access
     - _Requirements: 12.1, 12.2, 12.3, 18.2_
-  - [~] 9.4 Implement `PATCH /api/v1/agent/leads/{id}/status` — validate state transition, update `current_state`, set `last_agent_action_at` on CONTACTED, insert `STATUS_CHANGED` event
+  - [x] 9.4 Implement `PATCH /api/v1/agent/leads/{id}/status` — validate state transition, update `current_state`, set `last_agent_action_at` on CONTACTED, insert `STATUS_CHANGED` event
     - Reject invalid transitions with 422
     - _Requirements: 12.4, 12.6, 20.3_
   - [~] 9.5 Implement `POST /api/v1/agent/leads/{id}/notes` — persist note, insert `NOTE_ADDED` event
