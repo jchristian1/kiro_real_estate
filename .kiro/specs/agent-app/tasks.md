@@ -116,7 +116,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 9.4 Implement `PATCH /api/v1/agent/leads/{id}/status` — validate state transition, update `current_state`, set `last_agent_action_at` on CONTACTED, insert `STATUS_CHANGED` event
     - Reject invalid transitions with 422
     - _Requirements: 12.4, 12.6, 20.3_
-  - [~] 9.5 Implement `POST /api/v1/agent/leads/{id}/notes` — persist note, insert `NOTE_ADDED` event
+  - [x] 9.5 Implement `POST /api/v1/agent/leads/{id}/notes` — persist note, insert `NOTE_ADDED` event
     - _Requirements: 12.5, 20.1_
   - [~] 9.6 Wire `lead_events` insertion into the watcher pipeline — insert `EMAIL_RECEIVED`, `INVITE_SENT`, `FORM_SUBMITTED`, `POST_EMAIL_SENT` events at each stage
     - _Requirements: 20.1_
