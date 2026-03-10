@@ -2,16 +2,20 @@
 Agent authentication routes for the agent-app.
 
 Provides:
-- POST /api/v1/agent/auth/signup — create agent account, auto-login, set session cookie
+- POST /api/v1/agent/auth/signup  — create agent account, auto-login, set session cookie
+- POST /api/v1/agent/auth/login   — verify credentials, create session, set cookie
+- POST /api/v1/agent/auth/logout  — invalidate session, clear cookie
+- GET  /api/v1/agent/auth/me      — return current agent info (requires valid session)
 
-Requirements: 1.1, 1.2, 1.3, 1.5
+Requirements: 1.1, 1.2, 1.3, 1.5, 2.1, 2.2, 2.3, 2.5, 2.6
 """
 
 import secrets
 from datetime import datetime, timedelta
+from typing import Optional
 
 import bcrypt
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Cookie, Depends, Response, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -49,6 +53,28 @@ class SignupResponse(BaseModel):
     """Signup success response (201)."""
     agent_user_id: int
     email: str
+    onboarding_step: int
+
+
+class LoginRequest(BaseModel):
+    """Login request body."""
+    email: EmailStr
+    password: str
+
+
+class LoginResponse(BaseModel):
+    """Login success response (200)."""
+    agent_user_id: int
+    full_name: str
+    onboarding_completed: bool
+
+
+class MeResponse(BaseModel):
+    """GET /me response (200)."""
+    agent_user_id: int
+    email: str
+    full_name: str
+    onboarding_completed: bool
     onboarding_step: int
 
 
@@ -158,5 +184,153 @@ async def signup(
     return SignupResponse(
         agent_user_id=agent_user.id,
         email=agent_user.email,
+        onboarding_step=agent_user.onboarding_step,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Helper: look up a valid (non-expired) session from cookie
+# ---------------------------------------------------------------------------
+
+def _get_session(db: Session, token: Optional[str]) -> Optional[AgentSession]:
+    """Return the AgentSession for *token* if it exists and has not expired."""
+    if not token:
+        return None
+    now = datetime.utcnow()
+    session = (
+        db.query(AgentSession)
+        .filter(AgentSession.id == token, AgentSession.expires_at > now)
+        .first()
+    )
+    return session
+
+
+# ---------------------------------------------------------------------------
+# POST /login
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/login",
+    status_code=status.HTTP_200_OK,
+    response_model=LoginResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Invalid credentials"},
+    },
+)
+async def login(
+    body: LoginRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    """
+    Verify email + password, create a new session, and set the session cookie.
+
+    - Returns 401 with INVALID_CREDENTIALS on bad email or wrong password.
+    - On success: creates AgentSession, sets `agent_session` cookie.
+
+    Requirements: 2.1, 2.2, 2.6
+    """
+    # Look up agent by email
+    agent_user = db.query(AgentUser).filter(AgentUser.email == body.email).first()
+
+    # Verify password (constant-time via bcrypt)
+    if agent_user is None or not bcrypt.checkpw(
+        body.password.encode("utf-8"), agent_user.password_hash.encode("utf-8")
+    ):
+        return Response(
+            content='{"error": "INVALID_CREDENTIALS"}',
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            media_type="application/json",
+        )
+
+    # Create session and set cookie
+    session = _create_agent_session(db, agent_user.id)
+    _set_agent_session_cookie(response, session.id)
+
+    return LoginResponse(
+        agent_user_id=agent_user.id,
+        full_name=agent_user.full_name,
+        onboarding_completed=agent_user.onboarding_completed,
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /logout
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_200_OK,
+)
+async def logout(
+    response: Response,
+    db: Session = Depends(get_db),
+    agent_session: Optional[str] = Cookie(default=None, alias=AGENT_SESSION_COOKIE_NAME),
+):
+    """
+    Invalidate the current session and clear the session cookie.
+
+    - Deletes the session record from the DB (if present).
+    - Clears the cookie regardless of whether a session existed.
+
+    Requirements: 2.3
+    """
+    if agent_session:
+        db.query(AgentSession).filter(AgentSession.id == agent_session).delete()
+        db.commit()
+
+    response.delete_cookie(
+        key=AGENT_SESSION_COOKIE_NAME,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+    )
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# GET /me
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/me",
+    status_code=status.HTTP_200_OK,
+    response_model=MeResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Missing or invalid session"},
+    },
+)
+async def me(
+    db: Session = Depends(get_db),
+    agent_session: Optional[str] = Cookie(default=None, alias=AGENT_SESSION_COOKIE_NAME),
+):
+    """
+    Return the currently authenticated agent's profile.
+
+    - Returns 401 if the session cookie is missing or the session is expired/invalid.
+
+    Requirements: 2.5
+    """
+    session = _get_session(db, agent_session)
+    if session is None:
+        return Response(
+            content='{"error": "INVALID_CREDENTIALS"}',
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            media_type="application/json",
+        )
+
+    agent_user = db.query(AgentUser).filter(AgentUser.id == session.agent_user_id).first()
+    if agent_user is None:
+        return Response(
+            content='{"error": "INVALID_CREDENTIALS"}',
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            media_type="application/json",
+        )
+
+    return MeResponse(
+        agent_user_id=agent_user.id,
+        email=agent_user.email,
+        full_name=agent_user.full_name,
+        onboarding_completed=agent_user.onboarding_completed,
         onboarding_step=agent_user.onboarding_step,
     )
