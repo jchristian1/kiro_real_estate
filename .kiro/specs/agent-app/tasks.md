@@ -74,7 +74,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 4.1, 4.3_
   - [x] 6.2 Implement `POST /api/v1/agent/onboarding/gmail` — call IMAP service, encrypt and persist credentials on success, return structured error codes on failure
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
-  - [~] 6.3 Implement `PUT /api/v1/agent/onboarding/sources` — persist `enabled_lead_source_ids`, advance `onboarding_step` to 4
+  - [x] 6.3 Implement `PUT /api/v1/agent/onboarding/sources` — persist `enabled_lead_source_ids`, advance `onboarding_step` to 4
     - _Requirements: 6.2_
   - [~] 6.4 Implement `PUT /api/v1/agent/onboarding/automation` — create/update `BuyerAutomationConfig`, advance `onboarding_step` to 5
     - _Requirements: 7.1_

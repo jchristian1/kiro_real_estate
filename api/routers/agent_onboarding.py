@@ -207,3 +207,63 @@ def connect_gmail(
         gmail_address=body.gmail_address,
         last_sync=None,
     )
+
+
+# ---------------------------------------------------------------------------
+# Sources endpoint
+# ---------------------------------------------------------------------------
+
+import json as _json
+
+
+class SourcesRequest(BaseModel):
+    """PUT /onboarding/sources request body."""
+    enabled_lead_source_ids: list[int]
+
+
+class SourcesResponse(BaseModel):
+    """PUT /onboarding/sources success response."""
+    ok: bool
+    onboarding_step: int
+
+
+@router.put(
+    "/sources",
+    status_code=status.HTTP_200_OK,
+    response_model=SourcesResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Missing or invalid session"},
+    },
+)
+def update_sources(
+    body: SourcesRequest,
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    """
+    Persist enabled_lead_source_ids and advance onboarding_step to 4.
+
+    - Creates AgentPreferences record if one does not yet exist.
+    - Serialises the list as a JSON string into enabled_lead_source_ids.
+    - Advances onboarding_step to 4 if currently less than 4.
+    - Returns {"ok": true, "onboarding_step": 4}.
+
+    Requirements: 6.2
+    """
+    from gmail_lead_sync.agent_models import AgentPreferences
+
+    # Upsert AgentPreferences
+    prefs = agent.preferences
+    if prefs is None:
+        prefs = AgentPreferences(agent_user_id=agent.id)
+        db.add(prefs)
+
+    prefs.enabled_lead_source_ids = _json.dumps(body.enabled_lead_source_ids)
+
+    # Advance onboarding step
+    if agent.onboarding_step < 4:
+        agent.onboarding_step = 4
+
+    db.commit()
+
+    return SourcesResponse(ok=True, onboarding_step=4)
