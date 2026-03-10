@@ -1141,25 +1141,139 @@ PUT /api/v1/agent/templates/POST_HOT
 
 ## Correctness Properties
 
-1. **Tenant Isolation**: For all agent API responses R, every lead L in R satisfies `L.agent_user_id = authenticated_agent_user_id`. No agent can read or modify another agent's leads, templates, or preferences.
+*A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
 
-2. **Credential Security**: For all IMAP test operations, `app_password` never appears in log output, error responses, or API responses. The stored value is always AES-256 encrypted.
+### Property 1: Tenant Isolation
 
-3. **Score Consistency**: For all scored leads, `score = sum(factor.points for factor in breakdown where factor.met = true)` and `score` is between 0 and 100 inclusive.
+*For any* agent API response, every lead, template, preference, and automation config in the response satisfies `resource.agent_user_id = authenticated_agent_user_id`. No agent can read or modify another agent's data.
 
-4. **Bucket Monotonicity**: For all leads, `bucket = HOT` iff `score >= hot_threshold`, `bucket = WARM` iff `warm_threshold <= score < hot_threshold`, `bucket = NURTURE` iff `score < warm_threshold`.
+**Validates: Requirements 10.2, 11.7, 17.3, 18.1, 18.2**
 
-5. **Event Immutability**: `lead_events` records are never updated or deleted. Every state transition produces exactly one new event record.
+### Property 2: Credential Never Plaintext
 
-6. **Watcher Admin Lock**: If `agent_preferences.watcher_admin_override = TRUE`, then `PATCH /agent/account/watcher` always returns 403 regardless of the `enabled` value in the request body.
+*For any* IMAP test or credential update operation, the App Password never appears in log output, error responses, or API responses. The value persisted to the database is always AES-256 encrypted and not equal to the plaintext input.
 
-7. **Onboarding Completeness**: `onboarding_completed = TRUE` only if all of: Gmail connected, at least one lead source enabled, buyer_automation_config exists, all 4 template types have an active template (agent or platform default).
+**Validates: Requirements 5.8, 19.1, 19.4**
 
-8. **Template Placeholder Safety**: For all rendered emails, the rendered subject contains no newline characters and no unresolved `{...}` placeholders.
+### Property 3: Encryption Round-Trip
 
-9. **Aging Accuracy**: A HOT lead is marked `is_aging = TRUE` if and only if `last_agent_action_at IS NULL` AND `(NOW() - created_at) > sla_minutes_hot`.
+*For any* non-empty App Password string, encrypting then decrypting with the same AES-256 key produces a value identical to the original plaintext.
 
-10. **Rate Limiting**: No more than 5 IMAP connection test attempts per agent per 15-minute window. Excess attempts return 429 with `error: "RATE_LIMITED"`.
+**Validates: Requirements 19.5**
+
+### Property 4: Score Computation Correctness
+
+*For any* set of scoring factor inputs, the computed score equals the sum of `factor.points` for all factors where `factor.met = TRUE`, and the result is between 0 and 100 inclusive.
+
+**Validates: Requirements 13.1, 13.6**
+
+### Property 5: Bucket Assignment Determinism
+
+*For any* score value and threshold pair `(hot_threshold, warm_threshold)` where `hot_threshold > warm_threshold > 0`, the bucket assignment is: `HOT` iff `score >= hot_threshold`, `WARM` iff `warm_threshold <= score < hot_threshold`, `NURTURE` iff `score < warm_threshold`. These three cases are mutually exclusive and exhaustive.
+
+**Validates: Requirements 13.3, 13.4, 13.5**
+
+### Property 6: Tour Question Disabled Zeroes Score
+
+*For any* lead scoring operation where `enable_tour_question = FALSE`, the tour interest factor contributes 0 points to the score regardless of the form submission answer.
+
+**Validates: Requirements 13.8**
+
+### Property 7: Event Immutability
+
+*For any* `lead_events` record that has been inserted, it is never updated or deleted. Every state transition, scoring event, email send, agent contact action, and note addition produces exactly one new event record.
+
+**Validates: Requirements 20.1, 20.2**
+
+### Property 8: Watcher Admin Lock
+
+*For any* watcher toggle request where `agent_preferences.watcher_admin_override = TRUE`, the response is always 403 with `error: "ADMIN_LOCKED"` regardless of the `enabled` value in the request body.
+
+**Validates: Requirements 16.6**
+
+### Property 9: Onboarding Completeness Gate
+
+*For any* agent state, `onboarding_completed` is set to `TRUE` if and only if all four conditions hold simultaneously: Gmail is connected, at least one lead source is enabled, a `BuyerAutomationConfig` exists, and all 4 template types have an active template (agent override or platform default).
+
+**Validates: Requirements 9.4**
+
+### Property 10: Template Placeholder Safety
+
+*For any* rendered email, the rendered subject contains no newline characters and no unresolved `{...}` placeholders remain in either subject or body.
+
+**Validates: Requirements 14.5, 14.6, 14.7**
+
+### Property 11: HOT Lead Aging Accuracy
+
+*For any* HOT lead, `is_aging = TRUE` if and only if `last_agent_action_at IS NULL` AND `(NOW() - created_at) > sla_minutes_hot`. This invariant holds in both the dashboard and the leads inbox.
+
+**Validates: Requirements 10.3, 11.5**
+
+### Property 12: WARM Lead Aging Accuracy
+
+*For any* WARM lead, `is_aging = TRUE` if and only if `(NOW() - created_at) > 24 hours`.
+
+**Validates: Requirements 11.6**
+
+### Property 13: IMAP Rate Limiting
+
+*For any* agent, no more than 5 IMAP connection test attempts are permitted within a 15-minute window. The 6th or subsequent attempt within that window returns 429 with `error: "RATE_LIMITED"` and `retry_after_seconds`.
+
+**Validates: Requirements 5.7**
+
+### Property 14: IMAP Error Classification
+
+*For any* IMAP error message string, `classify_imap_error()` returns a value from the fixed safe enumeration `{IMAP_DISABLED, TWO_FACTOR_REQUIRED, INVALID_PASSWORD, RATE_LIMITED, CONNECTION_FAILED}` and never returns the raw error message.
+
+**Validates: Requirements 5.3, 5.4, 5.5, 5.6**
+
+### Property 15: Urgency Sort Order
+
+*For any* leads inbox query result, all HOT leads appear before all WARM leads, and all WARM leads appear before all NURTURE leads, regardless of any other sort parameter.
+
+**Validates: Requirements 11.1**
+
+### Property 16: Filter Correctness
+
+*For any* leads inbox query with one or more active filters (bucket, status, search), every lead in the result satisfies all active filter conditions simultaneously.
+
+**Validates: Requirements 11.2, 11.3**
+
+### Property 17: Pagination Bound
+
+*For any* paginated leads inbox response, the number of leads returned is at most 25.
+
+**Validates: Requirements 11.4**
+
+### Property 18: Status Transition Validity
+
+*For any* lead status update request, if the transition from `current_state` to `new_status` is not in the set of valid transitions, the request is rejected with 422. Valid transitions are: `{NEW, INVITE_SENT, SCORED} → CONTACTED → APPOINTMENT_SET → CLOSED`; any state → LOST.
+
+**Validates: Requirements 12.6**
+
+### Property 19: Template Version Monotonicity
+
+*For any* sequence of template save operations on the same template type for the same agent, each save increments the version number by exactly 1.
+
+**Validates: Requirements 14.2**
+
+### Property 20: Onboarding Test Simulation Leaves No Records
+
+*For any* invocation of the onboarding test simulation, the total count of records in `leads`, `lead_events`, and `agent_templates` tables is identical before and after the simulation.
+
+**Validates: Requirements 9.3**
+
+### Property 21: Unauthenticated Requests Rejected
+
+*For any* request to any `/api/v1/agent/` route without a valid session cookie, the response is 401.
+
+**Validates: Requirements 2.4**
+
+### Property 22: Session Token Uniqueness
+
+*For any* two distinct agent sessions, their session tokens are different. All session tokens are exactly 64 bytes of cryptographically secure random data.
+
+**Validates: Requirements 2.6**
 
 
 ## Error Handling
