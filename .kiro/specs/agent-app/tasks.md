@@ -148,7 +148,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 14.1, 14.2, 14.3, 14.4_
   - [x] 10.2 Implement `GET /api/v1/agent/automation` and `PUT /api/v1/agent/automation`
     - _Requirements: 15.1, 15.2, 15.3_
-  - [~] 10.3 Implement account/Gmail endpoints: `GET /api/v1/agent/account/gmail`, `POST /api/v1/agent/account/gmail/test`, `PUT /api/v1/agent/account/gmail`, `DELETE /api/v1/agent/account/gmail`, `PATCH /api/v1/agent/account/watcher`, `PUT /api/v1/agent/account/preferences`
+  - [x] 10.3 Implement account/Gmail endpoints: `GET /api/v1/agent/account/gmail`, `POST /api/v1/agent/account/gmail/test`, `PUT /api/v1/agent/account/gmail`, `DELETE /api/v1/agent/account/gmail`, `PATCH /api/v1/agent/account/watcher`, `PUT /api/v1/agent/account/preferences`
     - Test new credentials before persisting on PUT; return 403 on watcher toggle when `watcher_admin_override = TRUE`
     - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5, 16.6_
   - [~] 10.4 Implement `GET /api/v1/agent/reports/summary` with `period` query param (7d/30d/90d, default 30d); scope by `agent_user_id`
