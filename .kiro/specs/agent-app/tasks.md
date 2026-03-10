@@ -16,7 +16,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 1.1, 13.7_
 
 - [ ] 2. Credential encryption service
-  - [~] 2.1 Implement `encrypt_app_password` and `decrypt_app_password` using AES-256 (cryptography library), key from environment variable
+  - [x] 2.1 Implement `encrypt_app_password` and `decrypt_app_password` using AES-256 (cryptography library), key from environment variable
     - Use `SecretStr` for all app password fields in Pydantic models
     - Never log or return plaintext
     - _Requirements: 19.1, 19.2, 19.3, 19.4_
