@@ -129,7 +129,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 9.9 Write property test for filter correctness
     - **Property 16: Filter Correctness** — for any query with active filters, every returned lead satisfies all active filter conditions simultaneously
     - **Validates: Requirements 11.2, 11.3**
-  - [~] 9.10 Write property test for pagination bound
+  - [x] 9.10 Write property test for pagination bound
     - **Property 17: Pagination Bound** — for any paginated leads inbox response, the number of leads returned is at most 25
     - **Validates: Requirements 11.4**
   - [~] 9.11 Write property test for HOT lead aging accuracy
