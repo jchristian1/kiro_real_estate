@@ -1,6 +1,7 @@
 /**
  * AgentLayout — sidebar + header layout matching admin panel style exactly.
- * Uses same getTokens, ThemeContext, and design tokens as the admin DashboardLayout.
+ * Desktop: persistent sidebar (like admin DashboardLayout).
+ * Mobile (<768px): hamburger + overlay sidebar.
  */
 
 import React from 'react';
@@ -25,161 +26,199 @@ const PAGE_TITLES: Record<string, string> = {
   '/agent/reports':   'Reports',
 };
 
+// Inject responsive CSS once at module load
+if (typeof document !== 'undefined' && !document.getElementById('agent-layout-css')) {
+  const style = document.createElement('style');
+  style.id = 'agent-layout-css';
+  style.textContent = `
+    @media (min-width: 768px) {
+      .agent-sidebar-desktop { display: flex !important; }
+      .agent-sidebar-mobile  { display: none !important; }
+      .agent-hamburger       { display: none !important; }
+    }
+    @media (max-width: 767px) {
+      .agent-sidebar-desktop { display: none !important; }
+      .agent-sidebar-mobile  { display: flex !important; }
+      .agent-hamburger       { display: flex !important; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 export const AgentLayout: React.FC = () => {
   const { theme, toggle } = useTheme();
   const t = getTokens(theme);
   const { agent, logout } = useAgentAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const [mobileOpen, setMobileOpen] = React.useState(false);
 
   const segment = '/' + location.pathname.split('/').slice(1, 3).join('/');
   const title = PAGE_TITLES[segment] || 'Agent Portal';
 
-  // Close sidebar on route change (mobile)
-  React.useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
+  React.useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
   const handleLogout = async () => {
     await logout();
     navigate('/agent/login');
   };
 
+  const sidebarContent = (
+    <>
+      {/* Logo */}
+      <div style={{ padding: '22px 18px 18px', borderBottom: `1px solid ${t.border}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 34, height: 34, borderRadius: 9,
+            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 17, color: '#fff', fontWeight: 800, flexShrink: 0,
+            boxShadow: '0 4px 12px rgba(99,102,241,0.4)',
+          }}>L</div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: t.text, letterSpacing: '-0.3px' }}>LeadSync</div>
+            <div style={{ fontSize: 10, color: t.textFaint, letterSpacing: '0.6px', textTransform: 'uppercase' }}>Agent Portal</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
+        {NAV_ITEMS.map(item => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            style={({ isActive }) => ({
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '8px 10px', borderRadius: 9, marginBottom: 1,
+              fontSize: 13, fontWeight: isActive ? 600 : 400,
+              color: isActive ? (theme === 'dark' ? '#fff' : '#6366f1') : t.textMuted,
+              background: isActive ? t.accentBg : 'transparent',
+              textDecoration: 'none', transition: 'all 0.12s', letterSpacing: '-0.1px',
+            })}
+            onMouseEnter={e => {
+              const el = e.currentTarget as HTMLAnchorElement;
+              if (!el.getAttribute('aria-current')) {
+                el.style.background = t.bgCardHover;
+                el.style.color = t.textSecondary;
+              }
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget as HTMLAnchorElement;
+              if (!el.getAttribute('aria-current')) {
+                el.style.background = 'transparent';
+                el.style.color = t.textMuted;
+              }
+            }}
+          >
+            <span style={{ fontSize: 13, width: 18, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* User footer */}
+      <div style={{ padding: '10px 8px 14px', borderTop: `1px solid ${t.border}` }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 9,
+          padding: '8px 10px', borderRadius: 9, background: t.bgCard,
+        }}>
+          <div style={{
+            width: 30, height: 30, borderRadius: '50%',
+            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 12, color: '#fff', fontWeight: 700, flexShrink: 0,
+          }}>
+            {agent?.full_name?.[0]?.toUpperCase() || agent?.email?.[0]?.toUpperCase() || 'A'}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {agent?.full_name || agent?.email}
+            </div>
+            <div style={{ fontSize: 10, color: t.textFaint }}>Agent</div>
+          </div>
+          <button
+            onClick={handleLogout}
+            title="Sign out"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: t.textFaint, fontSize: 15, padding: '2px 4px',
+              borderRadius: 5, transition: 'color 0.15s', lineHeight: 1,
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = t.red)}
+            onMouseLeave={e => (e.currentTarget.style.color = t.textFaint)}
+          >
+            ⏻
+          </button>
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', width: '100%', background: t.bgPage, transition: 'background 0.2s' }}>
-      {/* Mobile overlay */}
-      {sidebarOpen && (
+      {/* Mobile overlay backdrop */}
+      {mobileOpen && (
         <div
-          onClick={() => setSidebarOpen(false)}
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-            zIndex: 40, display: 'block',
-          }}
+          onClick={() => setMobileOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 40 }}
         />
       )}
 
-      {/* Sidebar */}
-      <aside style={{
-        width: 224, minHeight: '100vh',
-        background: t.bgSidebar,
-        borderRight: `1px solid ${t.border}`,
-        display: 'flex', flexDirection: 'column', flexShrink: 0,
-        backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-        transition: 'transform 0.25s ease, background 0.2s',
-        // Mobile: fixed overlay; Desktop: static
-        position: 'fixed' as const,
-        top: 0, left: 0, bottom: 0,
-        zIndex: 50,
-        transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
-      }}>
-        {/* Logo */}
-        <div style={{ padding: '22px 18px 18px', borderBottom: `1px solid ${t.border}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: 9,
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 17, color: '#fff', fontWeight: 800, flexShrink: 0,
-              boxShadow: '0 4px 12px rgba(99,102,241,0.4)',
-            }}>L</div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: t.text, letterSpacing: '-0.3px' }}>LeadSync</div>
-              <div style={{ fontSize: 10, color: t.textFaint, letterSpacing: '0.6px', textTransform: 'uppercase' }}>Agent Portal</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Nav */}
-        <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
-          {NAV_ITEMS.map(item => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              style={({ isActive }) => ({
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '10px 10px', borderRadius: 9, marginBottom: 1,
-                fontSize: 13, fontWeight: isActive ? 600 : 400,
-                minHeight: 44,
-                color: isActive ? (theme === 'dark' ? '#fff' : '#6366f1') : t.textMuted,
-                background: isActive ? t.accentBg : 'transparent',
-                textDecoration: 'none', transition: 'all 0.12s', letterSpacing: '-0.1px',
-              })}
-              onMouseEnter={e => {
-                const el = e.currentTarget as HTMLAnchorElement;
-                if (!el.getAttribute('aria-current')) {
-                  el.style.background = t.bgCardHover;
-                  el.style.color = t.textSecondary;
-                }
-              }}
-              onMouseLeave={e => {
-                const el = e.currentTarget as HTMLAnchorElement;
-                if (!el.getAttribute('aria-current')) {
-                  el.style.background = 'transparent';
-                  el.style.color = t.textMuted;
-                }
-              }}
-            >
-              <span style={{ fontSize: 13, width: 18, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* User footer */}
-        <div style={{ padding: '10px 8px 14px', borderTop: `1px solid ${t.border}` }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 9,
-            padding: '8px 10px', borderRadius: 9, background: t.bgCard,
-          }}>
-            <div style={{
-              width: 30, height: 30, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 12, color: '#fff', fontWeight: 700, flexShrink: 0,
-            }}>
-              {agent?.full_name?.[0]?.toUpperCase() || agent?.email?.[0]?.toUpperCase() || 'A'}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {agent?.full_name || agent?.email}
-              </div>
-              <div style={{ fontSize: 10, color: t.textFaint }}>Agent</div>
-            </div>
-            <button
-              onClick={handleLogout}
-              title="Sign out"
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: t.textFaint, fontSize: 15, padding: '2px 4px',
-                borderRadius: 5, transition: 'color 0.15s', lineHeight: 1,
-              }}
-              onMouseEnter={e => (e.currentTarget.style.color = t.red)}
-              onMouseLeave={e => (e.currentTarget.style.color = t.textFaint)}
-            >
-              ⏻
-            </button>
-          </div>
-        </div>
+      {/* Desktop sidebar — persistent, static in flow (matches admin panel) */}
+      <aside
+        className="agent-sidebar-desktop"
+        style={{
+          width: 224, minHeight: '100vh',
+          background: t.bgSidebar,
+          borderRight: `1px solid ${t.border}`,
+          flexDirection: 'column', flexShrink: 0,
+          backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+          transition: 'background 0.2s',
+        }}
+      >
+        {sidebarContent}
       </aside>
 
-      {/* Main content — full width on mobile (sidebar is overlay) */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
+      {/* Mobile sidebar — fixed overlay */}
+      <aside
+        className="agent-sidebar-mobile"
+        style={{
+          width: 224, minHeight: '100vh',
+          background: t.bgSidebar,
+          borderRight: `1px solid ${t.border}`,
+          flexDirection: 'column', flexShrink: 0,
+          backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+          transition: 'transform 0.25s ease, background 0.2s',
+          position: 'fixed',
+          top: 0, left: 0, bottom: 0,
+          zIndex: 50,
+          transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
+        }}
+      >
+        {sidebarContent}
+      </aside>
+
+      {/* Main content */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         {/* Header */}
         <header style={{
           height: 56, background: t.bgHeader,
           borderBottom: `1px solid ${t.border}`,
           backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '0 16px', flexShrink: 0, position: 'sticky', top: 0, zIndex: 10,
+          padding: '0 24px', flexShrink: 0, position: 'sticky', top: 0, zIndex: 10,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {/* Hamburger */}
+            {/* Hamburger — mobile only, hidden on desktop via CSS */}
             <button
-              onClick={() => setSidebarOpen(v => !v)}
+              onClick={() => setMobileOpen(v => !v)}
               aria-label="Open navigation"
+              className="agent-hamburger"
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
                 color: t.textMuted, fontSize: 20, padding: '8px', borderRadius: 8,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                alignItems: 'center', justifyContent: 'center',
                 minWidth: 44, minHeight: 44,
               }}
             >☰</button>
@@ -212,7 +251,7 @@ export const AgentLayout: React.FC = () => {
         </header>
 
         <main style={{
-          flex: 1, padding: '20px 16px', overflowY: 'auto',
+          flex: 1, padding: '28px', overflowY: 'auto',
           background: t.bgPage, transition: 'background 0.2s',
         }}>
           <Outlet />

@@ -230,7 +230,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 18.4 Write integration test: template header injection — subject with `\n` returns 422
     - _Requirements: 14.7_
 
-- [-] 19. Final checkpoint — all tests pass
+- [x] 19. Final checkpoint — all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes
