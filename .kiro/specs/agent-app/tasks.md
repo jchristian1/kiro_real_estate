@@ -62,10 +62,10 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 5.2 Write property test for score computation correctness
     - **Property 4: Score Computation Correctness** — for any factor inputs, score equals sum of points for met factors and is between 0 and 100 inclusive
     - **Validates: Requirements 13.1, 13.6**
-  - [-] 5.3 Write property test for bucket assignment determinism
+  - [x] 5.3 Write property test for bucket assignment determinism
     - **Property 5: Bucket Assignment Determinism** — for any score and `(hot_threshold, warm_threshold)` where `hot_t > warm_t > 0`, bucket is exactly one of HOT/WARM/NURTURE and the three cases are mutually exclusive and exhaustive
     - **Validates: Requirements 13.3, 13.4, 13.5**
-  - [-] 5.4 Write property test for tour question disabled
+  - [x] 5.4 Write property test for tour question disabled
     - **Property 6: Tour Question Disabled Zeroes Score** — when `enable_tour_question = FALSE`, tour factor always contributes 0 regardless of submission answer
     - **Validates: Requirements 13.8**
 
