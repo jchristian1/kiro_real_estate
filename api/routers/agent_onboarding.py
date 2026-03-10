@@ -875,13 +875,13 @@ def complete_onboarding(
     # --- Precondition 1: Gmail connected ---
     gmail_connected = agent.credentials_id is not None
 
-    # --- Precondition 2: At least one lead source enabled ---
+    # --- Precondition 2: Lead source preference saved (empty list is fine if no sources exist) ---
     prefs = agent.preferences
     lead_source_selected = False
     if prefs is not None and prefs.enabled_lead_source_ids is not None:
         try:
             ids = _json.loads(prefs.enabled_lead_source_ids)
-            lead_source_selected = isinstance(ids, list) and len(ids) >= 1
+            lead_source_selected = isinstance(ids, list)  # any list (including empty) is valid
         except (ValueError, TypeError):
             lead_source_selected = False
 

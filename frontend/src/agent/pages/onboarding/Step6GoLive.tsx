@@ -4,6 +4,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getTokens } from '../../../utils/theme';
 import { agentApi, getAgentErrorMessage } from '../../api/agentApi';
@@ -14,11 +15,6 @@ interface Props { goBack: () => void; }
 interface TestResult {
   lead_name: string; score: number; bucket: string;
   rendered_emails: { type: string; subject: string; body: string }[];
-}
-
-interface CompleteResult {
-  success: boolean;
-  missing?: string[];
 }
 
 export const Step6GoLive: React.FC<Props> = ({ goBack }) => {
@@ -49,15 +45,30 @@ export const Step6GoLive: React.FC<Props> = ({ goBack }) => {
   const goLive = async () => {
     setGoLiveError(''); setMissing([]); setGoLiveLoading(true);
     try {
-      const result = await agentApi.post<CompleteResult>('/agent/onboarding/complete', {});
-      if (result.success) {
+      const result = await agentApi.post<{ ok: boolean; onboarding_completed: boolean }>('/agent/onboarding/complete', {});
+      if (result.ok) {
         await refreshAgent();
         navigate('/agent/dashboard');
-      } else {
-        setMissing(result.missing || []);
-        setGoLiveError('Please complete all required steps before going live.');
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      // 400 returns checklist of what's missing
+      if (axios.isAxiosError(err) && err.response?.status === 400) {
+        const data = err.response.data as { error: string; checklist: Record<string, boolean> };
+        if (data?.checklist) {
+          const labels: Record<string, string> = {
+            gmail_connected: 'Connect Gmail account',
+            lead_source_selected: 'Select at least one lead source',
+            automation_configured: 'Configure automation settings',
+            templates_active: 'Set up email templates',
+          };
+          const failing = Object.entries(data.checklist)
+            .filter(([, v]) => !v)
+            .map(([k]) => labels[k] || k);
+          setMissing(failing);
+          setGoLiveError('Please complete all required steps before going live.');
+          return;
+        }
+      }
       setGoLiveError(getAgentErrorMessage(err));
     } finally {
       setGoLiveLoading(false);
