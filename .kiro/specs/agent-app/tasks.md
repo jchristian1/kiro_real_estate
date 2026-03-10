@@ -24,7 +24,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - **Property 3: Encryption Round-Trip** — for any non-empty string, encrypt then decrypt returns original value exactly
     - **Validates: Requirements 19.5**
 
-- [ ] 3. Agent auth backend
+- [x] 3. Agent auth backend
   - [x] 3.1 Implement `POST /api/v1/agent/auth/signup` — create agent account, auto-login, return session cookie
     - Hash password with bcrypt; return 409 on duplicate email; return 422 on short password
     - _Requirements: 1.1, 1.2, 1.3, 1.5_
