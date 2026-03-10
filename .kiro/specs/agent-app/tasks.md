@@ -177,9 +177,9 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
 - [-] 13. Onboarding wizard frontend
   - [x] 13.1 Implement `OnboardingWizard` shell — progress bar (step N of 6), step routing, localStorage persistence, backward navigation without data loss
     - _Requirements: 3.1, 3.3, 3.4_
-  - [-] 13.2 Implement Step 0 (Account Creation) — email, password, confirm password fields; Zod validation (min 8 chars, match); POST to signup; auto-redirect to `/onboarding/profile`
+  - [x] 13.2 Implement Step 0 (Account Creation) — email, password, confirm password fields; Zod validation (min 8 chars, match); POST to signup; auto-redirect to `/onboarding/profile`
     - _Requirements: 1.1, 1.3, 1.4, 1.5_
-  - [~] 13.3 Implement Step 1 (Agent Profile) — full_name (required), phone, timezone (default browser TZ), service_area, optional company join code
+  - [x] 13.3 Implement Step 1 (Agent Profile) — full_name (required), phone, timezone (default browser TZ), service_area, optional company join code
     - _Requirements: 4.1, 4.2, 4.4_
   - [~] 13.4 Implement Step 2 (Gmail Connection) — Gmail address + App Password fields, collapsible "How to create App Password" instructions, live IMAP test on submit, success/error states per error code, watcher toggle (read-only if admin locked)
     - _Requirements: 5.2, 5.3, 5.9, 9.5_
