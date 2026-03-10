@@ -153,10 +153,10 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5, 16.6_
   - [x] 10.4 Implement `GET /api/v1/agent/reports/summary` with `period` query param (7d/30d/90d, default 30d); scope by `agent_user_id`
     - _Requirements: 17.1, 17.2, 17.3_
-  - [~] 10.5 Write property test for template version monotonicity
+  - [x] 10.5 Write property test for template version monotonicity
     - **Property 19: Template Version Monotonicity** — each save increments version by exactly 1
     - **Validates: Requirements 14.2**
-  - [~] 10.6 Write property test for watcher admin lock
+  - [-] 10.6 Write property test for watcher admin lock
     - **Property 8: Watcher Admin Lock** — when `watcher_admin_override = TRUE`, any toggle request returns 403 with `error: "ADMIN_LOCKED"` regardless of `enabled` value
     - **Validates: Requirements 16.6**
   - [~] 10.7 Write property test for credential never plaintext
