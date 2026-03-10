@@ -185,7 +185,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 5.2, 5.3, 5.9, 9.5_
   - [x] 13.5 Implement Step 3 (Lead Sources) — checklist of platform lead sources with name, logo, sample parsed preview; default all enabled
     - _Requirements: 6.1, 6.3_
-  - [~] 13.6 Implement Step 4 (Buyer Automation) — HOT threshold slider (60–95, default 80), SLA select (5/15/30/60 min), tour question toggle, working hours time range picker
+  - [x] 13.6 Implement Step 4 (Buyer Automation) — HOT threshold slider (60–95, default 80), SLA select (5/15/30/60 min), tour question toggle, working hours time range picker
     - _Requirements: 7.2, 7.3, 7.4, 7.5_
   - [~] 13.7 Implement Step 5 (Template Setup) — 4 template cards, tone selector, inline subject/body editor, live preview panel with sample lead data
     - _Requirements: 8.1, 8.2, 8.3_
