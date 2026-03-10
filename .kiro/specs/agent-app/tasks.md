@@ -196,7 +196,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 14.1 Implement Dashboard page — HOT leads list, aging alerts with visual indicators, today/week response time stats, watcher status badge, watcher toggle
     - Poll or refetch on focus; scope display to authenticated agent
     - _Requirements: 10.1, 10.5_
-  - [~] 14.2 Implement Leads Inbox page — filter bar (bucket, status), search input with 300ms debounce, lead cards with urgency bucket badge and aging indicator, pagination
+  - [x] 14.2 Implement Leads Inbox page — filter bar (bucket, status), search input with 300ms debounce, lead cards with urgency bucket badge and aging indicator, pagination
     - HOT leads always rendered first regardless of filter
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6_
   - [~] 14.3 Implement Lead Detail page — scoring breakdown panel (factor label, points, met/unmet), event timeline, rendered email previews, notes list, status update controls (CONTACTED / APPOINTMENT_SET / LOST / CLOSED), add note form
