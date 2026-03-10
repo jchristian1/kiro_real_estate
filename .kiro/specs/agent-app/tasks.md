@@ -111,7 +111,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
   - [x] 9.2 Implement `GET /api/v1/agent/leads` — urgency sort (HOT → WARM → NURTURE), bucket/status/search filters, aging annotation, pagination at 25/page
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
-  - [~] 9.3 Implement `GET /api/v1/agent/leads/{id}` — enriched lead, scoring breakdown, timeline, rendered emails, notes; return 403 for cross-agent access
+  - [x] 9.3 Implement `GET /api/v1/agent/leads/{id}` — enriched lead, scoring breakdown, timeline, rendered emails, notes; return 403 for cross-agent access
     - _Requirements: 12.1, 12.2, 12.3, 18.2_
   - [~] 9.4 Implement `PATCH /api/v1/agent/leads/{id}/status` — validate state transition, update `current_state`, set `last_agent_action_at` on CONTACTED, insert `STATUS_CHANGED` event
     - Reject invalid transitions with 422

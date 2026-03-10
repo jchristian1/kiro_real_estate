@@ -1,24 +1,34 @@
 """
-Agent leads inbox route.
+Agent leads inbox and lead detail routes.
 
 Provides:
 - GET /api/v1/agent/leads — urgency-sorted lead list with filters, aging
   annotation, and pagination at 25 leads per page.
+- GET /api/v1/agent/leads/{id} — enriched lead detail with scoring breakdown,
+  timeline, rendered emails, and notes.
+- PATCH /api/v1/agent/leads/{id}/status — state transition with event logging.
+- POST /api/v1/agent/leads/{id}/notes — persist note with event logging.
 
-Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7
+Requirements: 11.1–11.7, 12.1–12.6, 18.2, 20.1, 20.3
 """
 
+import json
 import math
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from api.dependencies.agent_auth import get_current_agent
 from api.main import get_db
-from gmail_lead_sync.agent_models import AgentPreferences, AgentUser
+from gmail_lead_sync.agent_models import (
+    AgentPreferences,
+    AgentTemplate,
+    AgentUser,
+    LeadEvent,
+)
 from gmail_lead_sync.models import Lead
 
 router = APIRouter(prefix="/agent", tags=["Agent Leads"])
@@ -223,4 +233,395 @@ def get_leads(
         page=page,
         page_size=PAGE_SIZE,
         total_pages=total_pages,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Valid state transitions (Requirement 12.6)
+# ---------------------------------------------------------------------------
+VALID_TRANSITIONS: Dict[Optional[str], List[str]] = {
+    None: ["CONTACTED", "APPOINTMENT_SET", "LOST"],
+    "NEW": ["CONTACTED", "APPOINTMENT_SET", "LOST"],
+    "INVITE_SENT": ["CONTACTED", "APPOINTMENT_SET", "LOST"],
+    "FORM_SUBMITTED": ["CONTACTED", "APPOINTMENT_SET", "LOST"],
+    "SCORED": ["CONTACTED", "APPOINTMENT_SET", "LOST"],
+    "CONTACTED": ["APPOINTMENT_SET", "LOST", "CLOSED"],
+    "APPOINTMENT_SET": ["CONTACTED", "LOST", "CLOSED"],
+    "LOST": ["CONTACTED"],
+    "CLOSED": [],
+}
+
+# Map agent-facing status values to internal agent_current_state values
+STATUS_TO_STATE = {
+    "CONTACTED": "CONTACTED",
+    "APPOINTMENT_SET": "APPOINTMENT_SET",
+    "LOST": "LOST",
+    "CLOSED": "CLOSED",
+}
+
+# Map internal state to LeadEvent type
+STATE_TO_EVENT = {
+    "CONTACTED": "AGENT_CONTACTED",
+    "APPOINTMENT_SET": "APPOINTMENT_SET",
+    "LOST": "LEAD_LOST",
+    "CLOSED": "LEAD_CLOSED",
+}
+
+
+# ---------------------------------------------------------------------------
+# Additional Pydantic models
+# ---------------------------------------------------------------------------
+
+
+class ScoreFactor(BaseModel):
+    label: str
+    points: int
+    met: bool
+
+
+class ScoringBreakdown(BaseModel):
+    total: int
+    factors: List[ScoreFactor]
+
+
+class TimelineEvent(BaseModel):
+    id: int
+    event_type: str
+    payload: Optional[Dict[str, Any]]
+    created_at: datetime
+
+
+class RenderedEmail(BaseModel):
+    type: str
+    subject: str
+    body: str
+    sent_at: Optional[datetime]
+
+
+class NoteItem(BaseModel):
+    text: str
+    created_at: datetime
+
+
+class EnrichedLead(BaseModel):
+    id: int
+    name: str
+    phone: Optional[str]
+    score: Optional[int]
+    score_bucket: Optional[str]
+    current_state: Optional[str]
+    source: Optional[str]
+    address: Optional[str]
+    listing_url: Optional[str]
+    created_at: datetime
+    last_agent_action_at: Optional[datetime]
+    is_aging: bool
+
+
+class LeadDetailResponse(BaseModel):
+    lead: EnrichedLead
+    scoring_breakdown: Optional[ScoringBreakdown]
+    timeline: List[TimelineEvent]
+    rendered_emails: List[RenderedEmail]
+    notes: List[NoteItem]
+
+
+class StatusUpdateRequest(BaseModel):
+    status: str
+    note: Optional[str] = None
+
+
+class StatusUpdateResponse(BaseModel):
+    ok: bool
+    current_state: str
+    updated_at: datetime
+
+
+class NoteRequest(BaseModel):
+    text: str
+
+
+class NoteResponse(BaseModel):
+    note_id: int
+    text: str
+    created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# GET /agent/leads/{id}
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/leads/{lead_id}",
+    response_model=LeadDetailResponse,
+    summary="Enriched lead detail — scoring breakdown, timeline, rendered emails, notes",
+)
+def get_lead_detail(
+    lead_id: int,
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    """
+    Return enriched detail for a single lead.
+
+    - Returns 403 if the lead belongs to a different agent (Requirement 18.2).
+    - Scoring breakdown is parsed from the JSON score_breakdown column.
+    - Timeline is the full ordered list of lead_events for this lead.
+    - Rendered emails are extracted from INVITE_SENT / POST_EMAIL_SENT events.
+    - Notes are extracted from NOTE_ADDED events.
+
+    Requirements: 12.1, 12.2, 12.3, 18.2
+    """
+    now = datetime.utcnow()
+
+    lead: Optional[Lead] = db.query(Lead).filter(Lead.id == lead_id).first()
+    if lead is None:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    # Tenant isolation — 403 for cross-agent access (Requirement 18.2)
+    if lead.agent_user_id != agent.id:
+        raise HTTPException(status_code=403, detail="LEAD_NOT_OWNED")
+
+    # Aging annotation
+    prefs: Optional[AgentPreferences] = (
+        db.query(AgentPreferences)
+        .filter(AgentPreferences.agent_user_id == agent.id)
+        .first()
+    )
+    sla_minutes_hot: int = prefs.sla_minutes_hot if prefs else 5
+    is_aging = False
+    bucket_val = lead.score_bucket or ""
+    if bucket_val == "HOT" and lead.last_agent_action_at is None and lead.created_at:
+        is_aging = (now - lead.created_at) > timedelta(minutes=sla_minutes_hot)
+    elif bucket_val == "WARM" and lead.created_at:
+        is_aging = (now - lead.created_at) > timedelta(hours=24)
+
+    enriched = EnrichedLead(
+        id=lead.id,
+        name=lead.name or "",
+        phone=getattr(lead, "phone", None),
+        score=lead.score,
+        score_bucket=lead.score_bucket,
+        current_state=lead.agent_current_state,
+        source=lead.lead_source_name,
+        address=lead.property_address,
+        listing_url=lead.listing_url,
+        created_at=lead.created_at,
+        last_agent_action_at=lead.last_agent_action_at,
+        is_aging=is_aging,
+    )
+
+    # Scoring breakdown from JSON column
+    scoring_breakdown: Optional[ScoringBreakdown] = None
+    if lead.score_breakdown:
+        try:
+            raw = json.loads(lead.score_breakdown)
+            factors = [
+                ScoreFactor(
+                    label=f.get("label", ""),
+                    points=f.get("points", 0),
+                    met=f.get("met", False),
+                )
+                for f in raw.get("factors", [])
+            ]
+            scoring_breakdown = ScoringBreakdown(
+                total=lead.score or 0,
+                factors=factors,
+            )
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # Timeline — all events ordered by created_at ASC
+    events: List[LeadEvent] = (
+        db.query(LeadEvent)
+        .filter(LeadEvent.lead_id == lead_id)
+        .order_by(LeadEvent.created_at.asc())
+        .all()
+    )
+
+    timeline: List[TimelineEvent] = []
+    rendered_emails: List[RenderedEmail] = []
+    notes: List[NoteItem] = []
+
+    for ev in events:
+        payload_dict: Optional[Dict[str, Any]] = None
+        if ev.payload:
+            try:
+                payload_dict = json.loads(ev.payload)
+            except (json.JSONDecodeError, TypeError):
+                payload_dict = None
+
+        timeline.append(
+            TimelineEvent(
+                id=ev.id,
+                event_type=ev.event_type,
+                payload=payload_dict,
+                created_at=ev.created_at,
+            )
+        )
+
+        # Extract rendered emails from INVITE_SENT / POST_EMAIL_SENT events
+        if ev.event_type in ("INVITE_SENT", "POST_EMAIL_SENT") and payload_dict:
+            rendered_emails.append(
+                RenderedEmail(
+                    type=ev.event_type,
+                    subject=payload_dict.get("subject", ""),
+                    body=payload_dict.get("body", ""),
+                    sent_at=ev.created_at,
+                )
+            )
+
+        # Extract notes from NOTE_ADDED events
+        if ev.event_type == "NOTE_ADDED" and payload_dict:
+            rendered_emails  # noqa — just referencing to avoid unused warning
+            notes.append(
+                NoteItem(
+                    text=payload_dict.get("text", ""),
+                    created_at=ev.created_at,
+                )
+            )
+
+    return LeadDetailResponse(
+        lead=enriched,
+        scoring_breakdown=scoring_breakdown,
+        timeline=timeline,
+        rendered_emails=rendered_emails,
+        notes=notes,
+    )
+
+
+# ---------------------------------------------------------------------------
+# PATCH /agent/leads/{id}/status
+# ---------------------------------------------------------------------------
+
+
+@router.patch(
+    "/leads/{lead_id}/status",
+    response_model=StatusUpdateResponse,
+    summary="Update lead status — validates transition, logs event",
+)
+def update_lead_status(
+    lead_id: int,
+    body: StatusUpdateRequest,
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    """
+    Validate and apply a state transition for a lead.
+
+    Valid transitions (Requirement 12.6):
+      NEW / INVITE_SENT / FORM_SUBMITTED / SCORED → CONTACTED, APPOINTMENT_SET, LOST
+      CONTACTED → APPOINTMENT_SET, LOST, CLOSED
+      APPOINTMENT_SET → CONTACTED, LOST, CLOSED
+      LOST → CONTACTED
+      CLOSED → (none)
+
+    On CONTACTED: sets last_agent_action_at (Requirement 12.4).
+    Inserts STATUS_CHANGED event (Requirement 20.3).
+
+    Requirements: 12.4, 12.6, 20.3
+    """
+    lead: Optional[Lead] = db.query(Lead).filter(Lead.id == lead_id).first()
+    if lead is None:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    if lead.agent_user_id != agent.id:
+        raise HTTPException(status_code=403, detail="LEAD_NOT_OWNED")
+
+    new_status = body.status.upper()
+    if new_status not in STATUS_TO_STATE:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown status '{body.status}'. Valid: CONTACTED, APPOINTMENT_SET, LOST, CLOSED",
+        )
+
+    current = lead.agent_current_state
+    allowed = VALID_TRANSITIONS.get(current, [])
+    if new_status not in allowed:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Transition from '{current}' to '{new_status}' is not allowed",
+        )
+
+    now = datetime.utcnow()
+    lead.agent_current_state = new_status
+
+    # Set last_agent_action_at on CONTACTED (Requirement 12.4)
+    if new_status == "CONTACTED":
+        lead.last_agent_action_at = now
+
+    # Insert STATUS_CHANGED event (Requirement 20.3)
+    event_type = STATE_TO_EVENT.get(new_status, "STATUS_CHANGED")
+    payload: Dict[str, Any] = {
+        "from_state": current,
+        "to_state": new_status,
+    }
+    if body.note:
+        payload["note"] = body.note
+
+    db.add(
+        LeadEvent(
+            lead_id=lead_id,
+            agent_user_id=agent.id,
+            event_type="STATUS_CHANGED",
+            payload=json.dumps(payload),
+            created_at=now,
+        )
+    )
+    db.commit()
+    db.refresh(lead)
+
+    return StatusUpdateResponse(
+        ok=True,
+        current_state=lead.agent_current_state,
+        updated_at=now,
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /agent/leads/{id}/notes
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/leads/{lead_id}/notes",
+    response_model=NoteResponse,
+    status_code=201,
+    summary="Add a note to a lead — persists note and inserts NOTE_ADDED event",
+)
+def add_lead_note(
+    lead_id: int,
+    body: NoteRequest,
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    """
+    Persist a note for a lead and insert a NOTE_ADDED event.
+
+    Requirements: 12.5, 20.1
+    """
+    lead: Optional[Lead] = db.query(Lead).filter(Lead.id == lead_id).first()
+    if lead is None:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    if lead.agent_user_id != agent.id:
+        raise HTTPException(status_code=403, detail="LEAD_NOT_OWNED")
+
+    now = datetime.utcnow()
+    event = LeadEvent(
+        lead_id=lead_id,
+        agent_user_id=agent.id,
+        event_type="NOTE_ADDED",
+        payload=json.dumps({"text": body.text}),
+        created_at=now,
+    )
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+
+    return NoteResponse(
+        note_id=event.id,
+        text=body.text,
+        created_at=event.created_at,
     )
