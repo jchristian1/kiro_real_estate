@@ -11,7 +11,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - Define all columns, constraints, indexes, and FK relationships per the data models in the design
     - Add new columns to existing `leads` table: `property_address`, `listing_url`, `score`, `score_bucket`, `score_breakdown`, `current_state`, `agent_user_id`, `company_id`, `lead_source_name`, `last_agent_action_at`
     - _Requirements: 1.1, 2.6, 7.1, 13.7, 20.1_
-  - [~] 1.2 Write Alembic migration for all new tables and `leads` column additions
+  - [x] 1.2 Write Alembic migration for all new tables and `leads` column additions
     - Single migration file covering all new tables and leads alterations
     - _Requirements: 1.1, 13.7_
 
