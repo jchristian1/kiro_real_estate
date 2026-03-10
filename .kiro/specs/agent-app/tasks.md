@@ -123,7 +123,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 9.7 Write property test for tenant isolation
     - **Property 1: Tenant Isolation** — for any agent API response, every resource in the response has `agent_user_id` matching the authenticated agent
     - **Validates: Requirements 10.2, 11.7, 17.3, 18.1, 18.2**
-  - [~] 9.8 Write property test for urgency sort order
+  - [x] 9.8 Write property test for urgency sort order
     - **Property 15: Urgency Sort Order** — for any leads inbox query result, all HOT leads appear before all WARM leads, and all WARM leads appear before all NURTURE leads
     - **Validates: Requirements 11.1**
   - [~] 9.9 Write property test for filter correctness
