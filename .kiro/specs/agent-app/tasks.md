@@ -143,7 +143,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - **Validates: Requirements 12.6**
 
 - [-] 10. Settings and reports backend
-  - [~] 10.1 Implement templates CRUD: `GET /api/v1/agent/templates`, `PUT /api/v1/agent/templates/{type}`, `POST /api/v1/agent/templates/{type}/preview`, `DELETE /api/v1/agent/templates/{type}`
+  - [x] 10.1 Implement templates CRUD: `GET /api/v1/agent/templates`, `PUT /api/v1/agent/templates/{type}`, `POST /api/v1/agent/templates/{type}/preview`, `DELETE /api/v1/agent/templates/{type}`
     - Increment version on each save; revert to platform default on DELETE
     - _Requirements: 14.1, 14.2, 14.3, 14.4_
   - [~] 10.2 Implement `GET /api/v1/agent/automation` and `PUT /api/v1/agent/automation`
