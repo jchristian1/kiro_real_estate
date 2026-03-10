@@ -33,10 +33,11 @@ from gmail_lead_sync.agent_models import (
 
 # ---------------------------------------------------------------------------
 # In-memory SQLite test database (StaticPool — same connection for all threads)
+# Use a named in-memory DB to avoid sharing state with other test files.
 # ---------------------------------------------------------------------------
 
 engine = create_engine(
-    "sqlite://",
+    "sqlite:///file:prop_onboarding_sim?mode=memory&cache=shared&uri=true",
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
@@ -64,6 +65,7 @@ AGENT_SESSION_COOKIE = "agent_session"
 @pytest.fixture(autouse=True)
 def setup_db():
     Base.metadata.create_all(bind=engine)
+    app.dependency_overrides[get_db] = override_get_db
     yield
     Base.metadata.drop_all(bind=engine)
 

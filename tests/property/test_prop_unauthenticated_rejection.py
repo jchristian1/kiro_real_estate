@@ -28,10 +28,11 @@ from api.dependencies.agent_auth import AGENT_SESSION_COOKIE_NAME, get_current_a
 
 # ---------------------------------------------------------------------------
 # In-memory SQLite test database
+# Use a named in-memory DB to avoid sharing state with other test files.
 # ---------------------------------------------------------------------------
 
 engine = create_engine(
-    "sqlite://",
+    "sqlite:///file:prop_unauth_rejection?mode=memory&cache=shared&uri=true",
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
@@ -72,6 +73,7 @@ app.include_router(_prop_router)
 @pytest.fixture(autouse=True)
 def setup_db():
     Base.metadata.create_all(bind=engine)
+    app.dependency_overrides[get_db] = override_get_db
     yield
     Base.metadata.drop_all(bind=engine)
 
@@ -165,8 +167,9 @@ class TestProperty21UnauthenticatedRejection:
         For any arbitrary non-empty string used as a session token, the
         protected route must return 401 — no bogus token should grant access.
         """
-        # Build a fresh client per hypothesis example (DB is reset by autouse fixture
-        # only at the pytest level; here we rely on the token simply not existing in DB)
+        # Ensure tables exist for each Hypothesis example (may run after other
+        # tests that tear down the DB via drop_all).
+        Base.metadata.create_all(bind=engine)
         with TestClient(app, raise_server_exceptions=False) as c:
             resp = c.get(
                 PROTECTED_URL,

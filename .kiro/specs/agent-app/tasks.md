@@ -102,7 +102,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - **Property 10: Template Placeholder Safety** — for any rendered email, subject contains no newline characters and no unresolved `{...}` placeholders remain in subject or body
     - **Validates: Requirements 14.5, 14.6, 14.7**
 
-- [~] 8. Checkpoint — backend core complete
+- [x] 8. Checkpoint — backend core complete
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 9. Dashboard and leads backend
