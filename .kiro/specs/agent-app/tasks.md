@@ -212,7 +212,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 15.4 Implement Reports page — source distribution list, bucket distribution chart, average response time, appointments count, period selector (7d/30d/90d)
     - _Requirements: 17.1, 17.2_
 
-- [~] 16. Checkpoint — frontend complete
+- [x] 16. Checkpoint — frontend complete
   - Ensure all tests pass, ask the user if questions arise.
 
 - [~] 17. Mobile-first CSS audit and polish

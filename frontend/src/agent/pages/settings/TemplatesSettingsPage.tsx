@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getTokens } from '../../../utils/theme';
 import { useAgentTemplates, useSaveTemplate, useDeleteTemplate } from '../../hooks/useAgentQueries';
-import type { Template } from '../../hooks/useAgentQueries';
+
 import { getAgentErrorMessage } from '../../api/agentApi';
 
 const SAMPLE = { lead_name: 'Jane Smith', agent_name: 'You', agent_phone: '555-0100', agent_email: 'you@example.com', form_link: 'https://app.leadsync.io/form/abc' };

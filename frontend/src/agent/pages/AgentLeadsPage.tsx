@@ -2,7 +2,7 @@
  * Agent Leads Inbox — filter bar, search with debounce, lead cards, pagination.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getTokens } from '../../utils/theme';
@@ -91,7 +91,7 @@ export const AgentLeadsPage: React.FC = () => {
   const { theme } = useTheme();
   const t = getTokens(theme);
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
