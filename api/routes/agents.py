@@ -195,7 +195,10 @@ async def list_agents(
 
     agents = []
     for creds in all_credentials:
-        email = credentials_store.decrypt(creds.email_encrypted)
+        try:
+            email = credentials_store.decrypt(creds.email_encrypted)
+        except (ValueError, Exception):
+            email = "[decryption-error]"
         watcher_info = all_statuses.get(creds.agent_id)
         agents.append(AgentResponse(
             id=creds.id,
