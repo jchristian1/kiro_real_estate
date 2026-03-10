@@ -126,7 +126,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 9.8 Write property test for urgency sort order
     - **Property 15: Urgency Sort Order** — for any leads inbox query result, all HOT leads appear before all WARM leads, and all WARM leads appear before all NURTURE leads
     - **Validates: Requirements 11.1**
-  - [~] 9.9 Write property test for filter correctness
+  - [x] 9.9 Write property test for filter correctness
     - **Property 16: Filter Correctness** — for any query with active filters, every returned lead satisfies all active filter conditions simultaneously
     - **Validates: Requirements 11.2, 11.3**
   - [~] 9.10 Write property test for pagination bound
