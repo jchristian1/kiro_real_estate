@@ -244,6 +244,39 @@ def connect_gmail(
 import json as _json
 
 
+class LeadSourceItem(BaseModel):
+    """A single lead source item."""
+    id: int
+    name: str
+    description: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class LeadSourcesListResponse(BaseModel):
+    """GET /onboarding/sources response."""
+    sources: list[LeadSourceItem]
+
+
+@router.get(
+    "/sources",
+    status_code=status.HTTP_200_OK,
+    response_model=LeadSourcesListResponse,
+    responses={401: {"model": ErrorResponse, "description": "Missing or invalid session"}},
+)
+def list_sources(
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    """Return all platform lead sources for the agent to choose from."""
+    from gmail_lead_sync.models import LeadSource
+    sources = db.query(LeadSource).order_by(LeadSource.id).all()
+    return LeadSourcesListResponse(
+        sources=[LeadSourceItem(id=s.id, name=s.sender_email, description=getattr(s, 'identifier_snippet', None)) for s in sources]
+    )
+
+
 class SourcesRequest(BaseModel):
     """PUT /onboarding/sources request body."""
     enabled_lead_source_ids: list[int]

@@ -21,7 +21,7 @@ export const Step3Sources: React.FC<Props> = ({ goBack }) => {
 
   const { data, isLoading } = useQuery({
     queryKey: ['lead-sources'],
-    queryFn: () => agentApi.get<{ sources: LeadSource[] }>('/lead-sources'),
+    queryFn: () => agentApi.get<{ sources: LeadSource[] }>('/agent/onboarding/sources'),
   });
 
   const sources = data?.sources || [];
@@ -110,14 +110,14 @@ export const Step3Sources: React.FC<Props> = ({ goBack }) => {
           flex: 1, padding: '12px', background: t.bgCard, border: `1px solid ${t.border}`,
           borderRadius: 11, fontSize: 14, fontWeight: 500, color: t.textMuted, cursor: 'pointer',
         }}>Back</button>
-        <button type="button" onClick={handleSubmit} disabled={loading || selected.size === 0} style={{
+        <button type="button" onClick={handleSubmit} disabled={loading} style={{
           flex: 2, padding: '12px',
-          background: loading || selected.size === 0 ? t.accentBg : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+          background: loading ? t.accentBg : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
           border: 'none', borderRadius: 11, fontSize: 14, fontWeight: 600, color: '#fff',
-          cursor: loading || selected.size === 0 ? 'not-allowed' : 'pointer',
-          boxShadow: loading || selected.size === 0 ? 'none' : '0 4px 16px rgba(99,102,241,0.4)',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          boxShadow: loading ? 'none' : '0 4px 16px rgba(99,102,241,0.4)',
         }}>
-          {loading ? 'Saving…' : `Continue (${selected.size} selected)`}
+          {loading ? 'Saving…' : sources.length > 0 ? `Continue (${selected.size} selected)` : 'Continue'}
         </button>
       </div>
     </div>
