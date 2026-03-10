@@ -11,30 +11,30 @@ import { agentApi, getAgentErrorMessage } from '../../api/agentApi';
 interface Props { goBack: () => void; }
 
 const TEMPLATE_TYPES = [
-  { type: 'initial_outreach', label: 'Initial Outreach', desc: 'First email sent when a new lead is detected' },
-  { type: 'follow_up',        label: 'Follow Up',        desc: 'Sent if no response after initial outreach' },
-  { type: 'post_form',        label: 'Post Form',        desc: 'Sent after lead submits the qualification form' },
-  { type: 'appointment',      label: 'Appointment',      desc: 'Sent when scheduling a tour or meeting' },
+  { type: 'INITIAL_INVITE', label: 'Initial Outreach', desc: 'First email sent when a new lead is detected' },
+  { type: 'POST_HOT',       label: 'Follow Up (Hot)',  desc: 'Sent to hot leads after scoring' },
+  { type: 'POST_WARM',      label: 'Follow Up (Warm)', desc: 'Sent to warm leads after scoring' },
+  { type: 'POST_NURTURE',   label: 'Nurture',          desc: 'Sent to nurture leads over time' },
 ];
 
-const TONES = ['professional', 'friendly', 'concise'];
+const TONES = ['PROFESSIONAL', 'FRIENDLY', 'SHORT'];
 
 const SAMPLE_LEAD = { lead_name: 'Jane Smith', agent_name: 'You', agent_phone: '555-0100', agent_email: 'you@example.com', form_link: 'https://app.leadsync.io/form/abc123' };
 
 const DEFAULT_TEMPLATES: Record<string, { subject: string; body: string }> = {
-  initial_outreach: {
+  INITIAL_INVITE: {
     subject: 'Hi {lead_name}, I saw your inquiry',
     body: 'Hi {lead_name},\n\nI noticed your interest and would love to help. I\'m {agent_name} and I specialize in this area.\n\nFeel free to reach me at {agent_phone} or reply to this email.\n\nBest,\n{agent_name}',
   },
-  follow_up: {
+  POST_HOT: {
     subject: 'Following up — {lead_name}',
     body: 'Hi {lead_name},\n\nJust checking in to see if you had any questions. I\'m here to help!\n\n{agent_name}\n{agent_phone}',
   },
-  post_form: {
+  POST_WARM: {
     subject: 'Thanks for completing the form, {lead_name}!',
     body: 'Hi {lead_name},\n\nThank you for filling out the qualification form. I\'ll review your answers and be in touch shortly.\n\n{agent_name}',
   },
-  appointment: {
+  POST_NURTURE: {
     subject: 'Let\'s schedule a tour, {lead_name}',
     body: 'Hi {lead_name},\n\nI\'d love to show you around. Please use this link to pick a time: {form_link}\n\nLooking forward to meeting you!\n{agent_name}',
   },
@@ -55,7 +55,7 @@ export const Step5Templates: React.FC<Props> = ({ goBack }) => {
   const navigate = useNavigate();
 
   const [activeType, setActiveType] = useState(TEMPLATE_TYPES[0].type);
-  const [tone, setTone] = useState('professional');
+  const [tone, setTone] = useState('PROFESSIONAL');
   const [templates, setTemplates] = useState<Record<string, { subject: string; body: string }>>(DEFAULT_TEMPLATES);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -69,7 +69,7 @@ export const Step5Templates: React.FC<Props> = ({ goBack }) => {
     setError(''); setLoading(true);
     try {
       await agentApi.put('/agent/onboarding/templates', {
-        templates: Object.entries(templates).map(([type, { subject, body }]) => ({ type, subject, body, tone })),
+        templates: Object.entries(templates).map(([template_type, { subject, body }]) => ({ template_type, subject, body, tone })),
       });
       navigate('/agent/onboarding/go-live');
     } catch (err) {
@@ -105,7 +105,7 @@ export const Step5Templates: React.FC<Props> = ({ goBack }) => {
               border: `1px solid ${tone === tn ? 'transparent' : t.border}`,
               color: tone === tn ? '#fff' : t.textMuted,
               transition: 'all 0.15s',
-            }}>{tn.charAt(0).toUpperCase() + tn.slice(1)}</button>
+            }}>{tn.charAt(0).toUpperCase() + tn.slice(1).toLowerCase()}</button>
           ))}
         </div>
       </div>
