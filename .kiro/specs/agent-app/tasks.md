@@ -199,7 +199,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 14.2 Implement Leads Inbox page — filter bar (bucket, status), search input with 300ms debounce, lead cards with urgency bucket badge and aging indicator, pagination
     - HOT leads always rendered first regardless of filter
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6_
-  - [~] 14.3 Implement Lead Detail page — scoring breakdown panel (factor label, points, met/unmet), event timeline, rendered email previews, notes list, status update controls (CONTACTED / APPOINTMENT_SET / LOST / CLOSED), add note form
+  - [x] 14.3 Implement Lead Detail page — scoring breakdown panel (factor label, points, met/unmet), event timeline, rendered email previews, notes list, status update controls (CONTACTED / APPOINTMENT_SET / LOST / CLOSED), add note form
     - _Requirements: 12.1, 12.3, 12.4, 12.5_
 
 - [~] 15. Settings and reports frontend
