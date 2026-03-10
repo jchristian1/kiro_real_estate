@@ -32,7 +32,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - Session cookie: `httponly=True, secure=True, samesite=lax`; 64-byte cryptographically secure token
     - Return 401 on invalid credentials; invalidate session on logout
     - _Requirements: 2.1, 2.2, 2.3, 2.5, 2.6_
-  - [~] 3.3 Implement agent auth middleware — validate session cookie on all `/api/v1/agent/` routes, return 401 if missing/expired
+  - [x] 3.3 Implement agent auth middleware — validate session cookie on all `/api/v1/agent/` routes, return 401 if missing/expired
     - _Requirements: 2.4_
   - [~] 3.4 Write property test for session token uniqueness
     - **Property 22: Session Token Uniqueness** — any two generated session tokens are different and are exactly 64 bytes
