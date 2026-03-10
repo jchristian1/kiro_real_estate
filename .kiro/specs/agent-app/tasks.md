@@ -166,15 +166,15 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
 - [x] 11. Checkpoint — backend complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 12. React app scaffold and routing
-  - [~] 12.1 Scaffold Vite + React 18 + TypeScript project; configure React Router v6, TanStack Query, React Hook Form, Zod, Tailwind CSS
+- [-] 12. React app scaffold and routing
+  - [-] 12.1 Scaffold Vite + React 18 + TypeScript project; configure React Router v6, TanStack Query, React Hook Form, Zod, Tailwind CSS
     - Set up route structure: `/login`, `/signup`, `/onboarding/*`, `/dashboard`, `/leads`, `/leads/:id`, `/settings/*`, `/reports`
     - Add auth guard: redirect unauthenticated users to `/login`; redirect authenticated users with incomplete onboarding to `/onboarding`
     - _Requirements: 2.4, 3.5_
-  - [~] 12.2 Implement API client layer with TanStack Query — typed hooks for all backend endpoints, session cookie handling, 401 redirect
+  - [-] 12.2 Implement API client layer with TanStack Query — typed hooks for all backend endpoints, session cookie handling, 401 redirect
     - _Requirements: 2.4_
 
-- [ ] 13. Onboarding wizard frontend
+- [~] 13. Onboarding wizard frontend
   - [~] 13.1 Implement `OnboardingWizard` shell — progress bar (step N of 6), step routing, localStorage persistence, backward navigation without data loss
     - _Requirements: 3.1, 3.3, 3.4_
   - [~] 13.2 Implement Step 0 (Account Creation) — email, password, confirm password fields; Zod validation (min 8 chars, match); POST to signup; auto-redirect to `/onboarding/profile`
@@ -192,7 +192,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [~] 13.8 Implement Step 6 (Go Live) — checklist with status icons, "Run Test" button with simulation result display (rendered emails, score, bucket), "Go Live" button with precondition checklist
     - _Requirements: 9.1, 9.2, 9.5_
 
-- [ ] 14. Dashboard and leads inbox frontend
+- [~] 14. Dashboard and leads inbox frontend
   - [~] 14.1 Implement Dashboard page — HOT leads list, aging alerts with visual indicators, today/week response time stats, watcher status badge, watcher toggle
     - Poll or refetch on focus; scope display to authenticated agent
     - _Requirements: 10.1, 10.5_
@@ -202,7 +202,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [~] 14.3 Implement Lead Detail page — scoring breakdown panel (factor label, points, met/unmet), event timeline, rendered email previews, notes list, status update controls (CONTACTED / APPOINTMENT_SET / LOST / CLOSED), add note form
     - _Requirements: 12.1, 12.3, 12.4, 12.5_
 
-- [ ] 15. Settings and reports frontend
+- [~] 15. Settings and reports frontend
   - [~] 15.1 Implement Templates settings page — 4 template cards with inline editor, live preview panel, save and revert-to-default actions
     - _Requirements: 14.1, 14.2, 14.3, 14.4_
   - [~] 15.2 Implement Automation settings page — threshold sliders, weight inputs, tour question toggle
@@ -215,12 +215,12 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
 - [~] 16. Checkpoint — frontend complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 17. Mobile-first CSS audit and polish
+- [~] 17. Mobile-first CSS audit and polish
   - [~] 17.1 Audit and fix all pages at 375px, 390px, and 414px viewport widths — touch targets ≥ 44px, no horizontal overflow, readable font sizes
     - _Requirements: (design mobile-first goal)_
   - [~] 17.2 Verify watcher toggle, aging indicators, and status controls are usable on mobile
 
-- [ ] 18. Integration and security tests
+- [~] 18. Integration and security tests
   - [~] 18.1 Write end-to-end integration test: full onboarding flow — signup → profile → gmail (mock IMAP) → sources → automation → templates → go-live → test simulation
     - _Requirements: 1.1, 3.5, 9.1, 9.4_
   - [~] 18.2 Write end-to-end integration test: lead lifecycle — ingest email → parse → score → invite → form submit → re-score → post-email → agent marks contacted

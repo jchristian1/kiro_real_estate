@@ -28,6 +28,7 @@ import { BuyerAuditTab } from './pages/buyer-leads/BuyerAuditTab';
 import { FormVersionEditor } from './pages/buyer-leads/FormVersionEditor';
 import { TemplateVersionEditor } from './pages/buyer-leads/TemplateVersionEditor';
 import { PublicFormPage } from './pages/PublicFormPage';
+import { AgentApp } from './agent/AgentApp';
 
 function App() {
   return (
@@ -76,6 +77,9 @@ function App() {
           
           {/* Catch-all redirect to dashboard */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
+
+          {/* Agent-facing app — mounted at /agent/* */}
+          <Route path="/agent/*" element={<AgentApp />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
