@@ -70,7 +70,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - **Validates: Requirements 13.8**
 
 - [ ] 6. Onboarding backend endpoints
-  - [~] 6.1 Implement `PUT /api/v1/agent/onboarding/profile` — persist full_name, phone, timezone, service_area, optional company join code; advance `onboarding_step` to 2
+  - [x] 6.1 Implement `PUT /api/v1/agent/onboarding/profile` — persist full_name, phone, timezone, service_area, optional company join code; advance `onboarding_step` to 2
     - _Requirements: 4.1, 4.3_
   - [~] 6.2 Implement `POST /api/v1/agent/onboarding/gmail` — call IMAP service, encrypt and persist credentials on success, return structured error codes on failure
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
