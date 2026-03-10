@@ -132,7 +132,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 9.10 Write property test for pagination bound
     - **Property 17: Pagination Bound** — for any paginated leads inbox response, the number of leads returned is at most 25
     - **Validates: Requirements 11.4**
-  - [~] 9.11 Write property test for HOT lead aging accuracy
+  - [x] 9.11 Write property test for HOT lead aging accuracy
     - **Property 11: HOT Lead Aging Accuracy** — `is_aging = TRUE` iff `last_agent_action_at IS NULL` AND `(NOW() - created_at) > sla_minutes_hot`
     - **Validates: Requirements 10.3, 11.5**
   - [~] 9.12 Write property test for WARM lead aging accuracy
