@@ -20,8 +20,7 @@ from sqlalchemy.orm import sessionmaker
 
 from gmail_lead_sync.models import Base, Lead
 from gmail_lead_sync.agent_models import AgentUser, AgentSession, AgentPreferences, BuyerAutomationConfig, AgentTemplate
-from api.main import app
-from api.database import get_db
+from api.main import app, get_db
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
