@@ -64,7 +64,7 @@ if not encryption_key or not secret_key:
     test_secret_key = "b" * 32 if not secret_key else secret_key
     
     config = Config(
-        database_url=os.getenv("DATABASE_URL", "sqlite:///./test_config.db"),
+        database_url=os.getenv("DATABASE_URL"),
         encryption_key=test_encryption_key,
         secret_key=test_secret_key
     )
