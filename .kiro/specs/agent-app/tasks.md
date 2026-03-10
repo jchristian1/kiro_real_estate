@@ -88,7 +88,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 6.8 Implement `POST /api/v1/agent/onboarding/complete` — validate all 4 Go Live preconditions (Gmail connected, ≥1 source, BuyerAutomationConfig exists, all 4 template types active), set `onboarding_completed = TRUE`
     - Return checklist of incomplete items if preconditions not met
     - _Requirements: 9.4, 9.5_
-  - [~] 6.9 Write property test for onboarding completeness gate
+  - [x] 6.9 Write property test for onboarding completeness gate
     - **Property 9: Onboarding Completeness Gate** — `onboarding_completed` is set to TRUE if and only if all 4 preconditions hold simultaneously
     - **Validates: Requirements 9.4**
   - [~] 6.10 Write property test for onboarding test simulation leaves no records
