@@ -105,7 +105,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
 - [x] 8. Checkpoint — backend core complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [-] 9. Dashboard and leads backend
+- [x] 9. Dashboard and leads backend
   - [x] 9.1 Implement `GET /api/v1/agent/dashboard` — HOT lead summaries, aging leads, `response_time_today_minutes`, `watcher_status`; scope all queries by `agent_user_id`
     - Aging: HOT leads where `last_agent_action_at IS NULL` AND `(NOW() - created_at) > sla_minutes_hot`
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
@@ -142,7 +142,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - **Property 18: Status Transition Validity** — any transition not in the valid set is rejected with 422
     - **Validates: Requirements 12.6**
 
-- [ ] 10. Settings and reports backend
+- [-] 10. Settings and reports backend
   - [~] 10.1 Implement templates CRUD: `GET /api/v1/agent/templates`, `PUT /api/v1/agent/templates/{type}`, `POST /api/v1/agent/templates/{type}/preview`, `DELETE /api/v1/agent/templates/{type}`
     - Increment version on each save; revert to platform default on DELETE
     - _Requirements: 14.1, 14.2, 14.3, 14.4_
