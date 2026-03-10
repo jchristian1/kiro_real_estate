@@ -8,7 +8,7 @@
   },
   "then": {
     "type": "runCommand",
-    "command": "cd \"$(git rev-parse --show-toplevel)\" && git add -A && git diff --cached --quiet || git commit -m \"feat: complete spec task — $(date '+%Y-%m-%d %H:%M')\" && git push origin \"$(git branch --show-current)\" && gh pr create --fill --base main 2>/dev/null || echo \"PR already exists or branch is main\"",
+    "command": "cd \"$(git rev-parse --show-toplevel)\" && BRANCH=$(git branch --show-current) && git add -A && git diff --cached --quiet || git commit -m \"feat: complete spec task — $(date '+%Y-%m-%d %H:%M')\" && git push origin \"$BRANCH\"",
     "timeout": 60
   }
 }
