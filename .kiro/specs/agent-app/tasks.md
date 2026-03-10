@@ -146,7 +146,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 10.1 Implement templates CRUD: `GET /api/v1/agent/templates`, `PUT /api/v1/agent/templates/{type}`, `POST /api/v1/agent/templates/{type}/preview`, `DELETE /api/v1/agent/templates/{type}`
     - Increment version on each save; revert to platform default on DELETE
     - _Requirements: 14.1, 14.2, 14.3, 14.4_
-  - [~] 10.2 Implement `GET /api/v1/agent/automation` and `PUT /api/v1/agent/automation`
+  - [x] 10.2 Implement `GET /api/v1/agent/automation` and `PUT /api/v1/agent/automation`
     - _Requirements: 15.1, 15.2, 15.3_
   - [~] 10.3 Implement account/Gmail endpoints: `GET /api/v1/agent/account/gmail`, `POST /api/v1/agent/account/gmail/test`, `PUT /api/v1/agent/account/gmail`, `DELETE /api/v1/agent/account/gmail`, `PATCH /api/v1/agent/account/watcher`, `PUT /api/v1/agent/account/preferences`
     - Test new credentials before persisting on PUT; return 403 on watcher toggle when `watcher_admin_override = TRUE`

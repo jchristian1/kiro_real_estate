@@ -398,3 +398,200 @@ def test_delete_then_recreate_starts_at_version_1():
     )
     assert resp.status_code == 200
     assert resp.json()["version"] == 1
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/agent/automation
+# ---------------------------------------------------------------------------
+
+
+def test_get_automation_unauthenticated():
+    resp = client.get("/api/v1/agent/automation")
+    assert resp.status_code == 401
+
+
+def test_get_automation_returns_platform_default_when_no_config():
+    """Agent with no BuyerAutomationConfig gets platform defaults."""
+    _, token = _create_agent()
+    resp = client.get("/api/v1/agent/automation", cookies=_auth_cookies(token))
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["is_platform_default"] is True
+    cfg = data["config"]
+    assert cfg["hot_threshold"] == 80
+    assert cfg["warm_threshold"] == 50
+    assert cfg["weight_timeline"] == 25
+    assert cfg["weight_preapproval"] == 30
+    assert cfg["weight_phone_provided"] == 15
+    assert cfg["weight_tour_interest"] == 20
+    assert cfg["weight_budget_match"] == 10
+    assert cfg["sla_minutes_hot"] == 5
+
+
+def test_get_automation_available_questions_structure():
+    """available_questions always has 5 entries with correct keys."""
+    _, token = _create_agent()
+    resp = client.get("/api/v1/agent/automation", cookies=_auth_cookies(token))
+    assert resp.status_code == 200
+    questions = resp.json()["available_questions"]
+    assert len(questions) == 5
+    keys = [q["key"] for q in questions]
+    assert keys == ["timeline", "preapproval", "phone_provided", "tour_interest", "budget_match"]
+
+
+def test_get_automation_tour_question_enabled_by_default():
+    """tour_interest question is enabled when enable_tour_question is True (default)."""
+    _, token = _create_agent()
+    resp = client.get("/api/v1/agent/automation", cookies=_auth_cookies(token))
+    questions = {q["key"]: q for q in resp.json()["available_questions"]}
+    assert questions["tour_interest"]["enabled"] is True
+
+
+def test_get_automation_returns_agent_config_when_exists():
+    """After PUT, GET returns the agent's config with is_platform_default=False."""
+    _, token = _create_agent()
+    # Create a config via PUT
+    client.put(
+        "/api/v1/agent/automation",
+        json={"hot_threshold": 75, "warm_threshold": 45},
+        cookies=_auth_cookies(token),
+    )
+    resp = client.get("/api/v1/agent/automation", cookies=_auth_cookies(token))
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["is_platform_default"] is False
+    assert data["config"]["hot_threshold"] == 75
+    assert data["config"]["warm_threshold"] == 45
+
+
+# ---------------------------------------------------------------------------
+# PUT /api/v1/agent/automation
+# ---------------------------------------------------------------------------
+
+
+def test_put_automation_unauthenticated():
+    resp = client.put("/api/v1/agent/automation", json={})
+    assert resp.status_code == 401
+
+
+def test_put_automation_creates_config_returns_ok():
+    _, token = _create_agent()
+    resp = client.put(
+        "/api/v1/agent/automation",
+        json={"hot_threshold": 80, "warm_threshold": 50},
+        cookies=_auth_cookies(token),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert isinstance(data["config_id"], int)
+    assert data["config_id"] > 0
+
+
+def test_put_automation_updates_existing_config():
+    _, token = _create_agent()
+    # First PUT
+    r1 = client.put(
+        "/api/v1/agent/automation",
+        json={"hot_threshold": 80},
+        cookies=_auth_cookies(token),
+    )
+    config_id_1 = r1.json()["config_id"]
+
+    # Second PUT — should update same config
+    r2 = client.put(
+        "/api/v1/agent/automation",
+        json={"hot_threshold": 85},
+        cookies=_auth_cookies(token),
+    )
+    assert r2.status_code == 200
+    assert r2.json()["config_id"] == config_id_1  # same config, not a new one
+
+    # Verify the value was updated
+    get_resp = client.get("/api/v1/agent/automation", cookies=_auth_cookies(token))
+    assert get_resp.json()["config"]["hot_threshold"] == 85
+
+
+def test_put_automation_syncs_sla_minutes_hot():
+    _, token = _create_agent()
+    client.put(
+        "/api/v1/agent/automation",
+        json={"sla_minutes_hot": 30},
+        cookies=_auth_cookies(token),
+    )
+    get_resp = client.get("/api/v1/agent/automation", cookies=_auth_cookies(token))
+    assert get_resp.json()["config"]["sla_minutes_hot"] == 30
+
+
+def test_put_automation_tour_question_toggle_reflects_in_available_questions():
+    _, token = _create_agent()
+    client.put(
+        "/api/v1/agent/automation",
+        json={"enable_tour_question": False},
+        cookies=_auth_cookies(token),
+    )
+    get_resp = client.get("/api/v1/agent/automation", cookies=_auth_cookies(token))
+    questions = {q["key"]: q for q in get_resp.json()["available_questions"]}
+    assert questions["tour_interest"]["enabled"] is False
+    # All other questions remain enabled
+    for key in ["timeline", "preapproval", "phone_provided", "budget_match"]:
+        assert questions[key]["enabled"] is True
+
+
+def test_put_automation_hot_threshold_validation():
+    """hot_threshold must be between 60 and 95."""
+    _, token = _create_agent()
+    resp_low = client.put(
+        "/api/v1/agent/automation",
+        json={"hot_threshold": 59},
+        cookies=_auth_cookies(token),
+    )
+    assert resp_low.status_code == 422
+
+    resp_high = client.put(
+        "/api/v1/agent/automation",
+        json={"hot_threshold": 96},
+        cookies=_auth_cookies(token),
+    )
+    assert resp_high.status_code == 422
+
+
+def test_put_automation_sla_minutes_hot_validation():
+    """sla_minutes_hot must be between 1 and 120."""
+    _, token = _create_agent()
+    resp_zero = client.put(
+        "/api/v1/agent/automation",
+        json={"sla_minutes_hot": 0},
+        cookies=_auth_cookies(token),
+    )
+    assert resp_zero.status_code == 422
+
+    resp_over = client.put(
+        "/api/v1/agent/automation",
+        json={"sla_minutes_hot": 121},
+        cookies=_auth_cookies(token),
+    )
+    assert resp_over.status_code == 422
+
+
+def test_put_automation_partial_update_preserves_other_fields():
+    """Updating only one field should not reset others."""
+    _, token = _create_agent()
+    # Set initial values
+    client.put(
+        "/api/v1/agent/automation",
+        json={"hot_threshold": 75, "weight_timeline": 30, "sla_minutes_hot": 15},
+        cookies=_auth_cookies(token),
+    )
+    # Update only weight_preapproval
+    client.put(
+        "/api/v1/agent/automation",
+        json={"weight_preapproval": 35},
+        cookies=_auth_cookies(token),
+    )
+    get_resp = client.get("/api/v1/agent/automation", cookies=_auth_cookies(token))
+    cfg = get_resp.json()["config"]
+    assert cfg["hot_threshold"] == 75
+    assert cfg["weight_timeline"] == 30
+    assert cfg["sla_minutes_hot"] == 15
+    assert cfg["weight_preapproval"] == 35
