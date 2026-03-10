@@ -189,7 +189,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 7.2, 7.3, 7.4, 7.5_
   - [x] 13.7 Implement Step 5 (Template Setup) — 4 template cards, tone selector, inline subject/body editor, live preview panel with sample lead data
     - _Requirements: 8.1, 8.2, 8.3_
-  - [~] 13.8 Implement Step 6 (Go Live) — checklist with status icons, "Run Test" button with simulation result display (rendered emails, score, bucket), "Go Live" button with precondition checklist
+  - [x] 13.8 Implement Step 6 (Go Live) — checklist with status icons, "Run Test" button with simulation result display (rendered emails, score, bucket), "Go Live" button with precondition checklist
     - _Requirements: 9.1, 9.2, 9.5_
 
 - [~] 14. Dashboard and leads inbox frontend
