@@ -118,7 +118,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 12.4, 12.6, 20.3_
   - [x] 9.5 Implement `POST /api/v1/agent/leads/{id}/notes` — persist note, insert `NOTE_ADDED` event
     - _Requirements: 12.5, 20.1_
-  - [~] 9.6 Wire `lead_events` insertion into the watcher pipeline — insert `EMAIL_RECEIVED`, `INVITE_SENT`, `FORM_SUBMITTED`, `POST_EMAIL_SENT` events at each stage
+  - [x] 9.6 Wire `lead_events` insertion into the watcher pipeline — insert `EMAIL_RECEIVED`, `INVITE_SENT`, `FORM_SUBMITTED`, `POST_EMAIL_SENT` events at each stage
     - _Requirements: 20.1_
   - [~] 9.7 Write property test for tenant isolation
     - **Property 1: Tenant Isolation** — for any agent API response, every resource in the response has `agent_user_id` matching the authenticated agent

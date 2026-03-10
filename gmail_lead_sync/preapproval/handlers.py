@@ -306,6 +306,29 @@ def on_buyer_lead_email_received(
     )
 
     # ------------------------------------------------------------------
+    # 7b. Insert INVITE_SENT lead event (Requirement 20.1)
+    # ------------------------------------------------------------------
+    try:
+        from gmail_lead_sync.lead_event_utils import insert_lead_event
+        insert_lead_event(
+            db=db,
+            lead_id=lead_id,
+            event_type="INVITE_SENT",
+            payload_dict={
+                "subject": rendered.subject,
+                "body": rendered.body,
+            },
+        )
+        db.commit()
+    except Exception as _exc:
+        logger.error(
+            "Failed to insert INVITE_SENT event for lead %d: %s",
+            lead_id,
+            _exc,
+            exc_info=True,
+        )
+
+    # ------------------------------------------------------------------
     # 8. Record outbound LeadInteraction (Req 9.4)
     # ------------------------------------------------------------------
     db.add(
@@ -511,6 +534,26 @@ def on_buyer_form_submitted(
     )
 
     # ------------------------------------------------------------------
+    # 5b. Insert FORM_SUBMITTED lead event (Requirement 20.1)
+    # ------------------------------------------------------------------
+    try:
+        from gmail_lead_sync.lead_event_utils import insert_lead_event
+        insert_lead_event(
+            db=db,
+            lead_id=invitation.lead_id,
+            event_type="FORM_SUBMITTED",
+            payload_dict={"answers": answers_payload},
+        )
+        db.flush()
+    except Exception as _exc:
+        logger.error(
+            "Failed to insert FORM_SUBMITTED event for lead %d: %s",
+            invitation.lead_id,
+            _exc,
+            exc_info=True,
+        )
+
+    # ------------------------------------------------------------------
     # 6. Resolve active ScoringVersion (Req 5.11)
     # ------------------------------------------------------------------
     scoring_version = _resolve_active_scoring_version(db, invitation.tenant_id, IntentType.BUY)
@@ -664,6 +707,29 @@ def on_buyer_form_submitted(
         intent_type=IntentType.BUY,
         to_state=LeadState.POST_SUBMISSION_EMAIL_SENT,
     )
+
+    # ------------------------------------------------------------------
+    # 12b. Insert POST_EMAIL_SENT lead event (Requirement 20.1)
+    # ------------------------------------------------------------------
+    try:
+        from gmail_lead_sync.lead_event_utils import insert_lead_event
+        insert_lead_event(
+            db=db,
+            lead_id=invitation.lead_id,
+            event_type="POST_EMAIL_SENT",
+            payload_dict={
+                "subject": rendered.subject,
+                "body": rendered.body,
+            },
+        )
+        db.flush()
+    except Exception as _exc:
+        logger.error(
+            "Failed to insert POST_EMAIL_SENT event for lead %d: %s",
+            invitation.lead_id,
+            _exc,
+            exc_info=True,
+        )
 
     # ------------------------------------------------------------------
     # 13. Record outbound LeadInteraction — subject only (Req 10.3, 10.4)

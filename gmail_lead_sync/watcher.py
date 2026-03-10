@@ -680,7 +680,28 @@ class GmailWatcher:
             if lead:
                 # Lead successfully created
                 logger.info(f"Lead {lead.id} created from email {gmail_uid}")
-                
+
+                # Insert EMAIL_RECEIVED lead event (Requirement 20.1)
+                try:
+                    from gmail_lead_sync.lead_event_utils import insert_lead_event
+                    agent_user_id = getattr(lead, "agent_user_id", None)
+                    insert_lead_event(
+                        db=self.db_session,
+                        lead_id=lead.id,
+                        event_type="EMAIL_RECEIVED",
+                        payload_dict={
+                            "source_email": sender,
+                            "gmail_uid": gmail_uid,
+                        },
+                        agent_user_id=agent_user_id,
+                    )
+                    self.db_session.commit()
+                except Exception as e:
+                    logger.error(
+                        f"Error inserting EMAIL_RECEIVED event for lead {lead.id}: {e}",
+                        exc_info=True,
+                    )
+
                 # Mark as processed
                 self.mark_as_processed(gmail_uid, lead.id)
                 
