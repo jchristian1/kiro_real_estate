@@ -10,7 +10,7 @@ Requirements: 4.1, 4.3, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, SecretStr
 from sqlalchemy.orm import Session
@@ -27,6 +27,32 @@ from gmail_lead_sync.agent_models import AgentUser
 from gmail_lead_sync.models import Company, Credentials
 
 router = APIRouter(prefix="/agent/onboarding", tags=["Agent Onboarding"])
+
+
+# ---------------------------------------------------------------------------
+# Step-order enforcement
+# ---------------------------------------------------------------------------
+
+def require_onboarding_step(required: int):
+    """
+    Return a FastAPI dependency that enforces onboarding step ordering.
+
+    Raises HTTP 400 with error "ONBOARDING_STEP_REQUIRED" when the agent's
+    current onboarding_step is less than *required*.
+
+    Requirements: 3.2
+    """
+    def _check(agent: AgentUser = Depends(get_current_agent)) -> None:
+        if agent.onboarding_step < required:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "ONBOARDING_STEP_REQUIRED",
+                    "required_step": required,
+                    "current_step": agent.onboarding_step,
+                },
+            )
+    return _check
 
 
 # ---------------------------------------------------------------------------
@@ -125,10 +151,12 @@ def update_profile(
     status_code=status.HTTP_200_OK,
     response_model=GmailResponse,
     responses={
+        400: {"model": ErrorResponse, "description": "Onboarding step not completed"},
         401: {"model": ErrorResponse, "description": "Missing or invalid session"},
         422: {"description": "IMAP connection failed with structured error code"},
         429: {"description": "Rate limit exceeded"},
     },
+    dependencies=[Depends(require_onboarding_step(1))],
 )
 def connect_gmail(
     body: GmailRequest,
@@ -232,8 +260,10 @@ class SourcesResponse(BaseModel):
     status_code=status.HTTP_200_OK,
     response_model=SourcesResponse,
     responses={
+        400: {"model": ErrorResponse, "description": "Onboarding step not completed"},
         401: {"model": ErrorResponse, "description": "Missing or invalid session"},
     },
+    dependencies=[Depends(require_onboarding_step(2))],
 )
 def update_sources(
     body: SourcesRequest,
@@ -307,8 +337,10 @@ def _parse_time(value: Optional[str]) -> Optional[_dt.time]:
     status_code=status.HTTP_200_OK,
     response_model=AutomationResponse,
     responses={
+        400: {"model": ErrorResponse, "description": "Onboarding step not completed"},
         401: {"model": ErrorResponse, "description": "Missing or invalid session"},
     },
+    dependencies=[Depends(require_onboarding_step(3))],
 )
 def update_automation(
     body: AutomationRequest,
@@ -414,9 +446,11 @@ class TemplatesResponse(BaseModel):
     status_code=status.HTTP_200_OK,
     response_model=TemplatesResponse,
     responses={
+        400: {"model": ErrorResponse, "description": "Onboarding step not completed"},
         401: {"model": ErrorResponse, "description": "Missing or invalid session"},
         422: {"description": "Unsupported placeholder found in subject or body"},
     },
+    dependencies=[Depends(require_onboarding_step(4))],
 )
 def update_templates(
     body: TemplatesRequest,
