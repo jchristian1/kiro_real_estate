@@ -227,7 +227,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 13.7, 20.1_
   - [x] 18.3 Write security integration tests: verify app_password never in API responses or logs; verify IMAP rate limiting (6th attempt → 429); verify cross-agent 403 on leads/templates/preferences
     - _Requirements: 5.7, 5.8, 18.2, 19.4_
-  - [~] 18.4 Write integration test: template header injection — subject with `\n` returns 422
+  - [x] 18.4 Write integration test: template header injection — subject with `\n` returns 422
     - _Requirements: 14.7_
 
 - [~] 19. Final checkpoint — all tests pass
