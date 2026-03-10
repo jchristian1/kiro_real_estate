@@ -163,11 +163,8 @@ async def health_check(
         overall_status = "unhealthy"
     elif error_count > 50:  # More than 50 errors in 24 hours
         overall_status = "degraded"
-    elif active_count == 0 and len(watcher_statuses) > 0:
-        # Watchers exist but none are running
-        overall_status = "degraded"
     
-    # Check for failed watchers
+    # Only degrade if watchers have explicitly failed (not just stopped/idle)
     failed_watchers = sum(
         1 for info in watcher_statuses.values()
         if info["status"] == "failed"
