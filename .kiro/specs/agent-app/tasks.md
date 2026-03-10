@@ -174,10 +174,10 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 12.2 Implement API client layer with TanStack Query — typed hooks for all backend endpoints, session cookie handling, 401 redirect
     - _Requirements: 2.4_
 
-- [~] 13. Onboarding wizard frontend
-  - [~] 13.1 Implement `OnboardingWizard` shell — progress bar (step N of 6), step routing, localStorage persistence, backward navigation without data loss
+- [-] 13. Onboarding wizard frontend
+  - [x] 13.1 Implement `OnboardingWizard` shell — progress bar (step N of 6), step routing, localStorage persistence, backward navigation without data loss
     - _Requirements: 3.1, 3.3, 3.4_
-  - [~] 13.2 Implement Step 0 (Account Creation) — email, password, confirm password fields; Zod validation (min 8 chars, match); POST to signup; auto-redirect to `/onboarding/profile`
+  - [-] 13.2 Implement Step 0 (Account Creation) — email, password, confirm password fields; Zod validation (min 8 chars, match); POST to signup; auto-redirect to `/onboarding/profile`
     - _Requirements: 1.1, 1.3, 1.4, 1.5_
   - [~] 13.3 Implement Step 1 (Agent Profile) — full_name (required), phone, timezone (default browser TZ), service_area, optional company join code
     - _Requirements: 4.1, 4.2, 4.4_
