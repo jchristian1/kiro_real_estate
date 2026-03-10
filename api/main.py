@@ -486,7 +486,7 @@ watcher_registry = WatcherRegistry(
 from api.routes import audit, agents, lead_sources, templates, watchers, leads, health, settings, auth, companies
 from api.routes.public_submission import router as public_submission_router
 from api.routes.buyer_leads import router as buyer_leads_router
-from api.routers import agent_auth, agent_onboarding, agent_dashboard, agent_leads, agent_settings, agent_account
+from api.routers import agent_auth, agent_onboarding, agent_dashboard, agent_leads, agent_settings, agent_account, agent_reports
 from api.auth import get_current_user
 
 # Create wrapper for get_current_user that works with FastAPI dependency injection
@@ -517,6 +517,7 @@ app.include_router(agent_dashboard.router, prefix="/api/v1", tags=["Agent Dashbo
 app.include_router(agent_leads.router, prefix="/api/v1", tags=["Agent Leads"])
 app.include_router(agent_settings.router, prefix="/api/v1", tags=["Agent Settings"])
 app.include_router(agent_account.router, prefix="/api/v1", tags=["Agent Account"])
+app.include_router(agent_reports.router, prefix="/api/v1", tags=["Agent Reports"])
 
 
 # Static file serving for frontend (production mode)
