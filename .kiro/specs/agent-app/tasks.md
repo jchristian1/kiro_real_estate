@@ -163,7 +163,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - **Property 2: Credential Never Plaintext** — for any IMAP test or credential update, app_password never appears in log output, error responses, or API responses
     - **Validates: Requirements 5.8, 19.1, 19.4**
 
-- [-] 11. Checkpoint — backend complete
+- [x] 11. Checkpoint — backend complete
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 12. React app scaffold and routing

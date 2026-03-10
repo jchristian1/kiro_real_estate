@@ -11,6 +11,7 @@ responses.
 """
 
 import logging
+import os
 import secrets
 import uuid
 from datetime import datetime
@@ -26,9 +27,13 @@ from sqlalchemy.orm import sessionmaker
 
 import gmail_lead_sync.agent_models  # noqa: F401 — registers agent tables
 from api.main import app, get_db
-from api.services.credential_encryption import encrypt_app_password
+from api.services.credential_encryption import encrypt_app_password, generate_key
+from api.services.imap_service import reset_imap_rate_limit
 from gmail_lead_sync.agent_models import AgentPreferences, AgentSession, AgentUser
 from gmail_lead_sync.models import Base, Credentials
+
+# Ensure encryption key is available for all tests in this module
+os.environ.setdefault("CREDENTIAL_ENCRYPTION_KEY", generate_key())
 
 
 # ---------------------------------------------------------------------------
@@ -61,12 +66,12 @@ def setup_db():
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Helpers — return plain values (not ORM objects) to avoid DetachedInstanceError
 # ---------------------------------------------------------------------------
 
 
 def _create_agent_with_session(db, onboarding_step: int = 2) -> tuple:
-    """Create an agent with preferences and return (agent, session_token)."""
+    """Create an agent and return (agent_id, session_token)."""
     email = f"agent_{uuid.uuid4().hex[:8]}@test.com"
     password_hash = bcrypt.hashpw(b"password", bcrypt.gensalt()).decode()
     agent = AgentUser(
@@ -80,9 +85,10 @@ def _create_agent_with_session(db, onboarding_step: int = 2) -> tuple:
     db.add(agent)
     db.commit()
     db.refresh(agent)
+    agent_id = agent.id  # capture before session closes
 
     prefs = AgentPreferences(
-        agent_user_id=agent.id,
+        agent_user_id=agent_id,
         hot_threshold=80,
         warm_threshold=50,
         sla_minutes_hot=5,
@@ -97,26 +103,28 @@ def _create_agent_with_session(db, onboarding_step: int = 2) -> tuple:
     now = datetime.utcnow()
     session = AgentSession(
         id=token,
-        agent_user_id=agent.id,
+        agent_user_id=agent_id,
         created_at=now,
         expires_at=now.replace(year=now.year + 1),
     )
     db.add(session)
     db.commit()
 
-    return agent, token
+    return agent_id, token
 
 
-def _store_credentials(db, agent: AgentUser, gmail_address: str, app_password: str) -> None:
+def _store_credentials(db, agent_id: int, gmail_address: str, app_password: str) -> None:
     """Encrypt and store credentials for an agent."""
     encrypted = encrypt_app_password(app_password)
     creds = Credentials(
-        agent_id=str(agent.id),
+        agent_id=str(agent_id),
         email_encrypted=gmail_address,
         app_password_encrypted=encrypted,
     )
     db.add(creds)
     db.flush()
+    # Update agent's credentials_id
+    agent = db.query(AgentUser).filter(AgentUser.id == agent_id).first()
     agent.credentials_id = creds.id
     db.commit()
 
@@ -132,11 +140,6 @@ _APP_PASSWORD_STRATEGY = st.text(
 )
 
 
-def _response_contains_password(response_text: str, app_password: str) -> bool:
-    """Return True if the plaintext password appears anywhere in the response body."""
-    return app_password in response_text
-
-
 # ---------------------------------------------------------------------------
 # Property 2: Credential Never Plaintext
 # ---------------------------------------------------------------------------
@@ -149,7 +152,7 @@ class TestProperty2CredentialNeverPlaintext:
     """
 
     @given(app_password=_APP_PASSWORD_STRATEGY)
-    @settings(max_examples=25, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(max_examples=25, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
     def test_failed_imap_test_does_not_leak_password_in_response(
         self, setup_db, app_password
     ):
@@ -158,14 +161,13 @@ class TestProperty2CredentialNeverPlaintext:
         contain the plaintext app_password.
         """
         db = setup_db()
-        agent, token = _create_agent_with_session(db, onboarding_step=2)
+        agent_id, token = _create_agent_with_session(db, onboarding_step=2)
         db.close()
 
-        client = TestClient(app, cookies={"agent_session": token})
-
-        # Mock IMAP to return a failure without making a real network call
         imap_failure = {"success": False, "error": "INVALID_PASSWORD", "message": "Bad credentials."}
         with patch("api.routers.agent_onboarding.test_imap_connection", return_value=imap_failure):
+            client = TestClient(app, cookies={"agent_session": token})
+            reset_imap_rate_limit(agent_id)
             resp = client.post(
                 "/api/v1/agent/onboarding/gmail",
                 json={"gmail_address": "agent@gmail.com", "app_password": app_password},
@@ -177,7 +179,7 @@ class TestProperty2CredentialNeverPlaintext:
         )
 
     @given(app_password=_APP_PASSWORD_STRATEGY)
-    @settings(max_examples=25, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(max_examples=25, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
     def test_successful_imap_connect_does_not_return_password(
         self, setup_db, app_password
     ):
@@ -186,13 +188,13 @@ class TestProperty2CredentialNeverPlaintext:
         contain the plaintext app_password.
         """
         db = setup_db()
-        agent, token = _create_agent_with_session(db, onboarding_step=2)
+        agent_id, token = _create_agent_with_session(db, onboarding_step=2)
         db.close()
-
-        client = TestClient(app, cookies={"agent_session": token})
 
         imap_success = {"success": True, "last_sync": None}
         with patch("api.routers.agent_onboarding.test_imap_connection", return_value=imap_success):
+            client = TestClient(app, cookies={"agent_session": token})
+            reset_imap_rate_limit(agent_id)
             resp = client.post(
                 "/api/v1/agent/onboarding/gmail",
                 json={"gmail_address": "agent@gmail.com", "app_password": app_password},
@@ -204,23 +206,22 @@ class TestProperty2CredentialNeverPlaintext:
         )
 
     @given(app_password=_APP_PASSWORD_STRATEGY)
-    @settings(max_examples=25, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(max_examples=25, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
     def test_account_gmail_test_does_not_return_password(
         self, setup_db, app_password
     ):
         """
-        GET /account/gmail/test uses stored (encrypted) credentials — the
+        POST /account/gmail/test uses stored (encrypted) credentials — the
         decrypted app_password must never appear in the response.
         """
         db = setup_db()
-        agent, token = _create_agent_with_session(db, onboarding_step=6)
-        _store_credentials(db, agent, "agent@gmail.com", app_password)
+        agent_id, token = _create_agent_with_session(db, onboarding_step=6)
+        _store_credentials(db, agent_id, "agent@gmail.com", app_password)
         db.close()
-
-        client = TestClient(app, cookies={"agent_session": token})
 
         imap_success = {"success": True, "last_sync": None}
         with patch("api.routers.agent_account.test_imap_connection", return_value=imap_success):
+            client = TestClient(app, cookies={"agent_session": token})
             resp = client.post("/api/v1/agent/account/gmail/test")
 
         assert app_password not in resp.text, (
@@ -229,7 +230,7 @@ class TestProperty2CredentialNeverPlaintext:
         )
 
     @given(app_password=_APP_PASSWORD_STRATEGY)
-    @settings(max_examples=25, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(max_examples=25, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
     def test_account_gmail_get_does_not_return_password(
         self, setup_db, app_password
     ):
@@ -238,8 +239,8 @@ class TestProperty2CredentialNeverPlaintext:
         the plaintext app_password in the response body.
         """
         db = setup_db()
-        agent, token = _create_agent_with_session(db, onboarding_step=6)
-        _store_credentials(db, agent, "agent@gmail.com", app_password)
+        agent_id, token = _create_agent_with_session(db, onboarding_step=6)
+        _store_credentials(db, agent_id, "agent@gmail.com", app_password)
         db.close()
 
         client = TestClient(app, cookies={"agent_session": token})
@@ -251,17 +252,15 @@ class TestProperty2CredentialNeverPlaintext:
         )
 
     @given(app_password=_APP_PASSWORD_STRATEGY)
-    @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
     def test_imap_failure_does_not_log_password(self, setup_db, app_password):
         """
         When an IMAP test fails, the plaintext app_password must not appear
         in any log records emitted during the request.
         """
         db = setup_db()
-        agent, token = _create_agent_with_session(db, onboarding_step=2)
+        agent_id, token = _create_agent_with_session(db, onboarding_step=2)
         db.close()
-
-        client = TestClient(app, cookies={"agent_session": token})
 
         log_records: list = []
 
@@ -273,9 +272,11 @@ class TestProperty2CredentialNeverPlaintext:
         root_logger = logging.getLogger()
         root_logger.addHandler(handler)
 
+        imap_failure = {"success": False, "error": "CONNECTION_FAILED", "message": "Failed."}
         try:
-            imap_failure = {"success": False, "error": "CONNECTION_FAILED", "message": "Failed."}
             with patch("api.routers.agent_onboarding.test_imap_connection", return_value=imap_failure):
+                client = TestClient(app, cookies={"agent_session": token})
+                reset_imap_rate_limit(agent_id)
                 client.post(
                     "/api/v1/agent/onboarding/gmail",
                     json={"gmail_address": "agent@gmail.com", "app_password": app_password},

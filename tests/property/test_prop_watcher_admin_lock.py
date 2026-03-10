@@ -63,7 +63,7 @@ def setup_db():
 
 
 def _create_agent_with_session(db, watcher_admin_override: bool = False) -> tuple:
-    """Create an agent with preferences and return (agent, session_token)."""
+    """Create an agent with preferences and return (agent_id, session_token)."""
     email = f"agent_{uuid.uuid4().hex[:8]}@test.com"
     password_hash = bcrypt.hashpw(b"password", bcrypt.gensalt()).decode()
     agent = AgentUser(
@@ -77,9 +77,10 @@ def _create_agent_with_session(db, watcher_admin_override: bool = False) -> tupl
     db.add(agent)
     db.commit()
     db.refresh(agent)
+    agent_id = agent.id  # capture before session closes
 
     prefs = AgentPreferences(
-        agent_user_id=agent.id,
+        agent_user_id=agent_id,
         hot_threshold=80,
         warm_threshold=50,
         sla_minutes_hot=5,
@@ -94,14 +95,14 @@ def _create_agent_with_session(db, watcher_admin_override: bool = False) -> tupl
     now = datetime.utcnow()
     session = AgentSession(
         id=token,
-        agent_user_id=agent.id,
+        agent_user_id=agent_id,
         created_at=now,
         expires_at=now.replace(year=now.year + 1),
     )
     db.add(session)
     db.commit()
 
-    return agent, token
+    return agent_id, token
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +151,6 @@ class TestProperty8WatcherAdminLock:
         db = setup_db()
         _, token = _create_agent_with_session(db, watcher_admin_override=False)
         db.close()
-
         client = TestClient(app, cookies={"agent_session": token})
         resp = client.patch("/api/v1/agent/account/watcher", json={"enabled": enabled})
 

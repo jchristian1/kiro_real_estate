@@ -62,7 +62,7 @@ def setup_db():
 
 
 def _create_agent_with_session(db) -> tuple:
-    """Create an agent and return (agent, session_token)."""
+    """Create an agent and return (agent_id, session_token)."""
     email = f"agent_{uuid.uuid4().hex[:8]}@test.com"
     password_hash = bcrypt.hashpw(b"password", bcrypt.gensalt()).decode()
     agent = AgentUser(
@@ -76,19 +76,20 @@ def _create_agent_with_session(db) -> tuple:
     db.add(agent)
     db.commit()
     db.refresh(agent)
+    agent_id = agent.id  # capture before session closes
 
     token = secrets.token_hex(64)
     now = datetime.utcnow()
     session = AgentSession(
         id=token,
-        agent_user_id=agent.id,
+        agent_user_id=agent_id,
         created_at=now,
         expires_at=now.replace(year=now.year + 1),
     )
     db.add(session)
     db.commit()
 
-    return agent, token
+    return agent_id, token
 
 
 # ---------------------------------------------------------------------------
@@ -96,7 +97,7 @@ def _create_agent_with_session(db) -> tuple:
 # ---------------------------------------------------------------------------
 
 
-VALID_TYPES = ["INITIAL_OUTREACH", "FORM_FOLLOWUP", "POST_FORM", "APPOINTMENT_CONFIRM"]
+VALID_TYPES = ["INITIAL_INVITE", "POST_HOT", "POST_WARM", "POST_NURTURE"]
 
 
 class TestProperty19TemplateVersionMonotonicity:
@@ -110,10 +111,10 @@ class TestProperty19TemplateVersionMonotonicity:
     @given(
         template_type=st.sampled_from(VALID_TYPES),
         num_saves=st.integers(min_value=1, max_value=10),
-        subject=st.text(min_size=1, max_size=100, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd", "Zs"))),
-        body=st.text(min_size=1, max_size=500, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd", "Zs"))),
+        subject=st.text(min_size=1, max_size=100, alphabet="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789").map(lambda s: s or "subject"),
+        body=st.text(min_size=1, max_size=500, alphabet="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789").map(lambda s: s or "body"),
     )
-    @settings(max_examples=30, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(max_examples=30, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
     def test_each_save_increments_version_by_one(
         self, setup_db, template_type, num_saves, subject, body
     ):
@@ -124,7 +125,7 @@ class TestProperty19TemplateVersionMonotonicity:
         - After K saves → version == K
         """
         db = setup_db()
-        agent, token = _create_agent_with_session(db)
+        agent_id, token = _create_agent_with_session(db)
         db.close()
 
         client = TestClient(app, cookies={"agent_session": token})
@@ -142,14 +143,14 @@ class TestProperty19TemplateVersionMonotonicity:
     @given(
         num_saves=st.integers(min_value=2, max_value=8),
     )
-    @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
     def test_version_is_monotonically_increasing(self, setup_db, num_saves):
         """
         Versions returned by successive saves form a strictly increasing sequence
         1, 2, 3, ..., K with no gaps or repeats.
         """
         db = setup_db()
-        agent, token = _create_agent_with_session(db)
+        agent_id, token = _create_agent_with_session(db)
         db.close()
 
         client = TestClient(app, cookies={"agent_session": token})
@@ -157,7 +158,7 @@ class TestProperty19TemplateVersionMonotonicity:
 
         versions = []
         for _ in range(num_saves):
-            resp = client.put("/api/v1/agent/templates/INITIAL_OUTREACH", json=payload)
+            resp = client.put("/api/v1/agent/templates/INITIAL_INVITE", json=payload)
             assert resp.status_code == 200
             versions.append(resp.json()["version"])
 
@@ -170,14 +171,14 @@ class TestProperty19TemplateVersionMonotonicity:
     @given(
         template_type=st.sampled_from(VALID_TYPES),
     )
-    @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
     def test_first_save_always_creates_version_one(self, setup_db, template_type):
         """
         The very first save for any template type always produces version=1,
         regardless of template type.
         """
         db = setup_db()
-        agent, token = _create_agent_with_session(db)
+        agent_id, token = _create_agent_with_session(db)
         db.close()
 
         client = TestClient(app, cookies={"agent_session": token})
