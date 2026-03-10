@@ -142,7 +142,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - **Property 18: Status Transition Validity** — any transition not in the valid set is rejected with 422
     - **Validates: Requirements 12.6**
 
-- [-] 10. Settings and reports backend
+- [x] 10. Settings and reports backend
   - [x] 10.1 Implement templates CRUD: `GET /api/v1/agent/templates`, `PUT /api/v1/agent/templates/{type}`, `POST /api/v1/agent/templates/{type}/preview`, `DELETE /api/v1/agent/templates/{type}`
     - Increment version on each save; revert to platform default on DELETE
     - _Requirements: 14.1, 14.2, 14.3, 14.4_
@@ -163,7 +163,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - **Property 2: Credential Never Plaintext** — for any IMAP test or credential update, app_password never appears in log output, error responses, or API responses
     - **Validates: Requirements 5.8, 19.1, 19.4**
 
-- [~] 11. Checkpoint — backend complete
+- [-] 11. Checkpoint — backend complete
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 12. React app scaffold and routing
