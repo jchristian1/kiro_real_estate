@@ -6,7 +6,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
 
 ## Tasks
 
-- [ ] 1. Database schema and Alembic migrations
+- [x] 1. Database schema and Alembic migrations
   - [x] 1.1 Create SQLAlchemy models for `agent_users`, `agent_sessions`, `agent_preferences`, `buyer_automation_configs`, `agent_templates`, `lead_events`
     - Define all columns, constraints, indexes, and FK relationships per the data models in the design
     - Add new columns to existing `leads` table: `property_address`, `listing_url`, `score`, `score_bucket`, `score_breakdown`, `current_state`, `agent_user_id`, `company_id`, `lead_source_name`, `last_agent_action_at`
