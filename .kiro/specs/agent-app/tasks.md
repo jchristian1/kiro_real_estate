@@ -25,7 +25,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - **Validates: Requirements 19.5**
 
 - [ ] 3. Agent auth backend
-  - [~] 3.1 Implement `POST /api/v1/agent/auth/signup` — create agent account, auto-login, return session cookie
+  - [x] 3.1 Implement `POST /api/v1/agent/auth/signup` — create agent account, auto-login, return session cookie
     - Hash password with bcrypt; return 409 on duplicate email; return 422 on short password
     - _Requirements: 1.1, 1.2, 1.3, 1.5_
   - [~] 3.2 Implement `POST /api/v1/agent/auth/login`, `POST /api/v1/agent/auth/logout`, `GET /api/v1/agent/auth/me`
