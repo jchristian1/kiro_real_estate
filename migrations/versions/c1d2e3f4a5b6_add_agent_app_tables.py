@@ -261,6 +261,8 @@ def upgrade() -> None:
         op.add_column("leads", sa.Column("lead_source_name", sa.String(length=100), nullable=True))
     if not _column_exists(conn, "leads", "last_agent_action_at"):
         op.add_column("leads", sa.Column("last_agent_action_at", sa.DateTime(), nullable=True))
+    if not _column_exists(conn, "leads", "company_id"):
+        op.add_column("leads", sa.Column("company_id", sa.Integer(), sa.ForeignKey("companies.id"), nullable=True))
 
 
 def downgrade() -> None:
