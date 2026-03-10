@@ -85,7 +85,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 3.2_
   - [x] 6.7 Implement `POST /api/v1/agent/onboarding/test` — pure simulation using `simulate_onboarding_test()`, no DB writes
     - _Requirements: 9.1, 9.2, 9.3_
-  - [~] 6.8 Implement `POST /api/v1/agent/onboarding/complete` — validate all 4 Go Live preconditions (Gmail connected, ≥1 source, BuyerAutomationConfig exists, all 4 template types active), set `onboarding_completed = TRUE`
+  - [x] 6.8 Implement `POST /api/v1/agent/onboarding/complete` — validate all 4 Go Live preconditions (Gmail connected, ≥1 source, BuyerAutomationConfig exists, all 4 template types active), set `onboarding_completed = TRUE`
     - Return checklist of incomplete items if preconditions not met
     - _Requirements: 9.4, 9.5_
   - [~] 6.9 Write property test for onboarding completeness gate

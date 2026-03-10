@@ -780,3 +780,113 @@ def run_onboarding_test(
     """
     result = simulate_onboarding_test(agent, db)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Go Live / Complete endpoint
+# ---------------------------------------------------------------------------
+
+_REQUIRED_TEMPLATE_TYPES = {"INITIAL_INVITE", "POST_HOT", "POST_WARM", "POST_NURTURE"}
+
+
+class CompleteResponse(BaseModel):
+    """POST /onboarding/complete success response."""
+    ok: bool
+    onboarding_completed: bool
+
+
+class PreconditionChecklist(BaseModel):
+    gmail_connected: bool
+    lead_source_selected: bool
+    automation_configured: bool
+    templates_active: bool
+
+
+class PreconditionsNotMetResponse(BaseModel):
+    error: str
+    checklist: PreconditionChecklist
+
+
+@router.post(
+    "/complete",
+    status_code=status.HTTP_200_OK,
+    response_model=CompleteResponse,
+    responses={
+        400: {"model": PreconditionsNotMetResponse, "description": "One or more preconditions not met"},
+        401: {"model": ErrorResponse, "description": "Missing or invalid session"},
+    },
+    dependencies=[Depends(require_onboarding_step(5))],
+)
+def complete_onboarding(
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    """
+    Validate all 4 Go Live preconditions and set onboarding_completed = TRUE.
+
+    Preconditions (all must hold simultaneously):
+    1. Gmail connected: agent.credentials_id IS NOT NULL
+    2. At least one lead source enabled: AgentPreferences.enabled_lead_source_ids
+       is a non-empty JSON list
+    3. BuyerAutomationConfig exists: at least one record with agent_user_id == agent.id
+    4. All 4 template types active: AgentTemplate records with is_active=True exist
+       for INITIAL_INVITE, POST_HOT, POST_WARM, POST_NURTURE
+
+    If ALL pass: set onboarding_completed = True, commit, return {"ok": true, "onboarding_completed": true}
+    If ANY fail: return 400 with checklist of which items are incomplete.
+
+    Requirements: 9.4, 9.5
+    """
+    from gmail_lead_sync.agent_models import AgentPreferences, AgentTemplate, BuyerAutomationConfig
+
+    # --- Precondition 1: Gmail connected ---
+    gmail_connected = agent.credentials_id is not None
+
+    # --- Precondition 2: At least one lead source enabled ---
+    prefs = agent.preferences
+    lead_source_selected = False
+    if prefs is not None and prefs.enabled_lead_source_ids is not None:
+        try:
+            ids = _json.loads(prefs.enabled_lead_source_ids)
+            lead_source_selected = isinstance(ids, list) and len(ids) >= 1
+        except (ValueError, TypeError):
+            lead_source_selected = False
+
+    # --- Precondition 3: BuyerAutomationConfig exists ---
+    automation_configured = (
+        db.query(BuyerAutomationConfig)
+        .filter(BuyerAutomationConfig.agent_user_id == agent.id)
+        .first()
+    ) is not None
+
+    # --- Precondition 4: All 4 template types active ---
+    active_types = {
+        row.template_type
+        for row in db.query(AgentTemplate.template_type)
+        .filter(
+            AgentTemplate.agent_user_id == agent.id,
+            AgentTemplate.is_active == True,
+        )
+        .all()
+    }
+    templates_active = _REQUIRED_TEMPLATE_TYPES.issubset(active_types)
+
+    # --- Evaluate ---
+    if gmail_connected and lead_source_selected and automation_configured and templates_active:
+        agent.onboarding_completed = True
+        db.commit()
+        return CompleteResponse(ok=True, onboarding_completed=True)
+
+    # Return 400 with checklist of incomplete items (Requirement 9.5)
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={
+            "error": "PRECONDITIONS_NOT_MET",
+            "checklist": {
+                "gmail_connected": gmail_connected,
+                "lead_source_selected": lead_source_selected,
+                "automation_configured": automation_configured,
+                "templates_active": templates_active,
+            },
+        },
+    )
