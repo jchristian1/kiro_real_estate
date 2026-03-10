@@ -202,7 +202,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 14.3 Implement Lead Detail page — scoring breakdown panel (factor label, points, met/unmet), event timeline, rendered email previews, notes list, status update controls (CONTACTED / APPOINTMENT_SET / LOST / CLOSED), add note form
     - _Requirements: 12.1, 12.3, 12.4, 12.5_
 
-- [-] 15. Settings and reports frontend
+- [x] 15. Settings and reports frontend
   - [x] 15.1 Implement Templates settings page — 4 template cards with inline editor, live preview panel, save and revert-to-default actions
     - _Requirements: 14.1, 14.2, 14.3, 14.4_
   - [x] 15.2 Implement Automation settings page — threshold sliders, weight inputs, tour question toggle
