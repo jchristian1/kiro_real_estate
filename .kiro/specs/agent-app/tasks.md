@@ -138,7 +138,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 9.12 Write property test for WARM lead aging accuracy
     - **Property 12: WARM Lead Aging Accuracy** — `is_aging = TRUE` iff `(NOW() - created_at) > 24 hours`
     - **Validates: Requirements 11.6**
-  - [~] 9.13 Write property test for status transition validity
+  - [x] 9.13 Write property test for status transition validity
     - **Property 18: Status Transition Validity** — any transition not in the valid set is rejected with 422
     - **Validates: Requirements 12.6**
 
