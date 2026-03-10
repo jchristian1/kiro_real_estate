@@ -469,6 +469,22 @@ def delete_agent(
     
     # Delete credentials
     db.delete(credentials)
+
+    # Also remove the matching AgentUser record (agent app account)
+    # so the email can be re-used for a fresh signup
+    try:
+        from gmail_lead_sync.agent_models import AgentUser
+        from cryptography.fernet import Fernet
+        from api.config import load_config
+        config = load_config()
+        fernet = Fernet(config.encryption_key.encode())
+        email = fernet.decrypt(credentials.email_encrypted.encode()).decode()
+        agent_user = db.query(AgentUser).filter(AgentUser.email == email).first()
+        if agent_user:
+            db.delete(agent_user)
+    except Exception:
+        pass  # Don't fail the delete if agent_user cleanup fails
+
     db.commit()
     
     return AgentDeleteResponse(
