@@ -215,8 +215,8 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
 - [x] 16. Checkpoint — frontend complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [~] 17. Mobile-first CSS audit and polish
-  - [~] 17.1 Audit and fix all pages at 375px, 390px, and 414px viewport widths — touch targets ≥ 44px, no horizontal overflow, readable font sizes
+- [-] 17. Mobile-first CSS audit and polish
+  - [x] 17.1 Audit and fix all pages at 375px, 390px, and 414px viewport widths — touch targets ≥ 44px, no horizontal overflow, readable font sizes
     - _Requirements: (design mobile-first goal)_
   - [~] 17.2 Verify watcher toggle, aging indicators, and status controls are usable on mobile
 

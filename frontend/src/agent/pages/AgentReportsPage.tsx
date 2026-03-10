@@ -64,7 +64,7 @@ export const AgentReportsPage: React.FC = () => {
       {isLoading ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: t.textMuted, fontSize: 14 }}>Loading reports…</div>
       ) : !data ? null : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
           {/* Summary stats */}
           <div style={{ ...cardStyle, gridColumn: '1 / -1', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
             {[

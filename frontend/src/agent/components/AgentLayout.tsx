@@ -31,9 +31,13 @@ export const AgentLayout: React.FC = () => {
   const { agent, logout } = useAgentAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   const segment = '/' + location.pathname.split('/').slice(1, 3).join('/');
   const title = PAGE_TITLES[segment] || 'Agent Portal';
+
+  // Close sidebar on route change (mobile)
+  React.useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
   const handleLogout = async () => {
     await logout();
@@ -42,6 +46,17 @@ export const AgentLayout: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', width: '100%', background: t.bgPage, transition: 'background 0.2s' }}>
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+            zIndex: 40, display: 'block',
+          }}
+        />
+      )}
+
       {/* Sidebar */}
       <aside style={{
         width: 224, minHeight: '100vh',
@@ -49,7 +64,12 @@ export const AgentLayout: React.FC = () => {
         borderRight: `1px solid ${t.border}`,
         display: 'flex', flexDirection: 'column', flexShrink: 0,
         backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-        transition: 'background 0.2s',
+        transition: 'transform 0.25s ease, background 0.2s',
+        // Mobile: fixed overlay; Desktop: static
+        position: 'fixed' as const,
+        top: 0, left: 0, bottom: 0,
+        zIndex: 50,
+        transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
       }}>
         {/* Logo */}
         <div style={{ padding: '22px 18px 18px', borderBottom: `1px solid ${t.border}` }}>
@@ -76,8 +96,9 @@ export const AgentLayout: React.FC = () => {
               to={item.to}
               style={({ isActive }) => ({
                 display: 'flex', alignItems: 'center', gap: 10,
-                padding: '8px 10px', borderRadius: 9, marginBottom: 1,
+                padding: '10px 10px', borderRadius: 9, marginBottom: 1,
                 fontSize: 13, fontWeight: isActive ? 600 : 400,
+                minHeight: 44,
                 color: isActive ? (theme === 'dark' ? '#fff' : '#6366f1') : t.textMuted,
                 background: isActive ? t.accentBg : 'transparent',
                 textDecoration: 'none', transition: 'all 0.12s', letterSpacing: '-0.1px',
@@ -140,19 +161,32 @@ export const AgentLayout: React.FC = () => {
         </div>
       </aside>
 
-      {/* Main content */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      {/* Main content — full width on mobile (sidebar is overlay) */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
         {/* Header */}
         <header style={{
           height: 56, background: t.bgHeader,
           borderBottom: `1px solid ${t.border}`,
           backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '0 24px', flexShrink: 0, position: 'sticky', top: 0, zIndex: 10,
+          padding: '0 16px', flexShrink: 0, position: 'sticky', top: 0, zIndex: 10,
         }}>
-          <h1 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: t.text, letterSpacing: '-0.3px' }}>
-            {title}
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {/* Hamburger */}
+            <button
+              onClick={() => setSidebarOpen(v => !v)}
+              aria-label="Open navigation"
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: t.textMuted, fontSize: 20, padding: '8px', borderRadius: 8,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                minWidth: 44, minHeight: 44,
+              }}
+            >☰</button>
+            <h1 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: t.text, letterSpacing: '-0.3px' }}>
+              {title}
+            </h1>
+          </div>
           <button
             onClick={toggle}
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
@@ -178,7 +212,7 @@ export const AgentLayout: React.FC = () => {
         </header>
 
         <main style={{
-          flex: 1, padding: '28px', overflowY: 'auto',
+          flex: 1, padding: '20px 16px', overflowY: 'auto',
           background: t.bgPage, transition: 'background 0.2s',
         }}>
           <Outlet />

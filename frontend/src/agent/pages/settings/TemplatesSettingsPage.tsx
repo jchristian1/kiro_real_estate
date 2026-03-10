@@ -117,7 +117,7 @@ export const TemplatesSettingsPage: React.FC = () => {
         })}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: showPreview ? '1fr 1fr' : '1fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: showPreview ? 'repeat(auto-fit, minmax(280px, 1fr))' : '1fr', gap: 20 }}>
         {/* Editor */}
         <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: '22px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
