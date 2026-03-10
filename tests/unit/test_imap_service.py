@@ -3,11 +3,12 @@ Unit tests for api/services/imap_service.py
 
 All tests use mocks — no real IMAP connection is made.
 
-Requirements: 5.1, 5.3, 5.4, 5.5, 5.6, 5.8, 19.4
+Requirements: 5.1, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 19.4
 """
 
 import imaplib
 import socket
+import time
 from unittest.mock import MagicMock, patch
 
 import api.services.imap_service as imap_service
@@ -17,7 +18,12 @@ from api.services.imap_service import (
     ERROR_INVALID_PASSWORD,
     ERROR_RATE_LIMITED,
     ERROR_TWO_FACTOR_REQUIRED,
+    IMAPRateLimitError,
+    RATE_LIMIT_MAX_ATTEMPTS,
+    RATE_LIMIT_WINDOW_SECONDS,
+    check_and_record_imap_attempt,
     classify_imap_error,
+    reset_imap_rate_limit,
 )
 
 # Alias to avoid pytest collecting the service function as a test fixture
@@ -246,3 +252,93 @@ class TestCredentialSafety:
         result = classify_imap_error(raw)
         assert PASSWORD not in result
         assert raw not in result
+
+
+# ── IMAP Rate Limiter ─────────────────────────────────────────────────────────
+
+class TestImapRateLimiter:
+    """
+    Unit tests for check_and_record_imap_attempt / reset_imap_rate_limit.
+
+    Requirements: 5.7
+    """
+
+    AGENT_ID = 9001  # Unique ID to avoid cross-test pollution
+
+    def setup_method(self):
+        """Reset the rate limiter state before each test."""
+        reset_imap_rate_limit(self.AGENT_ID)
+
+    def test_first_five_attempts_succeed(self):
+        """First 5 attempts within the window must not raise."""
+        for _ in range(RATE_LIMIT_MAX_ATTEMPTS):
+            check_and_record_imap_attempt(self.AGENT_ID)  # must not raise
+
+    def test_sixth_attempt_raises_rate_limit_error(self):
+        """The 6th attempt within the window must raise IMAPRateLimitError."""
+        for _ in range(RATE_LIMIT_MAX_ATTEMPTS):
+            check_and_record_imap_attempt(self.AGENT_ID)
+
+        try:
+            check_and_record_imap_attempt(self.AGENT_ID)
+            assert False, "Expected IMAPRateLimitError was not raised"
+        except IMAPRateLimitError as exc:
+            assert exc.retry_after_seconds >= 1
+
+    def test_retry_after_seconds_is_positive(self):
+        """retry_after_seconds must be at least 1 when rate limited."""
+        for _ in range(RATE_LIMIT_MAX_ATTEMPTS):
+            check_and_record_imap_attempt(self.AGENT_ID)
+
+        try:
+            check_and_record_imap_attempt(self.AGENT_ID)
+        except IMAPRateLimitError as exc:
+            assert exc.retry_after_seconds >= 1
+
+    def test_retry_after_seconds_does_not_exceed_window(self):
+        """retry_after_seconds must not exceed the full window length."""
+        for _ in range(RATE_LIMIT_MAX_ATTEMPTS):
+            check_and_record_imap_attempt(self.AGENT_ID)
+
+        try:
+            check_and_record_imap_attempt(self.AGENT_ID)
+        except IMAPRateLimitError as exc:
+            assert exc.retry_after_seconds <= RATE_LIMIT_WINDOW_SECONDS + 1
+
+    def test_window_resets_after_15_minutes(self):
+        """After the window expires, attempts are allowed again."""
+        for _ in range(RATE_LIMIT_MAX_ATTEMPTS):
+            check_and_record_imap_attempt(self.AGENT_ID)
+
+        # Simulate the window expiring by back-dating all timestamps
+        future_offset = RATE_LIMIT_WINDOW_SECONDS + 1
+        with imap_service._lock:
+            timestamps = imap_service._attempt_timestamps[self.AGENT_ID]
+            timestamps[:] = [t - future_offset for t in timestamps]
+
+        # Now a new attempt should succeed (window has reset)
+        check_and_record_imap_attempt(self.AGENT_ID)  # must not raise
+
+    def test_different_agents_have_independent_windows(self):
+        """Rate limiting is keyed per agent — one agent's limit does not affect another."""
+        agent_a = self.AGENT_ID
+        agent_b = self.AGENT_ID + 1
+        reset_imap_rate_limit(agent_b)
+
+        # Exhaust agent_a's limit
+        for _ in range(RATE_LIMIT_MAX_ATTEMPTS):
+            check_and_record_imap_attempt(agent_a)
+
+        # agent_b should still be allowed
+        check_and_record_imap_attempt(agent_b)  # must not raise
+
+    def test_reset_clears_attempts(self):
+        """reset_imap_rate_limit clears all recorded attempts for the agent."""
+        for _ in range(RATE_LIMIT_MAX_ATTEMPTS):
+            check_and_record_imap_attempt(self.AGENT_ID)
+
+        reset_imap_rate_limit(self.AGENT_ID)
+
+        # After reset, 5 more attempts should succeed
+        for _ in range(RATE_LIMIT_MAX_ATTEMPTS):
+            check_and_record_imap_attempt(self.AGENT_ID)  # must not raise

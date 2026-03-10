@@ -5,13 +5,19 @@ Tests a live IMAP connection to imap.gmail.com:993 using imaplib.IMAP4_SSL.
 Classifies IMAP errors into a fixed safe enumeration — the raw error message
 and the app_password are NEVER included in logs, error messages, or responses.
 
-Requirements: 5.1, 5.3, 5.4, 5.5, 5.6, 5.8, 19.4
+Also provides in-memory rate limiting: max 5 attempts per agent per 15-minute
+sliding window (Requirement 5.7).
+
+Requirements: 5.1, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 19.4
 """
 
 import imaplib
 import logging
 import socket
-from typing import Optional
+import time
+from collections import defaultdict
+from threading import Lock
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +26,68 @@ logger = logging.getLogger(__name__)
 IMAP_HOST = "imap.gmail.com"
 IMAP_PORT = 993
 IMAP_TIMEOUT_SECONDS = 10
+
+# Rate limiting (Requirement 5.7)
+RATE_LIMIT_MAX_ATTEMPTS = 5
+RATE_LIMIT_WINDOW_SECONDS = 15 * 60  # 15 minutes
+
+
+# ── Rate Limiter ──────────────────────────────────────────────────────────────
+
+class IMAPRateLimitError(Exception):
+    """Raised when an agent exceeds the IMAP connection test rate limit."""
+
+    def __init__(self, retry_after_seconds: int) -> None:
+        self.retry_after_seconds = retry_after_seconds
+        super().__init__(f"Rate limit exceeded. Retry after {retry_after_seconds} seconds.")
+
+
+# In-memory store: agent_user_id -> list of attempt timestamps (monotonic)
+_attempt_timestamps: Dict[int, List[float]] = defaultdict(list)
+_lock = Lock()
+
+
+def check_and_record_imap_attempt(agent_user_id: int) -> None:
+    """
+    Check whether the agent is within the rate limit, then record the attempt.
+
+    Uses a sliding window of RATE_LIMIT_WINDOW_SECONDS.  If the agent has
+    already made RATE_LIMIT_MAX_ATTEMPTS within the current window, raises
+    IMAPRateLimitError with the number of seconds until the oldest attempt
+    falls outside the window.
+
+    Args:
+        agent_user_id: The authenticated agent's ID (rate-limit key).
+
+    Raises:
+        IMAPRateLimitError: When the agent has exceeded the allowed attempts.
+    """
+    now = time.monotonic()
+    window_start = now - RATE_LIMIT_WINDOW_SECONDS
+
+    with _lock:
+        # Evict timestamps that have fallen outside the sliding window
+        timestamps = _attempt_timestamps[agent_user_id]
+        timestamps[:] = [t for t in timestamps if t > window_start]
+
+        if len(timestamps) >= RATE_LIMIT_MAX_ATTEMPTS:
+            # Oldest timestamp in the window determines when the slot frees up
+            oldest = timestamps[0]
+            retry_after = int(oldest + RATE_LIMIT_WINDOW_SECONDS - now) + 1
+            raise IMAPRateLimitError(retry_after_seconds=max(retry_after, 1))
+
+        # Record this attempt
+        timestamps.append(now)
+
+
+def reset_imap_rate_limit(agent_user_id: int) -> None:
+    """
+    Clear all recorded attempts for an agent.
+
+    Intended for use in tests only — not called from production code.
+    """
+    with _lock:
+        _attempt_timestamps[agent_user_id] = []
 
 # Fixed safe error code enumeration (Requirement 5.3–5.6)
 ERROR_IMAP_DISABLED = "IMAP_DISABLED"

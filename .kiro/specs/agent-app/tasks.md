@@ -46,7 +46,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - Implement `classify_imap_error()` returning fixed enum: `IMAP_DISABLED`, `TWO_FACTOR_REQUIRED`, `INVALID_PASSWORD`, `RATE_LIMITED`, `CONNECTION_FAILED`
     - Never include app_password in logs or error output
     - _Requirements: 5.1, 5.3, 5.4, 5.5, 5.6, 5.8, 19.4_
-  - [~] 4.2 Implement IMAP rate limiting — max 5 attempts per agent per 15-minute window, return 429 with `retry_after_seconds` on breach
+  - [x] 4.2 Implement IMAP rate limiting — max 5 attempts per agent per 15-minute window, return 429 with `retry_after_seconds` on breach
     - _Requirements: 5.7_
   - [~] 4.3 Write property test for IMAP error classification
     - **Property 14: IMAP Error Classification** — for any error message string, `classify_imap_error()` returns a value from the fixed safe enumeration and never returns the raw message
