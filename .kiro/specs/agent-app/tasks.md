@@ -109,7 +109,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 9.1 Implement `GET /api/v1/agent/dashboard` — HOT lead summaries, aging leads, `response_time_today_minutes`, `watcher_status`; scope all queries by `agent_user_id`
     - Aging: HOT leads where `last_agent_action_at IS NULL` AND `(NOW() - created_at) > sla_minutes_hot`
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
-  - [~] 9.2 Implement `GET /api/v1/agent/leads` — urgency sort (HOT → WARM → NURTURE), bucket/status/search filters, aging annotation, pagination at 25/page
+  - [x] 9.2 Implement `GET /api/v1/agent/leads` — urgency sort (HOT → WARM → NURTURE), bucket/status/search filters, aging annotation, pagination at 25/page
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
   - [~] 9.3 Implement `GET /api/v1/agent/leads/{id}` — enriched lead, scoring breakdown, timeline, rendered emails, notes; return 403 for cross-agent access
     - _Requirements: 12.1, 12.2, 12.3, 18.2_
