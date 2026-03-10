@@ -183,7 +183,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 4.1, 4.2, 4.4_
   - [x] 13.4 Implement Step 2 (Gmail Connection) — Gmail address + App Password fields, collapsible "How to create App Password" instructions, live IMAP test on submit, success/error states per error code, watcher toggle (read-only if admin locked)
     - _Requirements: 5.2, 5.3, 5.9, 9.5_
-  - [~] 13.5 Implement Step 3 (Lead Sources) — checklist of platform lead sources with name, logo, sample parsed preview; default all enabled
+  - [x] 13.5 Implement Step 3 (Lead Sources) — checklist of platform lead sources with name, logo, sample parsed preview; default all enabled
     - _Requirements: 6.1, 6.3_
   - [~] 13.6 Implement Step 4 (Buyer Automation) — HOT threshold slider (60–95, default 80), SLA select (5/15/30/60 min), tour question toggle, working hours time range picker
     - _Requirements: 7.2, 7.3, 7.4, 7.5_
