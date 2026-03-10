@@ -521,3 +521,262 @@ def update_templates(
     db.commit()
 
     return TemplatesResponse(ok=True, onboarding_step=6)
+
+
+# ---------------------------------------------------------------------------
+# Onboarding test simulation endpoint
+# ---------------------------------------------------------------------------
+
+from typing import Any, Dict
+
+
+# Default templates used when the agent has no custom template saved
+_DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
+    "INITIAL_INVITE": {
+        "subject": "Hi {lead_name}, let's find your perfect home",
+        "body": (
+            "Hi {lead_name},\n\n"
+            "I'm {agent_name} and I'd love to help you find your next home.\n"
+            "Please fill out this quick form so I can match you with the best options:\n"
+            "{form_link}\n\n"
+            "Feel free to reach me at {agent_phone} or {agent_email}.\n\n"
+            "Best,\n{agent_name}"
+        ),
+    },
+    "POST_HOT": {
+        "subject": "Great news, {lead_name} — you're a top match!",
+        "body": (
+            "Hi {lead_name},\n\n"
+            "Based on your answers, you're a great fit for several listings I have in mind.\n"
+            "I'll be in touch very shortly to schedule a tour.\n\n"
+            "— {agent_name} | {agent_phone}"
+        ),
+    },
+    "POST_WARM": {
+        "subject": "{lead_name}, here are some options for you",
+        "body": (
+            "Hi {lead_name},\n\n"
+            "Thanks for completing the form. I've put together a few listings that match your criteria.\n"
+            "Reply or call me at {agent_phone} when you're ready to take the next step.\n\n"
+            "— {agent_name}"
+        ),
+    },
+    "POST_NURTURE": {
+        "subject": "Staying in touch, {lead_name}",
+        "body": (
+            "Hi {lead_name},\n\n"
+            "Thanks for your interest. When you're ready to move forward, I'm here to help.\n"
+            "You can reach me at {agent_email} or {agent_phone}.\n\n"
+            "— {agent_name}"
+        ),
+    },
+}
+
+
+def _render_template(subject: str, body: str, lead: Dict[str, Any], agent: AgentUser) -> Dict[str, str]:
+    """
+    Substitute supported placeholders in subject and body.
+
+    Supported placeholders: {lead_name}, {agent_name}, {agent_phone},
+    {agent_email}, {form_link}.
+    """
+    replacements = {
+        "{lead_name}": lead.get("name", ""),
+        "{agent_name}": agent.full_name or "",
+        "{agent_phone}": agent.phone or "",
+        "{agent_email}": agent.email or "",
+        "{form_link}": "https://example.com/form/test",
+    }
+    rendered_subject = subject
+    rendered_body = body
+    for placeholder, value in replacements.items():
+        rendered_subject = rendered_subject.replace(placeholder, value)
+        rendered_body = rendered_body.replace(placeholder, value)
+
+    # Strip newlines from subject (Requirement 14.7)
+    rendered_subject = rendered_subject.replace("\n", " ").replace("\r", "").strip()
+
+    return {"subject": rendered_subject, "body": rendered_body}
+
+
+def simulate_onboarding_test(agent: AgentUser, db: Session) -> Dict[str, Any]:
+    """
+    Run a pure in-memory simulation of the lead ingestion → scoring → email flow.
+
+    No database records are created or modified.
+
+    Requirements: 9.1, 9.2, 9.3
+    """
+    from gmail_lead_sync.agent_models import AgentPreferences, AgentTemplate, BuyerAutomationConfig
+
+    # ------------------------------------------------------------------
+    # 1. Sample lead (never persisted)
+    # ------------------------------------------------------------------
+    sample_lead = {
+        "name": "Jane Smith",
+        "phone": "555-0100",
+        "address": "123 Main St",
+        "source": "Zillow",
+        "budget": 500000,
+    }
+
+    # ------------------------------------------------------------------
+    # 2. Resolve BuyerAutomationConfig (agent's own or defaults)
+    # ------------------------------------------------------------------
+    config = (
+        db.query(BuyerAutomationConfig)
+        .filter(BuyerAutomationConfig.agent_user_id == agent.id)
+        .first()
+    )
+
+    # Use attribute values or fall back to defaults
+    hot_threshold = config.hot_threshold if config else 80
+    warm_threshold = config.warm_threshold if config else 50
+    enable_tour_question = config.enable_tour_question if config else True
+    weight_timeline = config.weight_timeline if config else 25
+    weight_preapproval = config.weight_preapproval if config else 30
+    weight_phone_provided = config.weight_phone_provided if config else 15
+    weight_tour_interest = config.weight_tour_interest if config else 20
+    weight_budget_match = config.weight_budget_match if config else 10
+
+    # ------------------------------------------------------------------
+    # 3. Resolve INITIAL_INVITE template
+    # ------------------------------------------------------------------
+    invite_tmpl_row = (
+        db.query(AgentTemplate)
+        .filter(
+            AgentTemplate.agent_user_id == agent.id,
+            AgentTemplate.template_type == "INITIAL_INVITE",
+            AgentTemplate.is_active == True,
+        )
+        .first()
+    )
+    if invite_tmpl_row:
+        invite_subject = invite_tmpl_row.subject
+        invite_body = invite_tmpl_row.body
+    else:
+        invite_subject = _DEFAULT_TEMPLATES["INITIAL_INVITE"]["subject"]
+        invite_body = _DEFAULT_TEMPLATES["INITIAL_INVITE"]["body"]
+
+    invite_email = _render_template(invite_subject, invite_body, sample_lead, agent)
+
+    # ------------------------------------------------------------------
+    # 4. Simulated form submission answers
+    # ------------------------------------------------------------------
+    form_answers = {
+        "timeline": "3_MONTHS",
+        "preapproval": True,
+        "tour_interest": True,
+        "budget_match": True,
+        "phone_provided": True,
+    }
+
+    # ------------------------------------------------------------------
+    # 5. Compute score from answers using config weights
+    # ------------------------------------------------------------------
+    score = 0
+
+    # Timeline urgency
+    if form_answers["timeline"] == "3_MONTHS":
+        score += weight_timeline
+
+    # Pre-approval
+    if form_answers["preapproval"]:
+        score += weight_preapproval
+
+    # Phone provided
+    if form_answers["phone_provided"]:
+        score += weight_phone_provided
+
+    # Tour interest (only if enable_tour_question is True)
+    if enable_tour_question and form_answers["tour_interest"]:
+        score += weight_tour_interest
+
+    # Budget match
+    if form_answers["budget_match"]:
+        score += weight_budget_match
+
+    # ------------------------------------------------------------------
+    # 6. Assign bucket
+    # ------------------------------------------------------------------
+    if score >= hot_threshold:
+        bucket = "HOT"
+    elif score >= warm_threshold:
+        bucket = "WARM"
+    else:
+        bucket = "NURTURE"
+
+    # ------------------------------------------------------------------
+    # 7. Resolve POST_* template based on bucket
+    # ------------------------------------------------------------------
+    post_type = f"POST_{bucket}"
+    post_tmpl_row = (
+        db.query(AgentTemplate)
+        .filter(
+            AgentTemplate.agent_user_id == agent.id,
+            AgentTemplate.template_type == post_type,
+            AgentTemplate.is_active == True,
+        )
+        .first()
+    )
+    if post_tmpl_row:
+        post_subject = post_tmpl_row.subject
+        post_body = post_tmpl_row.body
+    else:
+        post_subject = _DEFAULT_TEMPLATES[post_type]["subject"]
+        post_body = _DEFAULT_TEMPLATES[post_type]["body"]
+
+    post_email = _render_template(post_subject, post_body, sample_lead, agent)
+
+    # ------------------------------------------------------------------
+    # 8. Return simulation result — no DB writes anywhere above
+    # ------------------------------------------------------------------
+    return {
+        "sample_lead": {
+            "name": sample_lead["name"],
+            "phone": sample_lead["phone"],
+            "address": sample_lead["address"],
+            "source": sample_lead["source"],
+        },
+        "invite_email": invite_email,
+        "form_answers": form_answers,
+        "score": score,
+        "bucket": bucket,
+        "post_email": post_email,
+    }
+
+
+class OnboardingTestResponse(BaseModel):
+    """POST /onboarding/test success response."""
+    sample_lead: Dict[str, Any]
+    invite_email: Dict[str, str]
+    form_answers: Dict[str, Any]
+    score: int
+    bucket: str
+    post_email: Dict[str, str]
+
+
+@router.post(
+    "/test",
+    status_code=status.HTTP_200_OK,
+    response_model=OnboardingTestResponse,
+    responses={
+        400: {"model": ErrorResponse, "description": "Onboarding step not completed"},
+        401: {"model": ErrorResponse, "description": "Missing or invalid session"},
+    },
+    dependencies=[Depends(require_onboarding_step(5))],
+)
+def run_onboarding_test(
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    """
+    Run a pure in-memory onboarding test simulation.
+
+    Produces a rendered INITIAL_INVITE email and a scored POST_SUBMISSION email
+    using the agent's actual configuration. No database records are written.
+
+    Requirements: 9.1, 9.2, 9.3
+    """
+    result = simulate_onboarding_test(agent, db)
+    return result

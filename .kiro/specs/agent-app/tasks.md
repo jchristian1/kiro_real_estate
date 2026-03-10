@@ -83,7 +83,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 8.4, 8.5_
   - [x] 6.6 Implement onboarding step-order enforcement middleware — return 400 with `error: "ONBOARDING_STEP_REQUIRED"` when step N+2 is accessed without completing step N
     - _Requirements: 3.2_
-  - [~] 6.7 Implement `POST /api/v1/agent/onboarding/test` — pure simulation using `simulate_onboarding_test()`, no DB writes
+  - [x] 6.7 Implement `POST /api/v1/agent/onboarding/test` — pure simulation using `simulate_onboarding_test()`, no DB writes
     - _Requirements: 9.1, 9.2, 9.3_
   - [~] 6.8 Implement `POST /api/v1/agent/onboarding/complete` — validate all 4 Go Live preconditions (Gmail connected, ≥1 source, BuyerAutomationConfig exists, all 4 template types active), set `onboarding_completed = TRUE`
     - Return checklist of incomplete items if preconditions not met
