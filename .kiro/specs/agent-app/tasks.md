@@ -78,7 +78,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 6.2_
   - [x] 6.4 Implement `PUT /api/v1/agent/onboarding/automation` — create/update `BuyerAutomationConfig`, advance `onboarding_step` to 5
     - _Requirements: 7.1_
-  - [~] 6.5 Implement `PUT /api/v1/agent/onboarding/templates` — persist agent template overrides with tone selection, validate placeholders, advance `onboarding_step` to 6
+  - [x] 6.5 Implement `PUT /api/v1/agent/onboarding/templates` — persist agent template overrides with tone selection, validate placeholders, advance `onboarding_step` to 6
     - Return 422 with `error: "INVALID_PLACEHOLDER"` for unsupported placeholders
     - _Requirements: 8.4, 8.5_
   - [~] 6.6 Implement onboarding step-order enforcement middleware — return 400 with `error: "ONBOARDING_STEP_REQUIRED"` when step N+2 is accessed without completing step N

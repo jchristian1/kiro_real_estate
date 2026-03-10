@@ -369,3 +369,121 @@ def update_automation(
     db.commit()
 
     return AutomationResponse(ok=True, onboarding_step=5)
+
+
+# ---------------------------------------------------------------------------
+# Templates endpoint
+# ---------------------------------------------------------------------------
+
+import re as _re
+from typing import List
+
+
+_SUPPORTED_PLACEHOLDERS = {
+    "lead_name",
+    "agent_name",
+    "agent_phone",
+    "agent_email",
+    "form_link",
+}
+
+_PLACEHOLDER_RE = _re.compile(r"\{(\w+)\}")
+
+
+class TemplateItem(BaseModel):
+    """A single template entry in the PUT /onboarding/templates request."""
+    template_type: str = Field(..., pattern=r"^(INITIAL_INVITE|POST_HOT|POST_WARM|POST_NURTURE)$")
+    subject: str = Field(..., min_length=1, max_length=500)
+    body: str = Field(..., min_length=1)
+    tone: str = Field(..., pattern=r"^(PROFESSIONAL|FRIENDLY|SHORT)$")
+
+
+class TemplatesRequest(BaseModel):
+    """PUT /onboarding/templates request body."""
+    templates: List[TemplateItem]
+
+
+class TemplatesResponse(BaseModel):
+    """PUT /onboarding/templates success response."""
+    ok: bool
+    onboarding_step: int
+
+
+@router.put(
+    "/templates",
+    status_code=status.HTTP_200_OK,
+    response_model=TemplatesResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Missing or invalid session"},
+        422: {"description": "Unsupported placeholder found in subject or body"},
+    },
+)
+def update_templates(
+    body: TemplatesRequest,
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    """
+    Persist agent template overrides with tone selection and advance onboarding_step to 6.
+
+    1. For each template, scan subject and body for unsupported {placeholder} tokens.
+    2. If any unsupported placeholder found, return 422 with error: "INVALID_PLACEHOLDER".
+    3. Upsert each template (create if not found, update + increment version if exists).
+    4. Advance onboarding_step to 6 if currently less than 6.
+    5. Return {"ok": true, "onboarding_step": 6}.
+
+    Requirements: 8.4, 8.5
+    """
+    from gmail_lead_sync.agent_models import AgentTemplate
+
+    # Step 1 & 2: Validate placeholders across all templates before any DB writes
+    for tmpl in body.templates:
+        for field_value in (tmpl.subject, tmpl.body):
+            found = set(_PLACEHOLDER_RE.findall(field_value))
+            unsupported = found - _SUPPORTED_PLACEHOLDERS
+            if unsupported:
+                return JSONResponse(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    content={
+                        "error": "INVALID_PLACEHOLDER",
+                        "detail": (
+                            f"Unsupported placeholder(s): {sorted(unsupported)}. "
+                            f"Supported: {sorted(_SUPPORTED_PLACEHOLDERS)}"
+                        ),
+                    },
+                )
+
+    # Step 3: Upsert each template
+    for tmpl in body.templates:
+        existing = (
+            db.query(AgentTemplate)
+            .filter(
+                AgentTemplate.agent_user_id == agent.id,
+                AgentTemplate.template_type == tmpl.template_type,
+            )
+            .first()
+        )
+        if existing is None:
+            new_tmpl = AgentTemplate(
+                agent_user_id=agent.id,
+                template_type=tmpl.template_type,
+                subject=tmpl.subject,
+                body=tmpl.body,
+                tone=tmpl.tone,
+                is_active=True,
+                version=1,
+            )
+            db.add(new_tmpl)
+        else:
+            existing.subject = tmpl.subject
+            existing.body = tmpl.body
+            existing.tone = tmpl.tone
+            existing.version = existing.version + 1
+
+    # Step 4: Advance onboarding step
+    if agent.onboarding_step < 6:
+        agent.onboarding_step = 6
+
+    db.commit()
+
+    return TemplatesResponse(ok=True, onboarding_step=6)
