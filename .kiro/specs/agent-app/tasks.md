@@ -91,7 +91,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 6.9 Write property test for onboarding completeness gate
     - **Property 9: Onboarding Completeness Gate** — `onboarding_completed` is set to TRUE if and only if all 4 preconditions hold simultaneously
     - **Validates: Requirements 9.4**
-  - [~] 6.10 Write property test for onboarding test simulation leaves no records
+  - [x] 6.10 Write property test for onboarding test simulation leaves no records
     - **Property 20: Onboarding Test Simulation Leaves No Records** — record counts in `leads`, `lead_events`, `agent_templates` are identical before and after simulation
     - **Validates: Requirements 9.3**
 
