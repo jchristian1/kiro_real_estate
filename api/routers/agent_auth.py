@@ -39,7 +39,7 @@ class SignupRequest(BaseModel):
     """Signup request body."""
     email: EmailStr
     password: str = Field(..., min_length=8, description="Minimum 8 characters")
-    full_name: str = Field(..., min_length=1, max_length=255)
+    full_name: Optional[str] = Field(default="", max_length=255)
 
     @field_validator("password")
     @classmethod
@@ -157,7 +157,7 @@ async def signup(
     agent_user = AgentUser(
         email=body.email,
         password_hash=password_hash,
-        full_name=body.full_name,
+        full_name=body.full_name or "",
         onboarding_step=0,
         onboarding_completed=False,
         created_at=datetime.utcnow(),
