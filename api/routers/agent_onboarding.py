@@ -267,3 +267,105 @@ def update_sources(
     db.commit()
 
     return SourcesResponse(ok=True, onboarding_step=4)
+
+
+# ---------------------------------------------------------------------------
+# Automation endpoint
+# ---------------------------------------------------------------------------
+
+import datetime as _dt
+
+
+class AutomationRequest(BaseModel):
+    """PUT /onboarding/automation request body."""
+    hot_threshold: int = Field(default=80, ge=60, le=95)
+    warm_threshold: int = Field(default=50)
+    sla_minutes_hot: int = Field(default=5)
+    enable_tour_question: bool = Field(default=True)
+    working_hours_start: Optional[str] = Field(default=None)  # "HH:MM"
+    working_hours_end: Optional[str] = Field(default=None)    # "HH:MM"
+
+
+class AutomationResponse(BaseModel):
+    """PUT /onboarding/automation success response."""
+    ok: bool
+    onboarding_step: int
+
+
+def _parse_time(value: Optional[str]) -> Optional[_dt.time]:
+    """Parse "HH:MM" string into datetime.time, or return None."""
+    if value is None:
+        return None
+    try:
+        return _dt.datetime.strptime(value, "%H:%M").time()
+    except ValueError:
+        return None
+
+
+@router.put(
+    "/automation",
+    status_code=status.HTTP_200_OK,
+    response_model=AutomationResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Missing or invalid session"},
+    },
+)
+def update_automation(
+    body: AutomationRequest,
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    """
+    Create or update BuyerAutomationConfig and AgentPreferences, advance onboarding_step to 5.
+
+    1. Upsert BuyerAutomationConfig for this agent (look up by agent_user_id).
+    2. Upsert AgentPreferences — set sla_minutes_hot, enable_tour_question,
+       quiet_hours_start/end, and link buyer_automation_config_id.
+    3. Advance onboarding_step to 5 if currently less than 5.
+    4. Return {"ok": true, "onboarding_step": 5}.
+
+    Requirements: 7.1
+    """
+    from gmail_lead_sync.agent_models import AgentPreferences, BuyerAutomationConfig
+
+    # Step 1: Upsert BuyerAutomationConfig
+    config = (
+        db.query(BuyerAutomationConfig)
+        .filter(BuyerAutomationConfig.agent_user_id == agent.id)
+        .first()
+    )
+    if config is None:
+        config = BuyerAutomationConfig(
+            agent_user_id=agent.id,
+            name=f"{agent.full_name or 'Agent'} Config",
+        )
+        db.add(config)
+
+    config.hot_threshold = body.hot_threshold
+    config.warm_threshold = body.warm_threshold
+    config.enable_tour_question = body.enable_tour_question
+
+    db.flush()  # ensure config.id is populated
+
+    # Step 2: Upsert AgentPreferences
+    prefs = agent.preferences
+    if prefs is None:
+        prefs = AgentPreferences(agent_user_id=agent.id)
+        db.add(prefs)
+
+    prefs.sla_minutes_hot = body.sla_minutes_hot
+    prefs.enable_tour_question = body.enable_tour_question
+    prefs.buyer_automation_config_id = config.id
+
+    if body.working_hours_start is not None:
+        prefs.quiet_hours_start = _parse_time(body.working_hours_start)
+    if body.working_hours_end is not None:
+        prefs.quiet_hours_end = _parse_time(body.working_hours_end)
+
+    # Step 3: Advance onboarding step
+    if agent.onboarding_step < 5:
+        agent.onboarding_step = 5
+
+    db.commit()
+
+    return AutomationResponse(ok=True, onboarding_step=5)

@@ -76,7 +76,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
   - [x] 6.3 Implement `PUT /api/v1/agent/onboarding/sources` — persist `enabled_lead_source_ids`, advance `onboarding_step` to 4
     - _Requirements: 6.2_
-  - [~] 6.4 Implement `PUT /api/v1/agent/onboarding/automation` — create/update `BuyerAutomationConfig`, advance `onboarding_step` to 5
+  - [x] 6.4 Implement `PUT /api/v1/agent/onboarding/automation` — create/update `BuyerAutomationConfig`, advance `onboarding_step` to 5
     - _Requirements: 7.1_
   - [~] 6.5 Implement `PUT /api/v1/agent/onboarding/templates` — persist agent template overrides with tone selection, validate placeholders, advance `onboarding_step` to 6
     - Return 422 with `error: "INVALID_PLACEHOLDER"` for unsupported placeholders
