@@ -159,7 +159,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 10.6 Write property test for watcher admin lock
     - **Property 8: Watcher Admin Lock** — when `watcher_admin_override = TRUE`, any toggle request returns 403 with `error: "ADMIN_LOCKED"` regardless of `enabled` value
     - **Validates: Requirements 16.6**
-  - [-] 10.7 Write property test for credential never plaintext
+  - [x] 10.7 Write property test for credential never plaintext
     - **Property 2: Credential Never Plaintext** — for any IMAP test or credential update, app_password never appears in log output, error responses, or API responses
     - **Validates: Requirements 5.8, 19.1, 19.4**
 
