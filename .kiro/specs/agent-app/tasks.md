@@ -207,7 +207,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 14.1, 14.2, 14.3, 14.4_
   - [x] 15.2 Implement Automation settings page — threshold sliders, weight inputs, tour question toggle
     - _Requirements: 15.3_
-  - [~] 15.3 Implement Account/Gmail settings page — connection status display, test connection button with result feedback, update credentials form, disconnect button, watcher toggle (disabled if admin locked)
+  - [x] 15.3 Implement Account/Gmail settings page — connection status display, test connection button with result feedback, update credentials form, disconnect button, watcher toggle (disabled if admin locked)
     - _Requirements: 16.1, 16.2, 16.5, 16.6_
   - [~] 15.4 Implement Reports page — source distribution list, bucket distribution chart, average response time, appointments count, period selector (7d/30d/90d)
     - _Requirements: 17.1, 17.2_
