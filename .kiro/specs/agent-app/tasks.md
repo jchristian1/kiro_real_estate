@@ -34,7 +34,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 2.1, 2.2, 2.3, 2.5, 2.6_
   - [x] 3.3 Implement agent auth middleware — validate session cookie on all `/api/v1/agent/` routes, return 401 if missing/expired
     - _Requirements: 2.4_
-  - [~] 3.4 Write property test for session token uniqueness
+  - [x] 3.4 Write property test for session token uniqueness
     - **Property 22: Session Token Uniqueness** — any two generated session tokens are different and are exactly 64 bytes
     - **Validates: Requirements 2.6**
   - [~] 3.5 Write property test for unauthenticated request rejection
