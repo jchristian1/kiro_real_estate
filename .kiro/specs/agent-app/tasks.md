@@ -105,8 +105,8 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
 - [x] 8. Checkpoint — backend core complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 9. Dashboard and leads backend
-  - [~] 9.1 Implement `GET /api/v1/agent/dashboard` — HOT lead summaries, aging leads, `response_time_today_minutes`, `watcher_status`; scope all queries by `agent_user_id`
+- [-] 9. Dashboard and leads backend
+  - [x] 9.1 Implement `GET /api/v1/agent/dashboard` — HOT lead summaries, aging leads, `response_time_today_minutes`, `watcher_status`; scope all queries by `agent_user_id`
     - Aging: HOT leads where `last_agent_action_at IS NULL` AND `(NOW() - created_at) > sla_minutes_hot`
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
   - [~] 9.2 Implement `GET /api/v1/agent/leads` — urgency sort (HOT → WARM → NURTURE), bucket/status/search filters, aging annotation, pagination at 25/page
