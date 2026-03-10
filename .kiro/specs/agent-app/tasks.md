@@ -95,8 +95,8 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - **Property 20: Onboarding Test Simulation Leaves No Records** — record counts in `leads`, `lead_events`, `agent_templates` are identical before and after simulation
     - **Validates: Requirements 9.3**
 
-- [ ] 7. Template renderer
-  - [~] 7.1 Implement `render_template(template, lead, agent_user_id)` — substitute all supported placeholders (`{lead_name}`, `{agent_name}`, `{agent_phone}`, `{agent_email}`, `{form_link}`), strip newlines from subject
+- [-] 7. Template renderer
+  - [x] 7.1 Implement `render_template(template, lead, agent_user_id)` — substitute all supported placeholders (`{lead_name}`, `{agent_name}`, `{agent_phone}`, `{agent_email}`, `{form_link}`), strip newlines from subject
     - _Requirements: 14.5, 14.6, 14.7_
   - [~] 7.2 Write property test for template placeholder safety
     - **Property 10: Template Placeholder Safety** — for any rendered email, subject contains no newline characters and no unresolved `{...}` placeholders remain in subject or body
