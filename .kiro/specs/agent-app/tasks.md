@@ -192,8 +192,8 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 13.8 Implement Step 6 (Go Live) — checklist with status icons, "Run Test" button with simulation result display (rendered emails, score, bucket), "Go Live" button with precondition checklist
     - _Requirements: 9.1, 9.2, 9.5_
 
-- [~] 14. Dashboard and leads inbox frontend
-  - [~] 14.1 Implement Dashboard page — HOT leads list, aging alerts with visual indicators, today/week response time stats, watcher status badge, watcher toggle
+- [-] 14. Dashboard and leads inbox frontend
+  - [x] 14.1 Implement Dashboard page — HOT leads list, aging alerts with visual indicators, today/week response time stats, watcher status badge, watcher toggle
     - Poll or refetch on focus; scope display to authenticated agent
     - _Requirements: 10.1, 10.5_
   - [~] 14.2 Implement Leads Inbox page — filter bar (bucket, status), search input with 300ms debounce, lead cards with urgency bucket badge and aging indicator, pagination
