@@ -20,7 +20,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - Use `SecretStr` for all app password fields in Pydantic models
     - Never log or return plaintext
     - _Requirements: 19.1, 19.2, 19.3, 19.4_
-  - [~] 2.2 Write property test for encryption round-trip
+  - [x] 2.2 Write property test for encryption round-trip
     - **Property 3: Encryption Round-Trip** — for any non-empty string, encrypt then decrypt returns original value exactly
     - **Validates: Requirements 19.5**
 
