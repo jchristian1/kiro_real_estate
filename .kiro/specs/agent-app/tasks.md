@@ -37,7 +37,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 3.4 Write property test for session token uniqueness
     - **Property 22: Session Token Uniqueness** — any two generated session tokens are different and are exactly 64 bytes
     - **Validates: Requirements 2.6**
-  - [~] 3.5 Write property test for unauthenticated request rejection
+  - [x] 3.5 Write property test for unauthenticated request rejection
     - **Property 21: Unauthenticated Requests Rejected** — any request to `/api/v1/agent/` without valid session returns 401
     - **Validates: Requirements 2.4**
 
