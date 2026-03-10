@@ -55,7 +55,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - **Property 13: IMAP Rate Limiting** — for any agent, the 6th attempt within a 15-minute window always returns 429 with `error: "RATE_LIMITED"`
     - **Validates: Requirements 5.7**
 
-- [ ] 5. Lead scoring engine
+- [x] 5. Lead scoring engine
   - [x] 5.1 Implement `score_lead(lead_id, buyer_config_id)` — evaluate 5 factors, compute score, assign bucket, persist to lead record, insert `LEAD_SCORED` event
     - When `enable_tour_question = FALSE`, tour interest factor contributes 0 points
     - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5, 13.6, 13.7, 13.8_
