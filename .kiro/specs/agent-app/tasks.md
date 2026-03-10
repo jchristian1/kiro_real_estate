@@ -220,8 +220,8 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: (design mobile-first goal)_
   - [x] 17.2 Verify watcher toggle, aging indicators, and status controls are usable on mobile
 
-- [~] 18. Integration and security tests
-  - [~] 18.1 Write end-to-end integration test: full onboarding flow — signup → profile → gmail (mock IMAP) → sources → automation → templates → go-live → test simulation
+- [-] 18. Integration and security tests
+  - [x] 18.1 Write end-to-end integration test: full onboarding flow — signup → profile → gmail (mock IMAP) → sources → automation → templates → go-live → test simulation
     - _Requirements: 1.1, 3.5, 9.1, 9.4_
   - [~] 18.2 Write end-to-end integration test: lead lifecycle — ingest email → parse → score → invite → form submit → re-score → post-email → agent marks contacted
     - _Requirements: 13.7, 20.1_
