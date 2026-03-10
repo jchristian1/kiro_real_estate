@@ -51,7 +51,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
   - [x] 4.3 Write property test for IMAP error classification
     - **Property 14: IMAP Error Classification** — for any error message string, `classify_imap_error()` returns a value from the fixed safe enumeration and never returns the raw message
     - **Validates: Requirements 5.3, 5.4, 5.5, 5.6**
-  - [~] 4.4 Write property test for IMAP rate limiting
+  - [x] 4.4 Write property test for IMAP rate limiting
     - **Property 13: IMAP Rate Limiting** — for any agent, the 6th attempt within a 15-minute window always returns 429 with `error: "RATE_LIMITED"`
     - **Validates: Requirements 5.7**
 
