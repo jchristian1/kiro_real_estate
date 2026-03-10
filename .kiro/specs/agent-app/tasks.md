@@ -41,7 +41,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - **Property 21: Unauthenticated Requests Rejected** — any request to `/api/v1/agent/` without valid session returns 401
     - **Validates: Requirements 2.4**
 
-- [ ] 4. IMAP connection service
+- [x] 4. IMAP connection service
   - [x] 4.1 Implement `test_imap_connection(gmail_address, app_password)` using `imaplib.IMAP4_SSL`
     - Implement `classify_imap_error()` returning fixed enum: `IMAP_DISABLED`, `TWO_FACTOR_REQUIRED`, `INVALID_PASSWORD`, `RATE_LIMITED`, `CONNECTION_FAILED`
     - Never include app_password in logs or error output
