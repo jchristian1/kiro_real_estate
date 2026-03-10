@@ -166,7 +166,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
 - [x] 11. Checkpoint — backend complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [-] 12. React app scaffold and routing
+- [x] 12. React app scaffold and routing
   - [x] 12.1 Scaffold Vite + React 18 + TypeScript project; configure React Router v6, TanStack Query, React Hook Form, Zod, Tailwind CSS
     - Set up route structure: `/login`, `/signup`, `/onboarding/*`, `/dashboard`, `/leads`, `/leads/:id`, `/settings/*`, `/reports`
     - Add auth guard: redirect unauthenticated users to `/login`; redirect authenticated users with incomplete onboarding to `/onboarding`
