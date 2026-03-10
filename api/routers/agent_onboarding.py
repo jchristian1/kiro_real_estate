@@ -3,20 +3,28 @@ Agent onboarding routes.
 
 Provides:
 - PUT /api/v1/agent/onboarding/profile  — persist profile fields, advance onboarding_step to 2
+- POST /api/v1/agent/onboarding/gmail   — test IMAP, encrypt and persist credentials, advance step to 3
 
-Requirements: 4.1, 4.3
+Requirements: 4.1, 4.3, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6
 """
 
 from typing import Optional
 
 from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, SecretStr
 from sqlalchemy.orm import Session
 
 from api.dependencies.agent_auth import get_current_agent
 from api.main import get_db
+from api.services.credential_encryption import encrypt_app_password
+from api.services.imap_service import (
+    IMAPRateLimitError,
+    check_and_record_imap_attempt,
+    test_imap_connection,
+)
 from gmail_lead_sync.agent_models import AgentUser
-from gmail_lead_sync.models import Company
+from gmail_lead_sync.models import Company, Credentials
 
 router = APIRouter(prefix="/agent/onboarding", tags=["Agent Onboarding"])
 
@@ -43,6 +51,20 @@ class ProfileResponse(BaseModel):
 class ErrorResponse(BaseModel):
     """Generic error response."""
     error: str
+
+
+class GmailRequest(BaseModel):
+    """POST /onboarding/gmail request body."""
+    gmail_address: str = Field(..., min_length=1, max_length=255)
+    app_password: SecretStr = Field(..., min_length=1)
+    imap_folder: Optional[str] = Field(default="INBOX")
+
+
+class GmailResponse(BaseModel):
+    """POST /onboarding/gmail success response."""
+    connected: bool
+    gmail_address: str
+    last_sync: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -96,3 +118,92 @@ def update_profile(
     db.refresh(agent)
 
     return ProfileResponse(ok=True, onboarding_step=agent.onboarding_step)
+
+
+@router.post(
+    "/gmail",
+    status_code=status.HTTP_200_OK,
+    response_model=GmailResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Missing or invalid session"},
+        422: {"description": "IMAP connection failed with structured error code"},
+        429: {"description": "Rate limit exceeded"},
+    },
+)
+def connect_gmail(
+    body: GmailRequest,
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    """
+    Test IMAP connection, encrypt and persist Gmail credentials on success.
+
+    1. Check rate limit — 429 with retry_after_seconds if exceeded.
+    2. Test live IMAP connection using provided credentials.
+    3. On success: encrypt app_password, persist to credentials table,
+       link credentials_id on agent_user, advance onboarding_step to 3.
+    4. On IMAP failure: return 422 with structured error code and message.
+
+    Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6
+    """
+    # Step 1: Rate limit check (Requirement 5.7)
+    try:
+        check_and_record_imap_attempt(agent.id)
+    except IMAPRateLimitError as exc:
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content={"error": "RATE_LIMITED", "retry_after_seconds": exc.retry_after_seconds},
+        )
+
+    # Step 2: Live IMAP test (Requirement 5.1)
+    result = test_imap_connection(body.gmail_address, body.app_password.get_secret_value())
+
+    if not result["success"]:
+        # Return 422 with structured error code (Requirements 5.3–5.6)
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={"error": result["error"], "message": result["message"]},
+        )
+
+    # Step 3: Encrypt and persist credentials (Requirement 5.2, 19.1)
+    encrypted_password = encrypt_app_password(body.app_password.get_secret_value())
+    # Gmail address is not sensitive but we store it as-is for display
+    encrypted_email = body.gmail_address  # stored plaintext for display; password is encrypted
+
+    if agent.credentials_id is not None:
+        # Update existing credentials record
+        creds = db.query(Credentials).filter(Credentials.id == agent.credentials_id).first()
+        if creds is not None:
+            creds.email_encrypted = encrypted_email
+            creds.app_password_encrypted = encrypted_password
+        else:
+            # Stale FK — create a new record
+            creds = Credentials(
+                agent_id=str(agent.id),
+                email_encrypted=encrypted_email,
+                app_password_encrypted=encrypted_password,
+            )
+            db.add(creds)
+            db.flush()
+            agent.credentials_id = creds.id
+    else:
+        creds = Credentials(
+            agent_id=str(agent.id),
+            email_encrypted=encrypted_email,
+            app_password_encrypted=encrypted_password,
+        )
+        db.add(creds)
+        db.flush()
+        agent.credentials_id = creds.id
+
+    # Advance onboarding step to 3
+    if agent.onboarding_step < 3:
+        agent.onboarding_step = 3
+
+    db.commit()
+
+    return GmailResponse(
+        connected=True,
+        gmail_address=body.gmail_address,
+        last_sync=None,
+    )
