@@ -85,7 +85,7 @@ export const AgentLeadDetailPage: React.FC = () => {
 
   const cardStyle = { background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: '20px 22px', marginBottom: 16 };
   const tabStyle = (active: boolean) => ({
-    padding: '8px 16px', borderRadius: 9, fontSize: 13, fontWeight: 500 as const, cursor: 'pointer' as const,
+    padding: '11px 16px', minHeight: 44, borderRadius: 9, fontSize: 13, fontWeight: 500 as const, cursor: 'pointer' as const,
     background: active ? t.accentBg : 'transparent',
     border: `1px solid ${active ? t.accent : t.border}`,
     color: active ? t.accent : t.textMuted,
@@ -160,11 +160,11 @@ export const AgentLeadDetailPage: React.FC = () => {
 
       {/* Status controls */}
       {nextStates.length > 0 && (
-        <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', rowGap: 10 }}>
           <span style={{ fontSize: 13, color: t.textMuted, fontWeight: 500 }}>Update status:</span>
           {nextStates.map(s => (
             <button key={s} onClick={() => handleStatusChange(s)} disabled={updateStatus.isPending} style={{
-              padding: '8px 18px', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              padding: '12px 18px', minHeight: 44, borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer',
               background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', color: '#fff',
               boxShadow: '0 2px 8px rgba(99,102,241,0.3)', opacity: updateStatus.isPending ? 0.6 : 1,
             }}>

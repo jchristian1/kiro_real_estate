@@ -133,12 +133,14 @@ export const AccountSettingsPage: React.FC = () => {
           <button
             onClick={handleWatcherToggle}
             disabled={gmail?.watcher_admin_override || toggleWatcher.isPending}
+            aria-label={gmail?.watcher_enabled ? 'Disable watcher' : 'Enable watcher'}
             style={{
               width: 44, height: 26, borderRadius: 13, border: 'none',
               cursor: gmail?.watcher_admin_override ? 'not-allowed' : 'pointer',
               background: gmail?.watcher_enabled ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : t.border,
               position: 'relative', transition: 'background 0.2s',
               opacity: gmail?.watcher_admin_override ? 0.5 : 1,
+              padding: '9px 0', boxSizing: 'content-box' as const,
             }}
           >
             <div style={{

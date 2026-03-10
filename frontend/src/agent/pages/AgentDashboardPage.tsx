@@ -143,11 +143,14 @@ export const AgentDashboardPage: React.FC = () => {
           onClick={handleWatcherToggle}
           disabled={adminLocked || toggleWatcher.isPending}
           title={adminLocked ? 'Locked by admin' : undefined}
+          aria-label={watcherOn ? 'Disable watcher' : 'Enable watcher'}
           style={{
             width: 44, height: 26, borderRadius: 13, border: 'none',
             cursor: adminLocked ? 'not-allowed' : 'pointer',
             background: watcherOn ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : t.border,
             position: 'relative', transition: 'background 0.2s', opacity: adminLocked ? 0.5 : 1,
+            // Expand touch target with padding trick
+            padding: '9px 0', boxSizing: 'content-box' as const,
           }}
         >
           <div style={{
