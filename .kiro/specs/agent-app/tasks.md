@@ -225,7 +225,7 @@ Implement the agent-facing web application across 6 milestones: auth + onboardin
     - _Requirements: 1.1, 3.5, 9.1, 9.4_
   - [x] 18.2 Write end-to-end integration test: lead lifecycle — ingest email → parse → score → invite → form submit → re-score → post-email → agent marks contacted
     - _Requirements: 13.7, 20.1_
-  - [~] 18.3 Write security integration tests: verify app_password never in API responses or logs; verify IMAP rate limiting (6th attempt → 429); verify cross-agent 403 on leads/templates/preferences
+  - [x] 18.3 Write security integration tests: verify app_password never in API responses or logs; verify IMAP rate limiting (6th attempt → 429); verify cross-agent 403 on leads/templates/preferences
     - _Requirements: 5.7, 5.8, 18.2, 19.4_
   - [~] 18.4 Write integration test: template header injection — subject with `\n` returns 422
     - _Requirements: 14.7_
