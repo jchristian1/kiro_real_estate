@@ -121,6 +121,55 @@ def _resolve_active_message_template(
     )
 
 
+def _resolve_agent_template(
+    db: Session,
+    tenant_id: int,
+    template_type: str,
+) -> tuple[str, str] | None:
+    """Return (subject, body) from the active AgentTemplate for this tenant+type, or None."""
+    try:
+        from gmail_lead_sync.agent_models import AgentUser, AgentTemplate
+        agent = (
+            db.query(AgentUser)
+            .filter(AgentUser.company_id == tenant_id)
+            .first()
+        )
+        if agent is None:
+            return None
+        row = (
+            db.query(AgentTemplate)
+            .filter(
+                AgentTemplate.agent_user_id == agent.id,
+                AgentTemplate.template_type == template_type,
+                AgentTemplate.is_active == True,
+            )
+            .first()
+        )
+        if row is None:
+            return None
+        return row.subject, row.body
+    except Exception as exc:
+        logger.warning("Could not resolve AgentTemplate for tenant %d type %s: %s", tenant_id, template_type, exc)
+        return None
+
+
+def _render_agent_template(subject_tpl: str, body_tpl: str, context: dict) -> tuple[str, str]:
+    """Render an AgentTemplate subject+body using {placeholder} syntax."""
+    mapping = {
+        "{lead_name}": context.get("lead_name", ""),
+        "{agent_name}": context.get("agent_name", ""),
+        "{agent_phone}": context.get("agent_phone", ""),
+        "{agent_email}": context.get("agent_email", ""),
+        "{form_link}": context.get("form_link", ""),
+    }
+    subject = subject_tpl
+    body = body_tpl
+    for placeholder, value in mapping.items():
+        subject = subject.replace(placeholder, value)
+        body = body.replace(placeholder, value)
+    return subject, body
+
+
 def _get_tenant_email_credentials(db: Session, tenant_id: int) -> tuple[str, str] | None:
     """Return (from_email, app_password) for the tenant, or None if not found."""
     creds = (
@@ -257,18 +306,32 @@ def on_buyer_lead_email_received(
     tenant_row = db.execute(_text("SELECT name FROM companies WHERE id = :tid"), {"tid": tenant_id}).fetchone()
     tenant_name = tenant_row[0] if tenant_row else ""
 
-    context: dict = {
-        "lead.first_name": first_name,
-        "lead.email": lead.source_email,
-        "form.link": _build_form_url(raw_token),
-        "tenant.name": tenant_name,
-        **parsed_metadata,
-    }
-
     # ------------------------------------------------------------------
-    # 6. Render template (Req 9.3)
+    # 6. Render template — prefer AgentTemplate, fall back to MessageTemplate
     # ------------------------------------------------------------------
-    rendered = _template_engine.render(msg_version, context)
+    agent_tpl = _resolve_agent_template(db, tenant_id, "INITIAL_INVITE")
+    if agent_tpl is not None:
+        # Resolve agent info for placeholders
+        from gmail_lead_sync.agent_models import AgentUser as _AgentUser
+        _agent = db.query(_AgentUser).filter(_AgentUser.company_id == tenant_id).first()
+        agent_context = {
+            "lead_name": lead.name or first_name,
+            "agent_name": _agent.full_name if _agent else tenant_name,
+            "agent_phone": _agent.phone if _agent else "",
+            "agent_email": _agent.email if _agent else "",
+            "form_link": _build_form_url(raw_token),
+        }
+        rendered_subject, rendered_body = _render_agent_template(agent_tpl[0], agent_tpl[1], agent_context)
+    else:
+        context: dict = {
+            "lead.first_name": first_name,
+            "lead.email": lead.source_email,
+            "form.link": _build_form_url(raw_token),
+            "tenant.name": tenant_name,
+            **parsed_metadata,
+        }
+        rendered_obj = _template_engine.render(msg_version, context)
+        rendered_subject, rendered_body = rendered_obj.subject, rendered_obj.body
 
     # ------------------------------------------------------------------
     # 6b. Send email via tenant SMTP credentials
@@ -285,8 +348,8 @@ def on_buyer_lead_email_received(
         from_email, app_password = creds
         _send_email(
             to_address=lead.source_email,
-            subject=rendered.subject,
-            body=rendered.body,
+            subject=rendered_subject,
+            body=rendered_body,
             from_address=from_email,
             app_password=app_password,
         )
@@ -319,8 +382,8 @@ def on_buyer_lead_email_received(
             lead_id=lead_id,
             event_type="INVITE_SENT",
             payload_dict={
-                "subject": rendered.subject,
-                "body": rendered.body,
+                "subject": rendered_subject,
+                "body": rendered_body,
             },
         )
         db.commit()
@@ -343,7 +406,7 @@ def on_buyer_lead_email_received(
             channel=Channel.EMAIL.value,
             direction="outbound",
             occurred_at=datetime.utcnow(),
-            content_text=rendered.subject,  # subject only — Req 10.4 / 17.6
+            content_text=rendered_subject,  # subject only — Req 10.4 / 17.6
         )
     )
     db.commit()
@@ -686,21 +749,38 @@ def on_buyer_form_submitted(
     tenant_row = db.execute(_text("SELECT name FROM companies WHERE id = :tid"), {"tid": invitation.tenant_id}).fetchone()
     tenant_name = tenant_row[0] if tenant_row else ""
 
-    context: dict = {
-        "lead.first_name": first_name,
-        "lead.email": lead.source_email,
-        "score.total": str(score_result.total),
-        "score.bucket": score_result.bucket.value,
-        "score.explanation": score_result.explanation,
-        "tenant.name": tenant_name,
-        **{k: str(v) for k, v in request_metadata.items() if v is not None},
-    }
+    # Map score bucket to AgentTemplate type
+    _bucket_to_type = {"HOT": "POST_HOT", "WARM": "POST_WARM", "NURTURE": "POST_NURTURE"}
+    _agent_tpl_type = _bucket_to_type.get(score_result.bucket.value)
+    agent_tpl = _resolve_agent_template(db, invitation.tenant_id, _agent_tpl_type) if _agent_tpl_type else None
 
-    rendered = _template_engine.render(
-        msg_version,
-        context,
-        variant_key=score_result.bucket.value,  # Req 10.2
-    )
+    if agent_tpl is not None:
+        from gmail_lead_sync.agent_models import AgentUser as _AgentUser
+        _agent = db.query(_AgentUser).filter(_AgentUser.company_id == invitation.tenant_id).first()
+        agent_context = {
+            "lead_name": lead.name or first_name,
+            "agent_name": _agent.full_name if _agent else tenant_name,
+            "agent_phone": _agent.phone if _agent else "",
+            "agent_email": _agent.email if _agent else "",
+            "form_link": "",
+        }
+        rendered_subject, rendered_body = _render_agent_template(agent_tpl[0], agent_tpl[1], agent_context)
+    else:
+        context: dict = {
+            "lead.first_name": first_name,
+            "lead.email": lead.source_email,
+            "score.total": str(score_result.total),
+            "score.bucket": score_result.bucket.value,
+            "score.explanation": score_result.explanation,
+            "tenant.name": tenant_name,
+            **{k: str(v) for k, v in request_metadata.items() if v is not None},
+        }
+        rendered_obj = _template_engine.render(
+            msg_version,
+            context,
+            variant_key=score_result.bucket.value,  # Req 10.2
+        )
+        rendered_subject, rendered_body = rendered_obj.subject, rendered_obj.body
 
     creds = _get_tenant_email_credentials(db, invitation.tenant_id)
     if creds is None:
@@ -714,8 +794,8 @@ def on_buyer_form_submitted(
         from_email, app_password = creds
         _send_email(
             to_address=lead.source_email,
-            subject=rendered.subject,
-            body=rendered.body,
+            subject=rendered_subject,
+            body=rendered_body,
             from_address=from_email,
             app_password=app_password,
         )
@@ -741,8 +821,8 @@ def on_buyer_form_submitted(
             lead_id=invitation.lead_id,
             event_type="POST_EMAIL_SENT",
             payload_dict={
-                "subject": rendered.subject,
-                "body": rendered.body,
+                "subject": rendered_subject,
+                "body": rendered_body,
             },
         )
         db.flush()
@@ -765,7 +845,7 @@ def on_buyer_form_submitted(
             channel=Channel.EMAIL.value,
             direction="outbound",
             occurred_at=datetime.utcnow(),
-            content_text=rendered.subject,  # Req 10.4 / 17.6: subject only
+            content_text=rendered_subject,  # Req 10.4 / 17.6: subject only
         )
     )
     db.commit()
