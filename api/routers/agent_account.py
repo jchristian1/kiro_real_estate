@@ -185,8 +185,13 @@ def get_gmail_status(
         )
         if creds is not None:
             connected = True
-            # email_encrypted stores the Gmail address as plaintext for display
-            gmail_address = creds.email_encrypted
+            # Decrypt the email address for display
+            try:
+                from api.services.credential_encryption import decrypt_app_password
+                gmail_address = decrypt_app_password(creds.email_encrypted)
+            except Exception:
+                # Fallback: might be stored as plaintext in older records
+                gmail_address = creds.email_encrypted
 
     return GmailStatusResponse(
         connected=connected,
@@ -238,7 +243,12 @@ def test_gmail_connection(
     except (ValueError, EnvironmentError):
         return GmailTestResponse(ok=False, error="DECRYPTION_FAILED")
 
-    result = test_imap_connection(creds.email_encrypted, app_password)
+    try:
+        email_address = decrypt_app_password(creds.email_encrypted)
+    except Exception:
+        email_address = creds.email_encrypted  # fallback for plaintext records
+
+    result = test_imap_connection(email_address, app_password)
 
     if result["success"]:
         return GmailTestResponse(ok=True)
