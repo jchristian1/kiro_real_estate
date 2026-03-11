@@ -295,6 +295,10 @@ def on_buyer_lead_email_received(
     # 7. Mark invitation sent; transition → FORM_INVITE_SENT (Req 9.3)
     # ------------------------------------------------------------------
     invitation.sent_at = datetime.utcnow()
+    # Update agent_current_state so agent-app inbox reflects the invite
+    _lead_invite: Lead = db.get(Lead, lead_id)
+    if _lead_invite is not None:
+        _lead_invite.agent_current_state = "INVITE_SENT"
     db.commit()
 
     _state_machine.transition(
@@ -553,6 +557,12 @@ def on_buyer_form_submitted(
             exc_info=True,
         )
 
+    # Update agent_current_state so agent-app inbox reflects form submission
+    _lead_form: Lead = db.get(Lead, invitation.lead_id)
+    if _lead_form is not None:
+        _lead_form.agent_current_state = "FORM_SUBMITTED"
+    db.flush()
+
     # ------------------------------------------------------------------
     # 6. Resolve active ScoringVersion (Req 5.11)
     # ------------------------------------------------------------------
@@ -603,6 +613,19 @@ def on_buyer_form_submitted(
             explanation_text=score_result.explanation,
         )
     )
+
+    # ------------------------------------------------------------------
+    # 8b. Write score back to Lead row for agent-app visibility
+    # ------------------------------------------------------------------
+    _lead_for_score: Lead = db.get(Lead, invitation.lead_id)
+    if _lead_for_score is not None:
+        _lead_for_score.score = score_result.total
+        _lead_for_score.score_bucket = score_result.bucket.value
+        _lead_for_score.score_breakdown = _json.dumps({
+            "factors": breakdown_serializable,
+        })
+        _lead_for_score.agent_current_state = "SCORED"
+
     db.commit()
 
     # ------------------------------------------------------------------
