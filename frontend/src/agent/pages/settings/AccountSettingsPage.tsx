@@ -24,6 +24,7 @@ export const AccountSettingsPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState<'ok' | 'err'>('ok');
 
@@ -82,10 +83,10 @@ export const AccountSettingsPage: React.FC = () => {
   };
 
   const handleCancelSubscription = async () => {
-    if (!confirm('Cancel your subscription? This will stop your Gmail watcher. Your leads and data will be preserved.')) return;
     setCancelling(true);
     try {
       await cancelSubscription.mutateAsync();
+      setShowCancelConfirm(false);
       flash('Subscription cancelled. Watcher stopped.', 'ok');
     } catch (err) {
       flash(getAgentErrorMessage(err), 'err');
@@ -247,19 +248,59 @@ export const AccountSettingsPage: React.FC = () => {
         <div style={{ fontSize: 13, color: t.textMuted, marginBottom: 16, lineHeight: 1.6 }}>
           This will stop your Gmail watcher and deactivate your account. Your leads and data will be preserved and you can re-activate at any time.
         </div>
-        <button
-          onClick={handleCancelSubscription}
-          disabled={cancelling}
-          style={{
-            padding: '10px 20px', background: 'transparent',
-            border: `1.5px solid ${t.red}`, borderRadius: 10,
-            fontSize: 13, fontWeight: 600, color: t.red,
-            cursor: cancelling ? 'not-allowed' : 'pointer',
-            opacity: cancelling ? 0.6 : 1, transition: 'all 0.15s',
-          }}
-        >
-          {cancelling ? 'Cancelling…' : 'Cancel Subscription'}
-        </button>
+
+        {!showCancelConfirm ? (
+          <button
+            onClick={() => setShowCancelConfirm(true)}
+            style={{
+              padding: '10px 20px', background: 'transparent',
+              border: `1.5px solid ${t.red}`, borderRadius: 10,
+              fontSize: 13, fontWeight: 600, color: t.red,
+              cursor: 'pointer', transition: 'all 0.15s',
+            }}
+          >
+            Cancel Subscription
+          </button>
+        ) : (
+          <div style={{
+            background: t.bgCard, border: `1px solid ${t.red}50`,
+            borderRadius: 12, padding: '16px 18px',
+          }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: t.text, marginBottom: 6 }}>
+              Are you sure?
+            </div>
+            <div style={{ fontSize: 13, color: t.textMuted, marginBottom: 16 }}>
+              Your watcher will stop immediately. All leads and settings are kept.
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setShowCancelConfirm(false)}
+                disabled={cancelling}
+                style={{
+                  flex: 1, padding: '10px', background: t.bgPage,
+                  border: `1px solid ${t.border}`, borderRadius: 10,
+                  fontSize: 13, fontWeight: 500, color: t.textMuted,
+                  cursor: 'pointer',
+                }}
+              >
+                Keep Subscription
+              </button>
+              <button
+                onClick={handleCancelSubscription}
+                disabled={cancelling}
+                style={{
+                  flex: 1, padding: '10px',
+                  background: t.red, border: 'none', borderRadius: 10,
+                  fontSize: 13, fontWeight: 600, color: '#fff',
+                  cursor: cancelling ? 'not-allowed' : 'pointer',
+                  opacity: cancelling ? 0.7 : 1,
+                }}
+              >
+                {cancelling ? 'Cancelling…' : 'Yes, Cancel'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
