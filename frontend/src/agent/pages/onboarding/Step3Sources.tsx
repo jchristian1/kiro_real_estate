@@ -19,9 +19,10 @@ export const Step3Sources: React.FC<Props> = ({ goBack }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['lead-sources'],
     queryFn: () => agentApi.get<{ sources: LeadSource[] }>('/agent/onboarding/sources'),
+    retry: false,
   });
 
   const sources = data?.sources || [];
@@ -63,6 +64,10 @@ export const Step3Sources: React.FC<Props> = ({ goBack }) => {
 
       {isLoading ? (
         <div style={{ textAlign: 'center', padding: '32px 0', color: t.textMuted, fontSize: 13 }}>Loading sources…</div>
+      ) : isError ? (
+        <div style={{ textAlign: 'center', padding: '32px 0', color: t.textMuted, fontSize: 13 }}>No lead sources configured yet. You can add them in the admin panel.</div>
+      ) : sources.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '32px 0', color: t.textMuted, fontSize: 13 }}>No lead sources configured yet. You can add them in the admin panel.</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
           {sources.map(source => {
