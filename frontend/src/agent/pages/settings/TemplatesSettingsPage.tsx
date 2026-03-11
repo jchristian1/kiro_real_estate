@@ -1,6 +1,7 @@
 /**
- * Templates Settings — multi-template library with per-step activation.
- * Default templates are read-only; custom templates can be edited/deleted.
+ * Templates Settings — per-pipeline-step template library.
+ * Shows platform default (read-only) + all agent templates.
+ * Agent can create, edit, delete, activate, and preview any template.
  */
 
 import React, { useState } from 'react';
@@ -37,11 +38,11 @@ const SAMPLE = {
 function renderPreview(text: string | undefined | null): string {
   if (!text) return '';
   return text
-    .replace(/{lead_name}/g, SAMPLE.lead_name)
-    .replace(/{agent_name}/g, SAMPLE.agent_name)
-    .replace(/{agent_phone}/g, SAMPLE.agent_phone)
-    .replace(/{agent_email}/g, SAMPLE.agent_email)
-    .replace(/{form_link}/g, SAMPLE.form_link);
+    .replace(/\{lead_name\}/g, SAMPLE.lead_name)
+    .replace(/\{agent_name\}/g, SAMPLE.agent_name)
+    .replace(/\{agent_phone\}/g, SAMPLE.agent_phone)
+    .replace(/\{agent_email\}/g, SAMPLE.agent_email)
+    .replace(/\{form_link\}/g, SAMPLE.form_link);
 }
 
 interface EditorState {
@@ -57,7 +58,7 @@ interface EditorState {
 export const TemplatesSettingsPage: React.FC = () => {
   const { theme } = useTheme();
   const t = getTokens(theme);
-  const { data, isLoading } = useAgentTemplates();
+  const { data, isLoading, error: loadError } = useAgentTemplates();
   const createTemplate = useCreateTemplate();
   const updateTemplate = useUpdateTemplate();
   const activateTemplate = useActivateTemplate();
@@ -66,30 +67,28 @@ export const TemplatesSettingsPage: React.FC = () => {
   const [activeStep, setActiveStep] = useState('INITIAL_INVITE');
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null); // 'default' or template id
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState<'ok' | 'err'>('ok');
 
   const flash = (text: string, type: 'ok' | 'err') => {
     setMsg(text); setMsgType(type);
-    setTimeout(() => setMsg(''), 3000);
+    setTimeout(() => setMsg(''), 3500);
   };
 
-  const templates = data?.templates || [];
-  const stepTemplates = templates.filter(tpl => tpl.type === activeStep);
-  // Platform default (id=null, is_custom=false) — always present
-  const defaultTpl = stepTemplates.find(tpl => !tpl.is_custom && tpl.id == null) ?? null;
-  // Legacy onboarding template (is_custom=false but has an id) — acts as active override
-  const legacyTpl = stepTemplates.find(tpl => !tpl.is_custom && tpl.id != null) ?? null;
-  // Custom templates — user-created ones (is_custom=true)
-  const customTemplates = stepTemplates.filter(tpl => tpl.is_custom);
-  // Active template: custom active > legacy active > platform default
-  const activeTpl = customTemplates.find(tpl => tpl.is_active) ?? (legacyTpl?.is_active ? legacyTpl : null) ?? defaultTpl;
+  // All templates for the active step
+  const allTemplates: Template[] = (data?.templates || []).filter(tpl => tpl.type === activeStep);
+  // Platform default is the one with id=null
+  const platformDefault = allTemplates.find(tpl => tpl.id == null) ?? null;
+  // All DB templates (is_custom=true), sorted: active first
+  const dbTemplates = allTemplates
+    .filter(tpl => tpl.id != null)
+    .sort((a, b) => (b.is_active ? 1 : 0) - (a.is_active ? 1 : 0));
 
   const openNew = () => setEditor({
     mode: 'new', type: activeStep,
-    name: '', subject: defaultTpl?.subject ?? '', body: defaultTpl?.body ?? '', tone: 'PROFESSIONAL',
+    name: '', subject: platformDefault?.subject ?? '', body: platformDefault?.body ?? '', tone: 'PROFESSIONAL',
   });
 
   const openEdit = (tpl: Template) => setEditor({
@@ -133,7 +132,7 @@ export const TemplatesSettingsPage: React.FC = () => {
   const handleActivate = async (id: number) => {
     try {
       await activateTemplate.mutateAsync(id);
-      flash('Template activated', 'ok');
+      flash('Template activated — this will now be used for new leads', 'ok');
     } catch (err) { flash(getAgentErrorMessage(err), 'err'); }
   };
 
@@ -147,23 +146,24 @@ export const TemplatesSettingsPage: React.FC = () => {
   const toggleExpand = (key: string) =>
     setExpandedId(prev => prev === key ? null : key);
 
-  const inputStyle = {
+  const inputStyle: React.CSSProperties = {
     width: '100%', padding: '10px 13px',
     background: t.bgInput, border: `1.5px solid ${t.border}`,
     borderRadius: 10, fontSize: 13, color: t.text,
-    outline: 'none', boxSizing: 'border-box' as const, fontFamily: 'inherit',
+    outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
   };
-  const labelStyle = {
-    display: 'block', fontSize: 11, fontWeight: 600 as const,
-    color: t.textFaint, marginBottom: 5, letterSpacing: '0.5px', textTransform: 'uppercase' as const,
+  const labelStyle: React.CSSProperties = {
+    display: 'block', fontSize: 11, fontWeight: 600,
+    color: t.textFaint, marginBottom: 5, letterSpacing: '0.5px', textTransform: 'uppercase',
   };
-  const cardStyle = {
-    background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: '18px', marginBottom: 16,
+  const cardStyle: React.CSSProperties = {
+    background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: '18px',
   };
-
-  if (isLoading) return <div style={{ color: t.textMuted, fontSize: 14 }}>Loading templates…</div>;
 
   const currentStep = PIPELINE_STEPS.find(s => s.type === activeStep)!;
+
+  if (isLoading) return <div style={{ color: t.textMuted, fontSize: 14, padding: 20 }}>Loading templates…</div>;
+  if (loadError) return <div style={{ color: t.red, fontSize: 14, padding: 20 }}>Failed to load templates. Please refresh.</div>;
 
   return (
     <div style={{ maxWidth: 800 }}>
@@ -179,7 +179,7 @@ export const TemplatesSettingsPage: React.FC = () => {
       {/* Pipeline step tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {PIPELINE_STEPS.map(step => (
-          <button key={step.type} onClick={() => { setActiveStep(step.type); setEditor(null); }} style={{
+          <button key={step.type} onClick={() => { setActiveStep(step.type); setEditor(null); setExpandedId(null); }} style={{
             padding: '8px 16px', borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer',
             background: activeStep === step.type ? t.accentBg : t.bgCard,
             border: `1.5px solid ${activeStep === step.type ? t.accent : t.border}`,
@@ -190,7 +190,7 @@ export const TemplatesSettingsPage: React.FC = () => {
         ))}
       </div>
 
-      {/* Editor */}
+      {/* Editor panel */}
       {editor ? (
         <div style={cardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -232,15 +232,14 @@ export const TemplatesSettingsPage: React.FC = () => {
               rows={8} style={{ ...inputStyle, resize: 'vertical' }} />
           </div>
 
-          {/* Placeholder chips */}
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, color: t.textFaint, marginBottom: 6 }}>Insert placeholder:</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {PLACEHOLDERS.map(p => (
-                <button key={p.key} onClick={() => insertPlaceholder(p.key)} style={{
+              {PLACEHOLDERS.map(ph => (
+                <button key={ph.key} onClick={() => insertPlaceholder(ph.key)} style={{
                   padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 500, cursor: 'pointer',
                   background: t.accentBg, border: `1px solid ${t.accent}40`, color: t.accent,
-                }}>{p.label}</button>
+                }}>{ph.label}</button>
               ))}
             </div>
           </div>
@@ -286,121 +285,146 @@ export const TemplatesSettingsPage: React.FC = () => {
             }}>+ New Template</button>
           </div>
 
-          {/* Template library — default first, then custom */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-            {/* Default template — always shown, read-only */}
-            {(defaultTpl || legacyTpl) && (() => {
-              const displayTpl = legacyTpl?.is_active ? legacyTpl : (defaultTpl ?? legacyTpl)!;
-              const isActive = activeTpl === displayTpl || (legacyTpl?.is_active && customTemplates.every(c => !c.is_active));
-              const isExpanded = expandedId === 'default';
-              return (
-                <div style={{
-                  ...cardStyle, marginBottom: 0,
-                  border: `1px solid ${isActive ? '#10b98140' : t.border}`,
-                  opacity: 1,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        {isActive && (
-                          <span style={{ padding: '1px 7px', borderRadius: 20, fontSize: 10, fontWeight: 600, background: '#10b98120', color: '#10b981' }}>Active</span>
-                        )}
-                        <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>Default</span>
-                        <span style={{
-                          padding: '1px 7px', borderRadius: 20, fontSize: 10, fontWeight: 600,
-                          background: t.bgPage, border: `1px solid ${t.border}`, color: t.textFaint,
-                        }}>Platform default · read-only</span>
-                      </div>
-                      <div style={{ fontSize: 12, color: t.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {displayTpl.subject}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                      <button onClick={() => toggleExpand('default')} style={{
-                        padding: '5px 12px', background: t.bgPage, border: `1px solid ${t.border}`,
-                        borderRadius: 8, fontSize: 12, color: t.textMuted, cursor: 'pointer',
-                      }}>{isExpanded ? 'Hide' : 'Preview'}</button>
-                    </div>
-                  </div>
+            {/* Platform default — always shown, read-only */}
+            {platformDefault && (
+              <TemplateCard
+                id="platform-default"
+                name="Platform Default"
+                subject={platformDefault.subject}
+                body={platformDefault.body}
+                isActive={platformDefault.is_active}
+                isReadOnly
+                badge="read-only"
+                isExpanded={expandedId === 'platform-default'}
+                onToggleExpand={() => toggleExpand('platform-default')}
+                t={t}
+              />
+            )}
 
-                  {isExpanded && (
-                    <div style={{ marginTop: 14, padding: '14px', background: t.bgPage, borderRadius: 10 }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, marginBottom: 4, textTransform: 'uppercase' }}>Subject</div>
-                      <div style={{ fontSize: 13, color: t.text, fontWeight: 500, marginBottom: 12 }}>{renderPreview(displayTpl.subject)}</div>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, marginBottom: 4, textTransform: 'uppercase' }}>Body</div>
-                      <div style={{ fontSize: 13, color: t.textSecondary, whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{renderPreview(displayTpl.body)}</div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+            {/* All DB templates */}
+            {dbTemplates.map(tpl => (
+              <TemplateCard
+                key={tpl.id}
+                id={String(tpl.id)}
+                name={tpl.name || 'My Template'}
+                subject={tpl.subject}
+                body={tpl.body}
+                isActive={tpl.is_active}
+                version={tpl.version}
+                isExpanded={expandedId === String(tpl.id)}
+                onToggleExpand={() => toggleExpand(String(tpl.id))}
+                onActivate={!tpl.is_active && tpl.id ? () => handleActivate(tpl.id!) : undefined}
+                onEdit={() => openEdit(tpl)}
+                onDelete={tpl.id ? () => handleDelete(tpl.id!) : undefined}
+                t={t}
+              />
+            ))}
 
-            {/* Custom templates */}
-            {customTemplates.map(tpl => {
-              const key = String(tpl.id);
-              const isExpanded = expandedId === key;
-              return (
-                <div key={tpl.id} style={{
-                  ...cardStyle, marginBottom: 0,
-                  border: `1px solid ${tpl.is_active ? t.accent + '40' : t.border}`,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        {tpl.is_active && (
-                          <span style={{ padding: '1px 7px', borderRadius: 20, fontSize: 10, fontWeight: 600, background: '#10b98120', color: '#10b981' }}>Active</span>
-                        )}
-                        <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{tpl.name || 'Untitled'}</span>
-                        <span style={{ fontSize: 11, color: t.textFaint }}>v{tpl.version}</span>
-                      </div>
-                      <div style={{ fontSize: 12, color: t.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {tpl.subject}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                      <button onClick={() => toggleExpand(key)} style={{
-                        padding: '5px 12px', background: t.bgPage, border: `1px solid ${t.border}`,
-                        borderRadius: 8, fontSize: 12, color: t.textMuted, cursor: 'pointer',
-                      }}>{isExpanded ? 'Hide' : 'Preview'}</button>
-                      {!tpl.is_active && tpl.id && (
-                        <button onClick={() => handleActivate(tpl.id!)} style={{
-                          padding: '5px 12px', background: t.accentBg, border: `1px solid ${t.accent}40`,
-                          borderRadius: 8, fontSize: 12, fontWeight: 500, color: t.accent, cursor: 'pointer',
-                        }}>Use This</button>
-                      )}
-                      <button onClick={() => openEdit(tpl)} style={{
-                        padding: '5px 10px', background: t.bgCard, border: `1px solid ${t.border}`,
-                        borderRadius: 8, fontSize: 12, color: t.textMuted, cursor: 'pointer',
-                      }}>Edit</button>
-                      {tpl.id && (
-                        <button onClick={() => handleDelete(tpl.id!)} style={{
-                          padding: '5px 10px', background: t.redBg, border: `1px solid ${t.red}30`,
-                          borderRadius: 8, fontSize: 12, color: t.red, cursor: 'pointer',
-                        }}>Delete</button>
-                      )}
-                    </div>
-                  </div>
-
-                  {isExpanded && (
-                    <div style={{ marginTop: 14, padding: '14px', background: t.bgPage, borderRadius: 10 }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, marginBottom: 4, textTransform: 'uppercase' }}>Subject</div>
-                      <div style={{ fontSize: 13, color: t.text, fontWeight: 500, marginBottom: 12 }}>{renderPreview(tpl.subject)}</div>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, marginBottom: 4, textTransform: 'uppercase' }}>Body</div>
-                      <div style={{ fontSize: 13, color: t.textSecondary, whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{renderPreview(tpl.body)}</div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {customTemplates.length === 0 && (
+            {dbTemplates.length === 0 && (
               <div style={{ fontSize: 13, color: t.textFaint, padding: '10px 0' }}>
-                No custom templates yet — the default will be used. Click "+ New Template" to create one.
+                No custom templates yet — the platform default will be used. Click "+ New Template" to create one.
               </div>
             )}
           </div>
         </>
+      )}
+    </div>
+  );
+};
+
+// ── TemplateCard sub-component ────────────────────────────────────────────
+
+interface TemplateCardProps {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+  isActive: boolean;
+  isReadOnly?: boolean;
+  badge?: string;
+  version?: number;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onActivate?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  t: ReturnType<typeof getTokens>;
+}
+
+const TemplateCard: React.FC<TemplateCardProps> = ({
+  name, subject, body, isActive, isReadOnly, badge, version,
+  isExpanded, onToggleExpand, onActivate, onEdit, onDelete, t,
+}) => {
+  const cardStyle: React.CSSProperties = {
+    background: t.bgCard,
+    border: `1px solid ${isActive ? '#10b98140' : t.border}`,
+    borderRadius: 14, padding: '16px',
+  };
+
+  return (
+    <div style={cardStyle}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+            {isActive && (
+              <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: '#10b98120', color: '#10b981' }}>
+                ✓ Active
+              </span>
+            )}
+            <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{name}</span>
+            {version !== undefined && version > 0 && (
+              <span style={{ fontSize: 11, color: t.textFaint }}>v{version}</span>
+            )}
+            {badge && (
+              <span style={{
+                padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 600,
+                background: t.bgPage, border: `1px solid ${t.border}`, color: t.textFaint,
+              }}>{badge}</span>
+            )}
+          </div>
+          <div style={{ fontSize: 12, color: t.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {subject}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button onClick={onToggleExpand} style={{
+            padding: '5px 12px', background: t.bgPage, border: `1px solid ${t.border}`,
+            borderRadius: 8, fontSize: 12, color: t.textMuted, cursor: 'pointer',
+          }}>{isExpanded ? 'Hide' : 'Preview'}</button>
+
+          {onActivate && (
+            <button onClick={onActivate} style={{
+              padding: '5px 12px', background: t.accentBg, border: `1px solid ${t.accent}40`,
+              borderRadius: 8, fontSize: 12, fontWeight: 600, color: t.accent, cursor: 'pointer',
+            }}>Use This</button>
+          )}
+
+          {!isReadOnly && onEdit && (
+            <button onClick={onEdit} style={{
+              padding: '5px 10px', background: t.bgCard, border: `1px solid ${t.border}`,
+              borderRadius: 8, fontSize: 12, color: t.textMuted, cursor: 'pointer',
+            }}>Edit</button>
+          )}
+
+          {!isReadOnly && onDelete && (
+            <button onClick={onDelete} style={{
+              padding: '5px 10px', background: t.redBg, border: `1px solid ${t.red}30`,
+              borderRadius: 8, fontSize: 12, color: t.red, cursor: 'pointer',
+            }}>Delete</button>
+          )}
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div style={{ marginTop: 14, padding: '14px', background: t.bgPage, borderRadius: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, marginBottom: 4, textTransform: 'uppercase' }}>Subject</div>
+          <div style={{ fontSize: 13, color: t.text, fontWeight: 500, marginBottom: 12 }}>{renderPreview(subject)}</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, marginBottom: 4, textTransform: 'uppercase' }}>Body</div>
+          <div style={{ fontSize: 13, color: t.textSecondary, whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{renderPreview(body)}</div>
+        </div>
       )}
     </div>
   );

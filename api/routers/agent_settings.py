@@ -224,35 +224,33 @@ def list_templates(
     items: List[TemplateItem] = []
     for tmpl_type in ("INITIAL_INVITE", "POST_HOT", "POST_WARM", "POST_NURTURE"):
         type_rows = by_type[tmpl_type]
-        # Always inject the platform default as a read-only entry
+        has_active_db = any(r.is_active for r in type_rows)
+
+        # Always inject the platform default as a read-only entry (id=None)
         default = _PLATFORM_DEFAULTS[tmpl_type]
-        has_active_custom = any(r.is_active for r in type_rows)
         items.append(TemplateItem(
             id=None,
-            name="Default",
+            name="Platform Default",
             type=tmpl_type,
             subject=default["subject"],
             body=default["body"],
             tone="PROFESSIONAL",
             is_custom=False,
-            # Default is active only when no custom template is active
-            is_active=not has_active_custom,
+            is_active=not has_active_db,  # active only when no DB template is active
             version=0,
             updated_at=None,
         ))
-        # Then add any custom templates
+
+        # Add ALL DB templates for this type (both legacy and user-created)
         for row in type_rows:
-            # Legacy onboarding templates (name=None or name='My Template') are treated
-            # as active overrides of the platform default, not user-created custom templates
-            is_user_created = row.name is not None and row.name not in ("My Template",)
             items.append(TemplateItem(
                 id=row.id,
-                name=row.name or TYPE_LABELS.get(tmpl_type, tmpl_type),
+                name=row.name or "My Template",
                 type=tmpl_type,
                 subject=row.subject,
                 body=row.body,
                 tone=row.tone,
-                is_custom=is_user_created,
+                is_custom=True,
                 is_active=row.is_active,
                 version=row.version,
                 updated_at=row.updated_at,

@@ -27,7 +27,9 @@ export interface WatcherStatus {
 }
 
 interface AgentTemplate {
-  type: string; label: string; name: string; subject: string; is_custom: boolean; version: number;
+  id?: number;
+  type: string; label: string; name: string; subject: string; body: string;
+  is_custom: boolean; is_active: boolean; version: number;
 }
 
 export interface AgentDetailProps {
