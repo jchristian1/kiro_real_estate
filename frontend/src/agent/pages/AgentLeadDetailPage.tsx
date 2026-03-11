@@ -11,9 +11,12 @@ import { getAgentErrorMessage } from '../api/agentApi';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   NEW:             ['CONTACTED'],
+  INVITE_SENT:     ['CONTACTED'],
+  FORM_SUBMITTED:  ['CONTACTED'],
+  SCORED:          ['CONTACTED'],
   CONTACTED:       ['APPOINTMENT_SET', 'LOST'],
   APPOINTMENT_SET: ['CLOSED', 'LOST'],
-  LOST:            [],
+  LOST:            ['CONTACTED'],
   CLOSED:          [],
 };
 
@@ -38,7 +41,7 @@ export const AgentLeadDetailPage: React.FC = () => {
   const { theme } = useTheme();
   const t = getTokens(theme);
 
-  const { data: lead, isLoading, error } = useAgentLead(Number(id));
+  const { data: detail, isLoading, error } = useAgentLead(Number(id));
   const updateStatus = useUpdateLeadStatus();
   const addNote = useAddLeadNote();
 
@@ -50,7 +53,7 @@ export const AgentLeadDetailPage: React.FC = () => {
   if (isLoading) {
     return <div style={{ padding: 40, textAlign: 'center', color: t.textMuted, fontSize: 14 }}>Loading lead…</div>;
   }
-  if (error || !lead) {
+  if (error || !detail) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
         <div style={{ color: t.red, fontSize: 14, marginBottom: 12 }}>Lead not found or access denied.</div>
@@ -59,6 +62,8 @@ export const AgentLeadDetailPage: React.FC = () => {
     );
   }
 
+  // Backend returns { lead: {...}, scoring_breakdown: {...}, timeline: [...], ... }
+  const lead = detail.lead;
   const currentState = lead.current_state || 'NEW';
   const nextStates = VALID_TRANSITIONS[currentState] || [];
 
@@ -114,7 +119,6 @@ export const AgentLeadDetailPage: React.FC = () => {
             </div>
             <div>
               <div style={{ fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: '-0.4px' }}>{lead.name}</div>
-              <div style={{ fontSize: 13, color: t.textMuted, marginTop: 3 }}>{lead.email}</div>
               {lead.phone && <div style={{ fontSize: 13, color: t.textMuted }}>{lead.phone}</div>}
             </div>
           </div>
@@ -139,9 +143,9 @@ export const AgentLeadDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {lead.property_address && (
+        {lead.address && (
           <div style={{ marginTop: 14, fontSize: 13, color: t.textSecondary }}>
-            📍 {lead.property_address}
+            📍 {lead.address}
             {lead.listing_url && (
               <a href={lead.listing_url} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 10, color: t.accent, fontSize: 12 }}>
                 View listing →
@@ -151,7 +155,7 @@ export const AgentLeadDetailPage: React.FC = () => {
         )}
 
         <div style={{ marginTop: 12, fontSize: 12, color: t.textFaint }}>
-          {lead.lead_source_name && <span>Source: {lead.lead_source_name} · </span>}
+          {lead.source && <span>Source: {lead.source} · </span>}
           Created {timeAgo(lead.created_at)}
           {lead.last_agent_action_at && <span> · Last action {timeAgo(lead.last_agent_action_at)}</span>}
           {lead.is_aging && <span style={{ color: t.red, fontWeight: 600 }}> · ⚠ AGING</span>}
@@ -188,30 +192,36 @@ export const AgentLeadDetailPage: React.FC = () => {
       {activeTab === 'scoring' && (
         <div style={cardStyle}>
           <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 16 }}>Score Breakdown</div>
-          {lead.score_breakdown ? (
-            Object.entries(lead.score_breakdown).map(([key, factor]) => (
-              <div key={key} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 0', borderBottom: `1px solid ${t.border}`,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 14, color: factor.met ? t.green : t.textFaint }}>
-                    {factor.met ? '✓' : '○'}
+          {detail.scoring_breakdown?.factors?.length ? (
+            <>
+              {detail.scoring_breakdown.factors.map((factor, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 0', borderBottom: `1px solid ${t.border}`,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 14, color: factor.met ? t.green : t.textFaint }}>
+                      {factor.met ? '✓' : '○'}
+                    </span>
+                    <span style={{ fontSize: 13, color: factor.met ? t.text : t.textMuted }}>{factor.label}</span>
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: factor.met ? t.green : t.textFaint }}>
+                    {factor.met ? `+${factor.points}` : '0'} pts
                   </span>
-                  <span style={{ fontSize: 13, color: factor.met ? t.text : t.textMuted }}>{factor.label}</span>
                 </div>
-                <span style={{ fontSize: 13, fontWeight: 600, color: factor.met ? t.green : t.textFaint }}>
-                  {factor.met ? `+${factor.points}` : '0'} pts
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 12, marginTop: 4 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>Total Score</span>
+                <span style={{ fontSize: 18, fontWeight: 800, color: bucketColor(lead.score_bucket, t) }}>
+                  {detail.scoring_breakdown.total}
                 </span>
               </div>
-            ))
+            </>
           ) : (
-            <div style={{ fontSize: 13, color: t.textMuted }}>No scoring data available.</div>
-          )}
-          {lead.score != null && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 12, marginTop: 4 }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>Total Score</span>
-              <span style={{ fontSize: 18, fontWeight: 800, color: bucketColor(lead.score_bucket, t) }}>{lead.score}</span>
+            <div style={{ fontSize: 13, color: t.textMuted }}>
+              {lead.score != null
+                ? `Score: ${lead.score} (${lead.score_bucket || 'unclassified'}) — no breakdown available.`
+                : 'No scoring data yet. The lead needs to submit the qualification form.'}
             </div>
           )}
         </div>
@@ -221,14 +231,14 @@ export const AgentLeadDetailPage: React.FC = () => {
       {activeTab === 'timeline' && (
         <div style={cardStyle}>
           <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 16 }}>Event Timeline</div>
-          {!lead.timeline?.length ? (
+          {!detail.timeline?.length ? (
             <div style={{ fontSize: 13, color: t.textMuted }}>No events yet.</div>
           ) : (
-            [...(lead.timeline || [])].reverse().map((event, i) => (
+            [...detail.timeline].reverse().map((event, i) => (
               <div key={event.id} style={{ display: 'flex', gap: 12, paddingBottom: 14, position: 'relative' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <div style={{ width: 10, height: 10, borderRadius: '50%', background: t.accent, flexShrink: 0, marginTop: 3 }} />
-                  {i < (lead.timeline?.length || 0) - 1 && (
+                  {i < detail.timeline.length - 1 && (
                     <div style={{ width: 1, flex: 1, background: t.border, marginTop: 4 }} />
                   )}
                 </div>
@@ -245,11 +255,11 @@ export const AgentLeadDetailPage: React.FC = () => {
       {/* Rendered emails */}
       {activeTab === 'emails' && (
         <div>
-          {!lead.rendered_emails?.length ? (
+          {!detail.rendered_emails?.length ? (
             <div style={{ ...cardStyle, fontSize: 13, color: t.textMuted }}>No emails generated yet.</div>
           ) : (
-            lead.rendered_emails.map(email => (
-              <div key={email.type} style={cardStyle}>
+            detail.rendered_emails.map((email, i) => (
+              <div key={i} style={cardStyle}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
                   {email.type.replace(/_/g, ' ')}
                 </div>
@@ -287,12 +297,12 @@ export const AgentLeadDetailPage: React.FC = () => {
             </button>
           </form>
 
-          {!lead.notes?.length ? (
+          {!detail.notes?.length ? (
             <div style={{ ...cardStyle, fontSize: 13, color: t.textMuted }}>No notes yet.</div>
           ) : (
-            [...(lead.notes || [])].reverse().map(note => (
-              <div key={note.id} style={cardStyle}>
-                <div style={{ fontSize: 13, color: t.text, lineHeight: 1.6 }}>{note.content}</div>
+            [...detail.notes].reverse().map((note, i) => (
+              <div key={i} style={cardStyle}>
+                <div style={{ fontSize: 13, color: t.text, lineHeight: 1.6 }}>{note.text}</div>
                 <div style={{ fontSize: 11, color: t.textFaint, marginTop: 8 }}>{timeAgo(note.created_at)}</div>
               </div>
             ))

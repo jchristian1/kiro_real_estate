@@ -7,7 +7,6 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getTokens } from '../../utils/theme';
 import { useAgentDashboard, useToggleWatcher, useAgentGmail } from '../hooks/useAgentQueries';
-import type { Lead } from '../hooks/useAgentQueries';
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -30,7 +29,7 @@ const StatCard: React.FC<{ label: string; value: string | number; sub?: string; 
   );
 };
 
-const LeadRow: React.FC<{ lead: Lead; onClick: () => void }> = ({ lead, onClick }) => {
+const LeadRow: React.FC<{ lead: { id: number; name: string; score?: number; source?: string; lead_source_name?: string; created_at?: string; is_aging?: boolean }; onClick: () => void }> = ({ lead, onClick }) => {
   const { theme } = useTheme();
   const t = getTokens(theme);
   const isAging = lead.is_aging;
@@ -62,7 +61,7 @@ const LeadRow: React.FC<{ lead: Lead; onClick: () => void }> = ({ lead, onClick 
           {isAging && <span style={{ marginLeft: 8, fontSize: 11, color: t.red, fontWeight: 700 }}>⚠ AGING</span>}
         </div>
         <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>
-          {lead.lead_source_name || 'Unknown source'} · {timeAgo(lead.created_at)}
+          {lead.source || lead.lead_source_name || 'Unknown source'} · {lead.created_at ? timeAgo(lead.created_at) : ''}
         </div>
       </div>
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -106,16 +105,17 @@ export const AgentDashboardPage: React.FC = () => {
     <div>
       {/* Stats row */}
       <div style={{ display: 'flex', gap: 14, marginBottom: 24, flexWrap: 'wrap' }}>
-        <StatCard label="HOT Leads" value={hotLeads.length} color={t.red} />
-        <StatCard label="Aging Alerts" value={agingLeads.length} color={agingLeads.length > 0 ? t.orange : t.green} />
+        <StatCard label="HOT Leads" value={data?.hot_lead_count ?? hotLeads.length} color={t.red} />
+        <StatCard label="Aging Alerts" value={data?.aging_lead_count ?? agingLeads.length} color={agingLeads.length > 0 ? t.orange : t.green} />
         <StatCard
           label="Avg Response Today"
           value={data?.response_time_today_minutes != null ? `${data.response_time_today_minutes}m` : '—'}
           sub="target: < 15 min"
         />
         <StatCard
-          label="Avg Response (7d)"
-          value={data?.response_time_week_minutes != null ? `${data.response_time_week_minutes}m` : '—'}
+          label="Watcher"
+          value={watcherOn ? 'Active' : 'Inactive'}
+          color={watcherOn ? t.green : t.textMuted}
         />
       </div>
 

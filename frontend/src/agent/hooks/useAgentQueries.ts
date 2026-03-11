@@ -14,26 +14,40 @@ export interface AgentUser {
 }
 
 export interface Lead {
-  id: number; name: string; email: string; phone?: string;
+  id: number; name: string; email?: string; phone?: string;
   score?: number; score_bucket?: 'HOT' | 'WARM' | 'NURTURE';
-  current_state?: string; agent_user_id: number;
-  lead_source_name?: string; property_address?: string;
+  current_state?: string; agent_user_id?: number;
+  // dashboard uses 'source', leads list uses 'lead_source_name' — support both
+  source?: string; lead_source_name?: string;
+  // dashboard uses 'address', leads list uses 'property_address' — support both
+  address?: string; property_address?: string;
   listing_url?: string; created_at: string;
   last_agent_action_at?: string; is_aging?: boolean;
+  score_bucket_label?: string;
 }
 
-export interface LeadDetail extends Lead {
-  score_breakdown?: Record<string, { points: number; met: boolean; label: string }>;
-  timeline?: LeadEvent[];
-  rendered_emails?: RenderedEmail[];
-  notes?: LeadNote[];
+export interface ScoreFactor { label: string; points: number; met: boolean; }
+
+export interface LeadDetail {
+  lead: {
+    id: number; name: string; phone?: string;
+    score?: number; score_bucket?: string; current_state?: string;
+    source?: string; address?: string; listing_url?: string;
+    created_at: string; last_agent_action_at?: string; is_aging: boolean;
+  };
+  scoring_breakdown?: { total: number; factors: ScoreFactor[] };
+  timeline: LeadEvent[];
+  rendered_emails: RenderedEmail[];
+  notes: NoteItem[];
 }
 
 export interface LeadEvent {
-  id: number; event_type: string; created_at: string; metadata?: Record<string, unknown>;
+  id: number; event_type: string; created_at: string; payload?: Record<string, unknown>;
 }
 
-export interface RenderedEmail { type: string; subject: string; body: string; }
+export interface RenderedEmail { type: string; subject: string; body: string; sent_at?: string; }
+export interface NoteItem { text: string; created_at: string; }
+/** @deprecated use NoteItem */
 export interface LeadNote { id: number; content: string; created_at: string; }
 
 export interface LeadsResponse {
@@ -41,9 +55,11 @@ export interface LeadsResponse {
 }
 
 export interface DashboardData {
-  hot_leads: Lead[]; aging_leads: Lead[];
+  hot_lead_count: number;
+  hot_leads: Array<{ id: number; name: string; score?: number; source?: string; address?: string; created_at: string; is_aging?: boolean; lead_source_name?: string; }>;
+  aging_lead_count: number;
+  aging_leads: Array<{ id: number; name: string; score?: number; minutes_since_created: number; is_aging: true; created_at?: string; lead_source_name?: string; }>;
   response_time_today_minutes?: number;
-  response_time_week_minutes?: number;
   watcher_status: string;
 }
 
@@ -129,7 +145,7 @@ export const useAddLeadNote = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, content }: { id: number; content: string }) =>
-      agentApi.post(`/agent/leads/${id}/notes`, { content }),
+      agentApi.post(`/agent/leads/${id}/notes`, { text: content }),
     onSuccess: (_d, { id }) => qc.invalidateQueries({ queryKey: agentKeys.lead(id) }),
   });
 };
