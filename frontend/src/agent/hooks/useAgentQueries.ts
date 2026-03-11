@@ -117,7 +117,7 @@ export const useAgentLead = (id: number) =>
   useQuery({ queryKey: agentKeys.lead(id), queryFn: () => agentApi.get<LeadDetail>(`/agent/leads/${id}`) });
 
 export const useAgentTemplates = () =>
-  useQuery({ queryKey: agentKeys.templates(), queryFn: () => agentApi.get<{ templates: Template[] }>('/agent/templates') });
+  useQuery({ queryKey: agentKeys.templates(), queryFn: () => agentApi.get<{ templates: Template[] }>('/agent/templates'), staleTime: 0 });
 
 export const useAgentAutomation = () =>
   useQuery({ queryKey: agentKeys.automation(), queryFn: () => agentApi.get<AutomationConfig>('/agent/automation') });
