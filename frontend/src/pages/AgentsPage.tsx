@@ -37,7 +37,11 @@ export const AgentsPage: React.FC = () => {
       ]);
       const statusMap: Record<string, string> = {};
       for (const w of watchersRes.data.watchers) statusMap[w.agent_id] = w.status;
-      setAgents(agentsRes.data.agents.map(a => ({ ...a, watcher_status: statusMap[a.agent_id] ?? a.watcher_status })));
+      setAgents(agentsRes.data.agents.map(a => {
+        // Never let the live watcher registry override a "cancelled" DB status
+        if (a.watcher_status === 'cancelled') return a;
+        return { ...a, watcher_status: statusMap[a.agent_id] ?? a.watcher_status };
+      }));
       setError(null);
     } catch { setError('Failed to load agents'); }
     finally { setLoading(false); }

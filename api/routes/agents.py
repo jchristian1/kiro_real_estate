@@ -204,23 +204,21 @@ async def list_agents(
         watcher_info = all_statuses.get(creds.agent_id)
         watcher_status = watcher_info["status"] if watcher_info else None
 
-        # For agent-app agents (numeric agent_id), also check AgentPreferences
-        if watcher_status is None:
-            try:
-                numeric_id = int(creds.agent_id)
-                au = db.query(AgentUser).filter(AgentUser.id == numeric_id).first()
-                if au:
+        # For agent-app agents (numeric agent_id), onboarding_completed=False
+        # means "cancelled" — this always takes priority over registry status
+        try:
+            numeric_id = int(creds.agent_id)
+            au = db.query(AgentUser).filter(AgentUser.id == numeric_id).first()
+            if au:
+                if not au.onboarding_completed:
+                    watcher_status = "cancelled"
+                elif watcher_status is None:
                     prefs = db.query(AgentPreferences).filter(
                         AgentPreferences.agent_user_id == au.id
                     ).first()
-                    if not au.onboarding_completed:
-                        watcher_status = "cancelled"
-                    elif prefs:
-                        watcher_status = "running" if prefs.watcher_enabled else "stopped"
-                    else:
-                        watcher_status = "stopped"
-            except (ValueError, TypeError):
-                pass
+                    watcher_status = "running" if (prefs and prefs.watcher_enabled) else "stopped"
+        except (ValueError, TypeError):
+            pass
 
         agents.append(AgentResponse(
             id=creds.id,
