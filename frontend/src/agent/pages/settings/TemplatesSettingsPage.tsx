@@ -34,7 +34,8 @@ const SAMPLE = {
   agent_email: 'you@example.com', form_link: 'https://app.leadsync.io/form/abc',
 };
 
-function renderPreview(text: string): string {
+function renderPreview(text: string | undefined | null): string {
+  if (!text) return '';
   return text
     .replace(/{lead_name}/g, SAMPLE.lead_name)
     .replace(/{agent_name}/g, SAMPLE.agent_name)

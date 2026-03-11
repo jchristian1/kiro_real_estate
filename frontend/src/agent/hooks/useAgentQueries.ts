@@ -67,7 +67,7 @@ export interface Template {
   id?: number;
   name?: string;
   type: string; subject: string; body: string;
-  tone: string; version: number; is_active: boolean; is_custom: boolean;
+  tone?: string; version: number; is_active: boolean; is_custom: boolean;
 }
 
 export interface AutomationConfig {
