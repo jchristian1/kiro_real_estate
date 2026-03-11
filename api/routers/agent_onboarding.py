@@ -194,9 +194,19 @@ def connect_gmail(
         )
 
     # Step 3: Encrypt and persist credentials (Requirement 5.2, 19.1)
-    encrypted_password = encrypt_app_password(body.app_password.get_secret_value())
-    # Gmail address is not sensitive but we store it as-is for display
-    encrypted_email = body.gmail_address  # stored plaintext for display; password is encrypted
+    # Use Fernet (same as EncryptedDBCredentialsStore) so the admin panel and watcher
+    # can decrypt both email and password using the ENCRYPTION_KEY.
+    import os as _os
+    from cryptography.fernet import Fernet as _Fernet
+    _fernet_key = _os.environ.get("ENCRYPTION_KEY", "")
+    try:
+        _fernet = _Fernet(_fernet_key.encode())
+        encrypted_email = _fernet.encrypt(body.gmail_address.encode()).decode()
+        encrypted_password = _fernet.encrypt(body.app_password.get_secret_value().encode()).decode()
+    except Exception:
+        # Fallback to AES-GCM if Fernet key is missing/invalid
+        encrypted_email = body.gmail_address
+        encrypted_password = encrypt_app_password(body.app_password.get_secret_value())
 
     if agent.credentials_id is not None:
         # Update existing credentials record
