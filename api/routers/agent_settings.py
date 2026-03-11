@@ -242,6 +242,9 @@ def list_templates(
         ))
         # Then add any custom templates
         for row in type_rows:
+            # Legacy onboarding templates (name=None or name='My Template') are treated
+            # as active overrides of the platform default, not user-created custom templates
+            is_user_created = row.name is not None and row.name not in ("My Template",)
             items.append(TemplateItem(
                 id=row.id,
                 name=row.name or TYPE_LABELS.get(tmpl_type, tmpl_type),
@@ -249,7 +252,7 @@ def list_templates(
                 subject=row.subject,
                 body=row.body,
                 tone=row.tone,
-                is_custom=True,
+                is_custom=is_user_created,
                 is_active=row.is_active,
                 version=row.version,
                 updated_at=row.updated_at,

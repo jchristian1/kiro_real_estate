@@ -78,12 +78,14 @@ export const TemplatesSettingsPage: React.FC = () => {
 
   const templates = data?.templates || [];
   const stepTemplates = templates.filter(tpl => tpl.type === activeStep);
-  // The default entry (is_custom=false) — always present
-  const defaultTpl = stepTemplates.find(tpl => !tpl.is_custom) ?? null;
-  // Custom templates
+  // Platform default (id=null, is_custom=false) — always present
+  const defaultTpl = stepTemplates.find(tpl => !tpl.is_custom && tpl.id == null) ?? null;
+  // Legacy onboarding template (is_custom=false but has an id) — acts as active override
+  const legacyTpl = stepTemplates.find(tpl => !tpl.is_custom && tpl.id != null) ?? null;
+  // Custom templates — user-created ones (is_custom=true)
   const customTemplates = stepTemplates.filter(tpl => tpl.is_custom);
-  // Active template (custom active, or default if no custom active)
-  const activeTpl = customTemplates.find(tpl => tpl.is_active) ?? defaultTpl;
+  // Active template: custom active > legacy active > platform default
+  const activeTpl = customTemplates.find(tpl => tpl.is_active) ?? (legacyTpl?.is_active ? legacyTpl : null) ?? defaultTpl;
 
   const openNew = () => setEditor({
     mode: 'new', type: activeStep,
@@ -288,8 +290,9 @@ export const TemplatesSettingsPage: React.FC = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
             {/* Default template — always shown, read-only */}
-            {defaultTpl && (() => {
-              const isActive = activeTpl === defaultTpl;
+            {(defaultTpl || legacyTpl) && (() => {
+              const displayTpl = legacyTpl?.is_active ? legacyTpl : (defaultTpl ?? legacyTpl)!;
+              const isActive = activeTpl === displayTpl || (legacyTpl?.is_active && customTemplates.every(c => !c.is_active));
               const isExpanded = expandedId === 'default';
               return (
                 <div style={{
@@ -310,7 +313,7 @@ export const TemplatesSettingsPage: React.FC = () => {
                         }}>Platform default · read-only</span>
                       </div>
                       <div style={{ fontSize: 12, color: t.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {defaultTpl.subject}
+                        {displayTpl.subject}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
@@ -324,9 +327,9 @@ export const TemplatesSettingsPage: React.FC = () => {
                   {isExpanded && (
                     <div style={{ marginTop: 14, padding: '14px', background: t.bgPage, borderRadius: 10 }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, marginBottom: 4, textTransform: 'uppercase' }}>Subject</div>
-                      <div style={{ fontSize: 13, color: t.text, fontWeight: 500, marginBottom: 12 }}>{renderPreview(defaultTpl.subject)}</div>
+                      <div style={{ fontSize: 13, color: t.text, fontWeight: 500, marginBottom: 12 }}>{renderPreview(displayTpl.subject)}</div>
                       <div style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, marginBottom: 4, textTransform: 'uppercase' }}>Body</div>
-                      <div style={{ fontSize: 13, color: t.textSecondary, whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{renderPreview(defaultTpl.body)}</div>
+                      <div style={{ fontSize: 13, color: t.textSecondary, whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{renderPreview(displayTpl.body)}</div>
                     </div>
                   )}
                 </div>
