@@ -660,3 +660,37 @@ def update_automation(
     db.refresh(config_row)
 
     return AutomationUpdateResponse(ok=True, config_id=config_row.id)
+
+# ---------------------------------------------------------------------------
+# Sources settings endpoint
+# ---------------------------------------------------------------------------
+
+import json as _json
+
+
+class SourcePrefsResponse(BaseModel):
+    enabled_lead_source_ids: list[int]
+
+
+@router.get(
+    "/settings/sources",
+    response_model=SourcePrefsResponse,
+    summary="Get the agent's enabled lead source IDs",
+)
+def get_sources(
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    """Return the agent's saved enabled_lead_source_ids from AgentPreferences."""
+    prefs: Optional[AgentPreferences] = (
+        db.query(AgentPreferences)
+        .filter(AgentPreferences.agent_user_id == agent.id)
+        .first()
+    )
+    if prefs is None or prefs.enabled_lead_source_ids is None:
+        return SourcePrefsResponse(enabled_lead_source_ids=[])
+    try:
+        ids = _json.loads(prefs.enabled_lead_source_ids)
+        return SourcePrefsResponse(enabled_lead_source_ids=ids if isinstance(ids, list) else [])
+    except Exception:
+        return SourcePrefsResponse(enabled_lead_source_ids=[])

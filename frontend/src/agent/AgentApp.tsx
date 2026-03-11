@@ -25,6 +25,7 @@ import { AgentSettingsLayout } from './pages/settings/AgentSettingsLayout';
 import { TemplatesSettingsPage } from './pages/settings/TemplatesSettingsPage';
 import { AutomationSettingsPage } from './pages/settings/AutomationSettingsPage';
 import { AccountSettingsPage } from './pages/settings/AccountSettingsPage';
+import { SourcesSettingsPage } from './pages/settings/SourcesSettingsPage';
 import { AgentReportsPage } from './pages/AgentReportsPage';
 
 const queryClient = new QueryClient({
@@ -69,6 +70,7 @@ export const AgentApp: React.FC = () => (
                 <Route index element={<Navigate to="templates" replace />} />
                 <Route path="templates" element={<TemplatesSettingsPage />} />
                 <Route path="automation" element={<AutomationSettingsPage />} />
+                <Route path="sources" element={<SourcesSettingsPage />} />
                 <Route path="account" element={<AccountSettingsPage />} />
               </Route>
               <Route path="reports" element={<AgentReportsPage />} />

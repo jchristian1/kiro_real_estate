@@ -10,6 +10,7 @@ import { getTokens } from '../../../utils/theme';
 const TABS = [
   { to: 'templates',  label: 'Templates'  },
   { to: 'automation', label: 'Automation' },
+  { to: 'sources',    label: 'Sources'    },
   { to: 'account',    label: 'Account'    },
 ];
 
