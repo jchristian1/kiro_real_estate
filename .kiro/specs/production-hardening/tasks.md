@@ -13,12 +13,12 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - Consolidate duplicate root-level docs: move `API_DOCUMENTATION.md` + `API_USAGE_GUIDE.md` → `docs/API.md`; remove `BACKEND_API_REVIEW.md`, `BACKEND_COMPLETION_SUMMARY.md`, `FRONTEND_IMPLEMENTATION_PLAN.md`, `TESTING_GUIDE.md`, `TESTING_SUMMARY.md`
   - _Requirements: 15.1, 15.2, 15.3, 15.4_
 
-- [ ] 2. Environment variables and secrets management
+- [~] 2. Environment variables and secrets management
   - [x] 2.1 Create root-level `.env.example` with every variable from the design's env table, inline comments, and safe placeholder values
     - Variables: `DATABASE_URL`, `ENCRYPTION_KEY`, `SECRET_KEY`, `API_HOST`, `API_PORT`, `CORS_ORIGINS`, `SESSION_TIMEOUT_HOURS`, `SYNC_INTERVAL_SECONDS`, `REGEX_TIMEOUT_MS`, `ENABLE_AUTO_RESTART`, `ENVIRONMENT`, `LOG_LEVEL`
     - _Requirements: 1.3, 4.2_
 
-  - [~] 2.2 Add startup secret validation to `api/config.py` (or `api/core/config.py`)
+  - [x] 2.2 Add startup secret validation to `api/config.py` (or `api/core/config.py`)
     - Raise `ValueError` with descriptive message if `ENCRYPTION_KEY` or `SECRET_KEY` is absent or shorter than 32 characters
     - _Requirements: 1.4, 4.4_
 
@@ -37,7 +37,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [~] 2.5 Create `scripts/generate_secrets.sh` that writes cryptographically secure `ENCRYPTION_KEY` and `SECRET_KEY` to `.env`
     - _Requirements: 4.5_
 
-- [ ] 3. Makefile and Docker Compose one-command startup
+- [~] 3. Makefile and Docker Compose one-command startup
   - [~] 3.1 Create root-level `Makefile` with targets: `up`, `down`, `migrate`, `test`, `lint`, `typecheck`, `build`, `generate-secrets`
     - `up`: `docker compose up --build -d`
     - `down`: `docker compose down`
@@ -60,7 +60,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - `frontend` service: builds from `frontend/Dockerfile`, serves `dist/` via nginx
     - _Requirements: 1.1, 1.2_
 
-- [ ] 4. Health endpoint
+- [~] 4. Health endpoint
   - [~] 4.1 Create `GET /api/v1/health` route in `api/routers/public_health.py`
     - No authentication required
     - Query DB connectivity; query active watcher count and last heartbeat per agent from `WatcherRegistry`
@@ -72,7 +72,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Assert all required fields present; assert HTTP 200 on healthy DB; assert HTTP 503 on DB error
     - _Requirements: 2.3, 2.5_
 
-- [ ] 5. Unified error response schema
+- [~] 5. Unified error response schema
   - [~] 5.1 Verify `api/models/error_models.py` defines `ErrorResponse` with fields `error`, `message`, `code`, `details`; create or update if missing
     - _Requirements: 5.1_
 
@@ -86,7 +86,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - File: `tests/property/test_prop_error_schema.py`
     - Strategy: send random invalid requests to each endpoint category; assert response body matches `ErrorResponse` schema for all 4xx/5xx
 
-- [ ] 6. Backend 4-layer architecture — repositories layer
+- [~] 6. Backend 4-layer architecture — repositories layer
   - [~] 6.1 Create `api/repositories/__init__.py` and `api/repositories/lead_repository.py`
     - Implement `LeadRepository` with `get_by_id(lead_id, tenant_id)`, `list_for_tenant(tenant_id, skip, limit)`, `list_all_with_tenant(skip, limit)`, `create(data, tenant_id)`, `update(lead_id, tenant_id, data)`
     - All tenant-scoped methods MUST include `tenant_id` / `agent_id` filter in the query; never trust user-supplied IDs
@@ -110,7 +110,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - Remove any duplicate `get_db` / auth dependency definitions from other modules
   - _Requirements: 7.4_
 
-- [ ] 8. Backend 4-layer architecture — router consolidation
+- [~] 8. Backend 4-layer architecture — router consolidation
   - [~] 8.1 Rename/consolidate `api/routes/` into `api/routers/` using the naming convention: `admin_*.py`, `agent_*.py`, `public_*.py`
     - Remove or merge `api/routes/agents.py` and any other files that overlap with `api/routers/` equivalents
     - _Requirements: 5.8, 7.1, 7.6_
@@ -124,7 +124,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - `agent_*.py` routers: `dependencies=[Depends(require_role("agent"))]`
     - _Requirements: 11.2, 11.3_
 
-- [ ] 9. Multi-tenant isolation enforcement
+- [~] 9. Multi-tenant isolation enforcement
   - [~] 9.1 Audit every route that returns tenant-scoped resources; replace any user-supplied `agent_id` / `tenant_id` path/query params with the value from the authenticated session
     - _Requirements: 6.1, 6.2_
 
@@ -137,7 +137,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - **Validates: Requirements 6.1, 6.2, 6.3, 6.4**
     - File: `tests/property/test_prop_tenant_isolation.py` (already exists — extend to cover repository-layer paths)
 
-- [ ] 10. Lead state machine consolidation
+- [~] 10. Lead state machine consolidation
   - [~] 10.1 Create `api/services/lead_state_machine.py` that re-exports (or moves) the canonical `LeadStateMachine` and `LeadState` enum from `gmail_lead_sync/preapproval/state_machine.py`
     - Ensure all other modules import `LeadState` and `LeadStateMachine` from the new canonical path
     - _Requirements: 8.1, 8.2_
@@ -160,7 +160,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - **Validates: Requirements 8.7**
     - File: `tests/property/test_prop_event_log_order.py` (new)
 
-- [ ] 11. ProcessedMessage model and watcher idempotency
+- [~] 11. ProcessedMessage model and watcher idempotency
   - [~] 11.1 Create `ProcessedMessage` SQLAlchemy model in `api/models/` (or `gmail_lead_sync/models.py`)
     - Fields: `id`, `agent_id`, `message_id_hash` (SHA-256 of Message-ID header), `processed_at`, `lead_id` (nullable FK)
     - Unique constraint on `(agent_id, message_id_hash)`
@@ -172,7 +172,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [~] 11.3 Update `GmailWatcher.is_email_processed` to use `ProcessedMessage` table lookup by `message_id_hash` instead of `Lead.gmail_uid`
     - _Requirements: 10.4_
 
-- [ ] 12. Watcher/worker resilience
+- [~] 12. Watcher/worker resilience
   - [~] 12.1 Replace fixed `RETRY_DELAYS` in `WatcherRegistry._run_watcher` with exponential backoff: `min(5 * 2^(attempt-1), 300)` seconds, up to 5 consecutive attempts, then transition to `FAILED`
     - _Requirements: 10.1_
 
@@ -209,7 +209,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
 - [~] 13. Checkpoint — core backend passes tests
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 14. Security hardening
+- [~] 14. Security hardening
   - [~] 14.1 Add security headers middleware to `api/main.py`
     - Set `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin` on every response
     - _Requirements: 11.5_
@@ -277,7 +277,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
 - [~] 15. Checkpoint — security tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 16. Frontend restructure
+- [~] 16. Frontend restructure
   - [~] 16.1 Create directory structure: `frontend/src/apps/agent/`, `frontend/src/apps/platform-admin/`, `frontend/src/shared/`
     - _Requirements: 9.1_
 
@@ -304,7 +304,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [~] 16.7 Run `make build` and fix any TypeScript/import errors until the build succeeds with zero errors
     - _Requirements: 9.5, 3.6_
 
-- [ ] 17. Lint, typecheck, and build clean pass
+- [~] 17. Lint, typecheck, and build clean pass
   - [~] 17.1 Run `make lint`; fix all `ruff` violations in Python source and all `eslint` violations in TypeScript/TSX
     - _Requirements: 3.1, 3.4_
 
@@ -314,7 +314,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [~] 17.3 Remove all unused imports, unused variables, and unreachable code paths flagged by the linter
     - _Requirements: 15.5_
 
-- [ ] 18. Documentation
+- [~] 18. Documentation
   - [~] 18.1 Create or update root-level `README.md` with: project overview, prerequisites (Python version, Node version, Docker), quick-start using `make up`, environment variable reference, CI badge, links to `docs/`
     - _Requirements: 12.1, 14.5_
 
