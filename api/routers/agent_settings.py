@@ -224,34 +224,35 @@ def list_templates(
     items: List[TemplateItem] = []
     for tmpl_type in ("INITIAL_INVITE", "POST_HOT", "POST_WARM", "POST_NURTURE"):
         type_rows = by_type[tmpl_type]
-        if type_rows:
-            for row in type_rows:
-                items.append(TemplateItem(
-                    id=row.id,
-                    name=row.name or TYPE_LABELS.get(tmpl_type, tmpl_type),
-                    type=tmpl_type,
-                    subject=row.subject,
-                    body=row.body,
-                    tone=row.tone,
-                    is_custom=True,
-                    is_active=row.is_active,
-                    version=row.version,
-                    updated_at=row.updated_at,
-                ))
-        else:
-            # Inject platform default as virtual active template
-            default = _PLATFORM_DEFAULTS[tmpl_type]
+        # Always inject the platform default as a read-only entry
+        default = _PLATFORM_DEFAULTS[tmpl_type]
+        has_active_custom = any(r.is_active for r in type_rows)
+        items.append(TemplateItem(
+            id=None,
+            name="Default",
+            type=tmpl_type,
+            subject=default["subject"],
+            body=default["body"],
+            tone="PROFESSIONAL",
+            is_custom=False,
+            # Default is active only when no custom template is active
+            is_active=not has_active_custom,
+            version=0,
+            updated_at=None,
+        ))
+        # Then add any custom templates
+        for row in type_rows:
             items.append(TemplateItem(
-                id=None,
-                name="Default",
+                id=row.id,
+                name=row.name or TYPE_LABELS.get(tmpl_type, tmpl_type),
                 type=tmpl_type,
-                subject=default["subject"],
-                body=default["body"],
-                tone="PROFESSIONAL",
-                is_custom=False,
-                is_active=True,
-                version=0,
-                updated_at=None,
+                subject=row.subject,
+                body=row.body,
+                tone=row.tone,
+                is_custom=True,
+                is_active=row.is_active,
+                version=row.version,
+                updated_at=row.updated_at,
             ))
 
     return TemplatesListResponse(templates=items)
