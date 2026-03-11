@@ -185,13 +185,19 @@ def get_gmail_status(
         )
         if creds is not None:
             connected = True
-            # Decrypt the email address for display
+            # Decrypt the email address for display using Fernet directly
             try:
-                from api.services.credential_encryption import decrypt_app_password
-                gmail_address = decrypt_app_password(creds.email_encrypted)
+                from cryptography.fernet import Fernet
+                from api.config import load_config
+                _config = load_config()
+                _fernet = Fernet(_config.encryption_key.encode())
+                gmail_address = _fernet.decrypt(creds.email_encrypted.encode()).decode()
             except Exception:
-                # Fallback: might be stored as plaintext in older records
-                gmail_address = creds.email_encrypted
+                try:
+                    from api.services.credential_encryption import decrypt_app_password
+                    gmail_address = decrypt_app_password(creds.email_encrypted)
+                except Exception:
+                    gmail_address = creds.email_encrypted  # last resort fallback
 
     return GmailStatusResponse(
         connected=connected,
@@ -246,7 +252,14 @@ def test_gmail_connection(
     try:
         email_address = decrypt_app_password(creds.email_encrypted)
     except Exception:
-        email_address = creds.email_encrypted  # fallback for plaintext records
+        try:
+            from cryptography.fernet import Fernet
+            from api.config import load_config
+            _config = load_config()
+            _fernet = Fernet(_config.encryption_key.encode())
+            email_address = _fernet.decrypt(creds.email_encrypted.encode()).decode()
+        except Exception:
+            email_address = creds.email_encrypted
 
     result = test_imap_connection(email_address, app_password)
 
