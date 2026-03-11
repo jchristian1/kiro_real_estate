@@ -526,20 +526,36 @@ def delete_agent(
 # GET /agents/{agent_id}/templates  — active templates per pipeline step (admin view)
 # ---------------------------------------------------------------------------
 
-@router.get("/{agent_id}/templates")
+@router.get("/agents/{agent_id}/templates")
 def get_agent_templates(
     agent_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Return the active template for each pipeline step for a given agent."""
+    """Return ALL templates (all pipeline steps, all versions) for a given agent."""
     from gmail_lead_sync.agent_models import AgentUser, AgentTemplate
 
     _PLATFORM_DEFAULTS = {
-        "INITIAL_INVITE": {"subject": "Hi {lead_name}, let's find your perfect home", "name": "Default"},
-        "POST_HOT":       {"subject": "Great news, {lead_name} — you're a top match!", "name": "Default"},
-        "POST_WARM":      {"subject": "{lead_name}, here are some options for you", "name": "Default"},
-        "POST_NURTURE":   {"subject": "Staying in touch, {lead_name}", "name": "Default"},
+        "INITIAL_INVITE": {
+            "subject": "Hi {lead_name}, let's find your perfect home",
+            "body": "Hi {lead_name},\n\nI'm {agent_name} and I'd love to help you find your next home.\nPlease fill out this quick form so I can match you with the best options:\n{form_link}\n\nFeel free to reach me at {agent_phone} or {agent_email}.\n\nBest,\n{agent_name}",
+            "name": "Platform Default",
+        },
+        "POST_HOT": {
+            "subject": "Great news, {lead_name} — you're a top match!",
+            "body": "Hi {lead_name},\n\nBased on your answers, you're a great fit for several listings I have in mind.\nI'll be in touch very shortly to schedule a tour.\n\n— {agent_name} | {agent_phone}",
+            "name": "Platform Default",
+        },
+        "POST_WARM": {
+            "subject": "{lead_name}, here are some options for you",
+            "body": "Hi {lead_name},\n\nThanks for completing the form. I've put together a few listings that match your criteria.\nReply or call me at {agent_phone} when you're ready to take the next step.\n\n— {agent_name}",
+            "name": "Platform Default",
+        },
+        "POST_NURTURE": {
+            "subject": "Staying in touch, {lead_name}",
+            "body": "Hi {lead_name},\n\nThanks for your interest. When you're ready to move forward, I'm here to help.\nYou can reach me at {agent_email} or {agent_phone}.\n\n— {agent_name}",
+            "name": "Platform Default",
+        },
     }
     TYPE_LABELS = {
         "INITIAL_INVITE": "Initial Outreach",
@@ -557,35 +573,134 @@ def get_agent_templates(
 
     result = []
     for tmpl_type, label in TYPE_LABELS.items():
-        active_row = None
+        # Always inject platform default
+        default = _PLATFORM_DEFAULTS[tmpl_type]
+        db_rows = []
+        has_active = False
         if agent_user:
-            active_row = (
+            db_rows = (
                 db.query(AgentTemplate)
                 .filter(
                     AgentTemplate.agent_user_id == agent_user.id,
                     AgentTemplate.template_type == tmpl_type,
-                    AgentTemplate.is_active == True,
                 )
-                .first()
+                .order_by(AgentTemplate.created_at)
+                .all()
             )
-        if active_row:
+            has_active = any(r.is_active for r in db_rows)
+
+        result.append({
+            "id": None,
+            "type": tmpl_type,
+            "label": label,
+            "name": default["name"],
+            "subject": default["subject"],
+            "body": default["body"],
+            "is_custom": False,
+            "is_active": not has_active,
+            "version": 0,
+        })
+
+        for row in db_rows:
             result.append({
+                "id": row.id,
                 "type": tmpl_type,
                 "label": label,
-                "name": active_row.name or "Custom",
-                "subject": active_row.subject,
+                "name": row.name or "My Template",
+                "subject": row.subject,
+                "body": row.body,
                 "is_custom": True,
-                "version": active_row.version,
-            })
-        else:
-            default = _PLATFORM_DEFAULTS[tmpl_type]
-            result.append({
-                "type": tmpl_type,
-                "label": label,
-                "name": default["name"],
-                "subject": default["subject"],
-                "is_custom": False,
-                "version": 0,
+                "is_active": row.is_active,
+                "version": row.version,
             })
 
     return {"templates": result}
+
+
+@router.post("/agents/{agent_id}/templates/{template_id}/activate")
+def admin_activate_template(
+    agent_id: str,
+    template_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin: set a template as active for its pipeline step."""
+    from gmail_lead_sync.agent_models import AgentUser, AgentTemplate
+
+    try:
+        numeric_id = int(agent_id)
+        agent_user = db.query(AgentUser).filter(AgentUser.id == numeric_id).first()
+    except (ValueError, TypeError):
+        agent_user = None
+
+    if not agent_user:
+        from api.exceptions import NotFoundException
+        from api.models.error_models import ErrorCode
+        raise NotFoundException(message=f"Agent '{agent_id}' not found", code=ErrorCode.NOT_FOUND_RESOURCE)
+
+    row = db.query(AgentTemplate).filter(
+        AgentTemplate.id == template_id,
+        AgentTemplate.agent_user_id == agent_user.id,
+    ).first()
+    if not row:
+        from api.exceptions import NotFoundException
+        from api.models.error_models import ErrorCode
+        raise NotFoundException(message="Template not found", code=ErrorCode.NOT_FOUND_RESOURCE)
+
+    db.query(AgentTemplate).filter(
+        AgentTemplate.agent_user_id == agent_user.id,
+        AgentTemplate.template_type == row.template_type,
+        AgentTemplate.is_active == True,
+    ).update({"is_active": False})
+    row.is_active = True
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/agents/{agent_id}/templates/{template_id}")
+def admin_delete_template(
+    agent_id: str,
+    template_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin: delete a specific template."""
+    from gmail_lead_sync.agent_models import AgentUser, AgentTemplate
+
+    try:
+        numeric_id = int(agent_id)
+        agent_user = db.query(AgentUser).filter(AgentUser.id == numeric_id).first()
+    except (ValueError, TypeError):
+        agent_user = None
+
+    if not agent_user:
+        from api.exceptions import NotFoundException
+        from api.models.error_models import ErrorCode
+        raise NotFoundException(message=f"Agent '{agent_id}' not found", code=ErrorCode.NOT_FOUND_RESOURCE)
+
+    row = db.query(AgentTemplate).filter(
+        AgentTemplate.id == template_id,
+        AgentTemplate.agent_user_id == agent_user.id,
+    ).first()
+    if not row:
+        from api.exceptions import NotFoundException
+        from api.models.error_models import ErrorCode
+        raise NotFoundException(message="Template not found", code=ErrorCode.NOT_FOUND_RESOURCE)
+
+    was_active = row.is_active
+    tmpl_type = row.template_type
+    db.delete(row)
+    db.commit()
+
+    if was_active:
+        remaining = (
+            db.query(AgentTemplate)
+            .filter(AgentTemplate.agent_user_id == agent_user.id, AgentTemplate.template_type == tmpl_type)
+            .order_by(AgentTemplate.created_at.desc())
+            .first()
+        )
+        if remaining:
+            remaining.is_active = True
+            db.commit()
+
+    return {"ok": True}

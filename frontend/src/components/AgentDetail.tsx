@@ -244,35 +244,99 @@ export const AgentDetail: React.FC<AgentDetailProps> = ({ agentId, onBack }) => 
       </div>
 
       {/* Templates card */}
-      {agentTemplates.length > 0 && (
-        <div style={t.card}>
-          <h2 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 600, color: t.text }}>Active Templates</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {agentTemplates.map(tpl => (
-              <div key={tpl.type} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 12px', background: t.bgInput, borderRadius: 9,
-                border: `1px solid ${tpl.is_custom ? t.accent + '30' : t.border}`,
-              }}>
-                <div>
-                  <div style={{ fontSize: 11, color: t.textFaint, marginBottom: 2 }}>{tpl.label}</div>
-                  <div style={{ fontSize: 13, color: t.text, fontWeight: 500 }}>{tpl.name}</div>
-                  <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1, maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {tpl.subject}
+      {agentTemplates.length > 0 && (() => {
+        const STEP_ORDER = ['INITIAL_INVITE', 'POST_HOT', 'POST_WARM', 'POST_NURTURE'];
+        const byType: Record<string, AgentTemplate[]> = {};
+        for (const tpl of agentTemplates) {
+          if (!byType[tpl.type]) byType[tpl.type] = [];
+          byType[tpl.type].push(tpl);
+        }
+        return (
+          <div style={t.card}>
+            <h2 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 600, color: t.text }}>Templates</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              {STEP_ORDER.filter(type => byType[type]).map(type => {
+                const stepTemplates = byType[type];
+                const label = stepTemplates[0]?.label ?? type;
+                return (
+                  <div key={type}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+                      {label}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {stepTemplates.map((tpl, idx) => (
+                        <div key={tpl.id ?? `default-${idx}`} style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '10px 12px', background: t.bgInput, borderRadius: 9,
+                          border: `1px solid ${tpl.is_active ? t.green + '40' : t.border}`,
+                        }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                              {tpl.is_active && (
+                                <span style={{ padding: '1px 7px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: t.greenBg, color: t.green }}>
+                                  ✓ Active
+                                </span>
+                              )}
+                              <span style={{ fontSize: 13, color: t.text, fontWeight: 500 }}>{tpl.name}</span>
+                              {tpl.version > 0 && (
+                                <span style={{ fontSize: 11, color: t.textFaint }}>v{tpl.version}</span>
+                              )}
+                              {!tpl.is_custom && (
+                                <span style={{ padding: '1px 7px', borderRadius: 20, fontSize: 10, fontWeight: 600, background: t.bgPage, border: `1px solid ${t.border}`, color: t.textFaint }}>
+                                  read-only
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: 11, color: t.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 380 }}>
+                              {tpl.subject}
+                            </div>
+                          </div>
+                          {tpl.is_custom && tpl.id != null && (
+                            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                              {!tpl.is_active && (
+                                <button
+                                  onClick={async () => {
+                                    setActionLoading(`activate-${tpl.id}`);
+                                    try {
+                                      await axios.post(`${API_BASE_URL}/agents/${agentId}/templates/${tpl.id}/activate`);
+                                      await fetchData();
+                                      setActionSuccess('Template activated');
+                                    } catch {
+                                      setActionError('Failed to activate template');
+                                    } finally { setActionLoading(null); }
+                                  }}
+                                  disabled={actionLoading !== null}
+                                  style={{ padding: '4px 10px', background: t.accentBg, border: `1px solid ${t.accent}40`, borderRadius: 7, fontSize: 11, fontWeight: 600, color: t.accent, cursor: 'pointer', opacity: actionLoading ? 0.5 : 1 }}>
+                                  {actionLoading === `activate-${tpl.id}` ? '…' : 'Set Active'}
+                                </button>
+                              )}
+                              <button
+                                onClick={async () => {
+                                  setActionLoading(`delete-${tpl.id}`);
+                                  try {
+                                    await axios.delete(`${API_BASE_URL}/agents/${agentId}/templates/${tpl.id}`);
+                                    await fetchData();
+                                    setActionSuccess('Template deleted');
+                                  } catch {
+                                    setActionError('Failed to delete template');
+                                  } finally { setActionLoading(null); }
+                                }}
+                                disabled={actionLoading !== null}
+                                style={{ padding: '4px 10px', background: t.redBg, border: `1px solid ${t.red}30`, borderRadius: 7, fontSize: 11, color: t.red, cursor: 'pointer', opacity: actionLoading ? 0.5 : 1 }}>
+                                {actionLoading === `delete-${tpl.id}` ? '…' : 'Delete'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <span style={{
-                  padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 600,
-                  background: tpl.is_custom ? t.accentBg : t.bgBadge,
-                  color: tpl.is_custom ? t.accent : t.textMuted,
-                }}>
-                  {tpl.is_custom ? `Custom v${tpl.version}` : 'Default'}
-                </span>
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

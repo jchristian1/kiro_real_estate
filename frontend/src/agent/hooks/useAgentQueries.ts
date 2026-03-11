@@ -117,7 +117,7 @@ export const useAgentLead = (id: number) =>
   useQuery({ queryKey: agentKeys.lead(id), queryFn: () => agentApi.get<LeadDetail>(`/agent/leads/${id}`) });
 
 export const useAgentTemplates = () =>
-  useQuery({ queryKey: agentKeys.templates(), queryFn: () => agentApi.get<{ templates: Template[] }>('/agent/templates'), staleTime: 0 });
+  useQuery({ queryKey: agentKeys.templates(), queryFn: () => agentApi.get<{ templates: Template[] }>('/agent/templates'), staleTime: 0, refetchOnMount: 'always' });
 
 export const useAgentAutomation = () =>
   useQuery({ queryKey: agentKeys.automation(), queryFn: () => agentApi.get<AutomationConfig>('/agent/automation') });
@@ -166,7 +166,7 @@ export const useCreateTemplate = () => {
   return useMutation({
     mutationFn: (body: { template_type: string; name: string; subject: string; body: string; tone?: string; activate?: boolean }) =>
       agentApi.post('/agent/templates', body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: agentKeys.templates() }),
+    onSuccess: () => qc.refetchQueries({ queryKey: agentKeys.templates() }),
   });
 };
 
