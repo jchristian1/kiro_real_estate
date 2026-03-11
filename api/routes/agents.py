@@ -457,6 +457,16 @@ def delete_agent(
     #   if await watcher_registry.is_running(agent_id):
     #       await watcher_registry.stop_watcher(agent_id)
     
+    # Stop watcher if running before deleting agent
+    try:
+        import asyncio as _asyncio
+        from api.main import watcher_registry as _registry
+        loop = _asyncio.get_event_loop()
+        if loop.is_running():
+            _asyncio.ensure_future(_registry.stop_watcher(agent_id))
+    except Exception:
+        pass
+
     # Record audit log before deletion
     record_audit_log(
         db_session=db,

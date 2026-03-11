@@ -918,6 +918,19 @@ def complete_onboarding(
     if gmail_connected and lead_source_selected and automation_configured and templates_active:
         agent.onboarding_completed = True
         db.commit()
+
+        # Auto-start the watcher for this agent so email monitoring begins immediately
+        try:
+            import asyncio as _asyncio
+            from api.main import watcher_registry as _registry
+            agent_id_str = str(agent.id)
+            loop = _asyncio.get_event_loop()
+            if loop.is_running():
+                _asyncio.ensure_future(_registry.start_watcher(agent_id_str))
+        except Exception as _e:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(f"Could not auto-start watcher for agent {agent.id}: {_e}")
+
         return CompleteResponse(ok=True, onboarding_completed=True)
 
     # Return 400 with checklist of incomplete items (Requirement 9.5)
