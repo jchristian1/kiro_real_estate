@@ -2,12 +2,14 @@
 Agent settings routes — templates CRUD and automation config.
 
 Provides:
-- GET  /api/v1/agent/templates                    — list all 4 template types
-- PUT  /api/v1/agent/templates/{type}             — create/update, increment version
-- POST /api/v1/agent/templates/{type}/preview     — render with sample lead data
-- DELETE /api/v1/agent/templates/{type}           — revert to platform default
-- GET  /api/v1/agent/automation                   — get automation config
-- PUT  /api/v1/agent/automation                   — update automation config
+- GET    /api/v1/agent/templates                      — list all templates grouped by type
+- POST   /api/v1/agent/templates                      — create a new named template
+- PUT    /api/v1/agent/templates/{id}                 — update template by ID
+- POST   /api/v1/agent/templates/{id}/activate        — set as active for its type
+- DELETE /api/v1/agent/templates/{id}                 — delete template by ID
+- POST   /api/v1/agent/templates/{type}/preview       — render with sample lead data
+- GET    /api/v1/agent/automation                     — get automation config
+- PUT    /api/v1/agent/automation                     — update automation config
 
 Requirements: 14.1, 14.2, 14.3, 14.4, 15.1, 15.2, 15.3
 """
@@ -33,6 +35,13 @@ router = APIRouter(prefix="/agent", tags=["Agent Settings"])
 # ---------------------------------------------------------------------------
 
 VALID_TEMPLATE_TYPES = {"INITIAL_INVITE", "POST_HOT", "POST_WARM", "POST_NURTURE"}
+
+TYPE_LABELS = {
+    "INITIAL_INVITE": "Initial Outreach",
+    "POST_HOT": "Post Form — Hot",
+    "POST_WARM": "Post Form — Warm",
+    "POST_NURTURE": "Post Form — Nurture",
+}
 
 # ---------------------------------------------------------------------------
 # Platform default templates (fallback when no agent override exists)
@@ -85,80 +94,104 @@ _PLATFORM_DEFAULTS: dict[str, dict[str, str]] = {
 
 
 class TemplateItem(BaseModel):
-    """A single template entry in the GET /agent/templates response."""
-
+    id: Optional[int] = None
+    name: Optional[str] = None
     type: str
     subject: str
     body: str
     tone: Optional[str]
     is_custom: bool
+    is_active: bool
     version: int
     updated_at: Optional[datetime]
 
 
 class TemplatesListResponse(BaseModel):
-    """GET /agent/templates response."""
-
+    """GET /agent/templates — all templates grouped, with defaults injected."""
     templates: List[TemplateItem]
 
 
-class TemplateSaveRequest(BaseModel):
-    """PUT /agent/templates/{type} request body."""
+class TemplateCreateRequest(BaseModel):
+    template_type: str = Field(..., description="INITIAL_INVITE | POST_HOT | POST_WARM | POST_NURTURE")
+    name: str = Field(..., min_length=1, max_length=255)
+    subject: str = Field(..., min_length=1, max_length=500)
+    body: str = Field(..., min_length=1)
+    tone: Optional[str] = Field(default=None, pattern=r"^(PROFESSIONAL|FRIENDLY|SHORT)$")
+    activate: bool = Field(default=False, description="Set as active immediately")
 
+
+class TemplateCreateResponse(BaseModel):
+    ok: bool
+    template_id: int
+    version: int
+
+
+class TemplateUpdateRequest(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=255)
+    subject: Optional[str] = Field(default=None, min_length=1, max_length=500)
+    body: Optional[str] = Field(default=None, min_length=1)
+    tone: Optional[str] = Field(default=None, pattern=r"^(PROFESSIONAL|FRIENDLY|SHORT)$")
+
+
+class TemplateUpdateResponse(BaseModel):
+    ok: bool
+    version: int
+
+
+class ActivateResponse(BaseModel):
+    ok: bool
+
+
+class DeleteResponse(BaseModel):
+    ok: bool
+    reverted_to: str
+
+
+class PreviewRequest(BaseModel):
+    subject: str = Field(..., min_length=1, max_length=500)
+    body: str = Field(..., min_length=1)
+
+
+class PreviewResponse(BaseModel):
+    subject_rendered: str
+    body_rendered: str
+
+
+# Legacy save request (kept for backward compat with onboarding step)
+class TemplateSaveRequest(BaseModel):
     subject: str = Field(..., min_length=1, max_length=500)
     body: str = Field(..., min_length=1)
     tone: Optional[str] = Field(default=None, pattern=r"^(PROFESSIONAL|FRIENDLY|SHORT)$")
 
 
 class TemplateSaveResponse(BaseModel):
-    """PUT /agent/templates/{type} response."""
-
     ok: bool
     template_id: int
     version: int
 
 
-class PreviewRequest(BaseModel):
-    """POST /agent/templates/{type}/preview request body."""
-
-    subject: str = Field(..., min_length=1, max_length=500)
-    body: str = Field(..., min_length=1)
-
-
-class PreviewResponse(BaseModel):
-    """POST /agent/templates/{type}/preview response."""
-
-    subject_rendered: str
-    body_rendered: str
-
-
-class DeleteResponse(BaseModel):
-    """DELETE /agent/templates/{type} response."""
-
-    ok: bool
-    reverted_to: str
-
-
 # ---------------------------------------------------------------------------
-# Helper
+# Helpers
 # ---------------------------------------------------------------------------
 
 
 def _validate_type(template_type: str) -> str:
-    """Normalise and validate a template type path parameter."""
     upper = template_type.upper()
     if upper not in VALID_TEMPLATE_TYPES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": "INVALID_TEMPLATE_TYPE",
-                "detail": (
-                    f"'{template_type}' is not a valid template type. "
-                    f"Valid types: {sorted(VALID_TEMPLATE_TYPES)}"
-                ),
-            },
+            detail={"error": "INVALID_TEMPLATE_TYPE", "valid": sorted(VALID_TEMPLATE_TYPES)},
         )
     return upper
+
+
+def _deactivate_type(agent_id: int, tmpl_type: str, db: Session) -> None:
+    """Set is_active=False for all templates of this type for this agent."""
+    db.query(AgentTemplate).filter(
+        AgentTemplate.agent_user_id == agent_id,
+        AgentTemplate.template_type == tmpl_type,
+        AgentTemplate.is_active == True,
+    ).update({"is_active": False})
 
 
 # ---------------------------------------------------------------------------
@@ -166,105 +199,273 @@ def _validate_type(template_type: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-@router.get(
-    "/templates",
-    response_model=TemplatesListResponse,
-    summary="List all 4 template types for the authenticated agent",
-)
+@router.get("/templates", response_model=TemplatesListResponse)
 def list_templates(
     db: Session = Depends(get_db),
     agent: AgentUser = Depends(get_current_agent),
 ):
     """
-    Return all four template types for the agent.
-
-    - is_custom=True if the agent has a saved override for that type.
-    - is_custom=False if the agent is using the platform default.
-    - When no override exists, returns the platform default subject/body.
-
-    Requirements: 14.1
+    Return all templates for the agent.
+    For each pipeline type, if no custom templates exist, inject the platform default
+    as a virtual entry (id=None, is_custom=False, is_active=True).
     """
-    # Fetch all agent overrides in one query
-    overrides: dict[str, AgentTemplate] = {
-        row.template_type: row
-        for row in db.query(AgentTemplate)
+    rows: list[AgentTemplate] = (
+        db.query(AgentTemplate)
         .filter(AgentTemplate.agent_user_id == agent.id)
+        .order_by(AgentTemplate.template_type, AgentTemplate.created_at)
         .all()
-    }
+    )
+
+    # Group by type
+    by_type: dict[str, list[AgentTemplate]] = {t: [] for t in VALID_TEMPLATE_TYPES}
+    for row in rows:
+        by_type[row.template_type].append(row)
 
     items: List[TemplateItem] = []
     for tmpl_type in ("INITIAL_INVITE", "POST_HOT", "POST_WARM", "POST_NURTURE"):
-        if tmpl_type in overrides:
-            row = overrides[tmpl_type]
-            items.append(
-                TemplateItem(
+        type_rows = by_type[tmpl_type]
+        if type_rows:
+            for row in type_rows:
+                items.append(TemplateItem(
+                    id=row.id,
+                    name=row.name or TYPE_LABELS.get(tmpl_type, tmpl_type),
                     type=tmpl_type,
                     subject=row.subject,
                     body=row.body,
                     tone=row.tone,
                     is_custom=True,
+                    is_active=row.is_active,
                     version=row.version,
                     updated_at=row.updated_at,
-                )
-            )
+                ))
         else:
+            # Inject platform default as virtual active template
             default = _PLATFORM_DEFAULTS[tmpl_type]
-            items.append(
-                TemplateItem(
-                    type=tmpl_type,
-                    subject=default["subject"],
-                    body=default["body"],
-                    tone="PROFESSIONAL",
-                    is_custom=False,
-                    version=0,
-                    updated_at=None,
-                )
-            )
+            items.append(TemplateItem(
+                id=None,
+                name="Default",
+                type=tmpl_type,
+                subject=default["subject"],
+                body=default["body"],
+                tone="PROFESSIONAL",
+                is_custom=False,
+                is_active=True,
+                version=0,
+                updated_at=None,
+            ))
 
     return TemplatesListResponse(templates=items)
 
 
 # ---------------------------------------------------------------------------
-# PUT /agent/templates/{type}
+# POST /agent/templates  — create new named template
 # ---------------------------------------------------------------------------
 
 
-@router.put(
-    "/templates/{template_type}",
-    response_model=TemplateSaveResponse,
-    summary="Create or update an agent template override, incrementing version",
-)
-def save_template(
+@router.post("/templates", response_model=TemplateCreateResponse, status_code=201)
+def create_template(
+    body: TemplateCreateRequest,
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    tmpl_type = _validate_type(body.template_type)
+    now = datetime.utcnow()
+
+    if body.activate:
+        _deactivate_type(agent.id, tmpl_type, db)
+
+    new_tmpl = AgentTemplate(
+        agent_user_id=agent.id,
+        name=body.name,
+        template_type=tmpl_type,
+        subject=body.subject,
+        body=body.body,
+        tone=body.tone or "PROFESSIONAL",
+        is_active=body.activate,
+        version=1,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(new_tmpl)
+    db.commit()
+    db.refresh(new_tmpl)
+    return TemplateCreateResponse(ok=True, template_id=new_tmpl.id, version=new_tmpl.version)
+
+
+# ---------------------------------------------------------------------------
+# PUT /agent/templates/{id}  — update by ID
+# ---------------------------------------------------------------------------
+
+
+@router.put("/templates/{template_id}", response_model=TemplateUpdateResponse)
+def update_template(
+    template_id: int,
+    body: TemplateUpdateRequest,
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    row: Optional[AgentTemplate] = db.query(AgentTemplate).filter(
+        AgentTemplate.id == template_id,
+        AgentTemplate.agent_user_id == agent.id,
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    now = datetime.utcnow()
+    if body.name is not None:
+        row.name = body.name
+    if body.subject is not None:
+        row.subject = body.subject
+    if body.body is not None:
+        row.body = body.body
+    if body.tone is not None:
+        row.tone = body.tone
+    row.version += 1
+    row.updated_at = now
+    db.commit()
+    return TemplateUpdateResponse(ok=True, version=row.version)
+
+
+# ---------------------------------------------------------------------------
+# POST /agent/templates/{id}/activate  — set as active for its type
+# ---------------------------------------------------------------------------
+
+
+@router.post("/templates/{template_id}/activate", response_model=ActivateResponse)
+def activate_template(
+    template_id: int,
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    row: Optional[AgentTemplate] = db.query(AgentTemplate).filter(
+        AgentTemplate.id == template_id,
+        AgentTemplate.agent_user_id == agent.id,
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    _deactivate_type(agent.id, row.template_type, db)
+    row.is_active = True
+    db.commit()
+    return ActivateResponse(ok=True)
+
+
+# ---------------------------------------------------------------------------
+# DELETE /agent/templates/{id}  — delete by ID
+# ---------------------------------------------------------------------------
+
+
+@router.delete("/templates/{template_id}", response_model=DeleteResponse)
+def delete_template_by_id(
+    template_id: int,
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    row: Optional[AgentTemplate] = db.query(AgentTemplate).filter(
+        AgentTemplate.id == template_id,
+        AgentTemplate.agent_user_id == agent.id,
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    was_active = row.is_active
+    tmpl_type = row.template_type
+    db.delete(row)
+    db.commit()
+
+    # If deleted template was active, activate the most recent remaining one
+    if was_active:
+        remaining = (
+            db.query(AgentTemplate)
+            .filter(AgentTemplate.agent_user_id == agent.id, AgentTemplate.template_type == tmpl_type)
+            .order_by(AgentTemplate.created_at.desc())
+            .first()
+        )
+        if remaining:
+            remaining.is_active = True
+            db.commit()
+
+    return DeleteResponse(ok=True, reverted_to="platform_default" if was_active else "n/a")
+
+
+# ---------------------------------------------------------------------------
+# Legacy DELETE /agent/templates/{type}  — revert by type (backward compat)
+# ---------------------------------------------------------------------------
+
+
+@router.delete("/templates/by-type/{template_type}", response_model=DeleteResponse)
+def delete_template_by_type(
+    template_type: str,
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    tmpl_type = _validate_type(template_type)
+    db.query(AgentTemplate).filter(
+        AgentTemplate.agent_user_id == agent.id,
+        AgentTemplate.template_type == tmpl_type,
+    ).delete()
+    db.commit()
+    return DeleteResponse(ok=True, reverted_to="platform_default")
+
+
+# ---------------------------------------------------------------------------
+# POST /agent/templates/{type}/preview
+# ---------------------------------------------------------------------------
+
+_SAMPLE_CONTEXT = {
+    "lead_name": "Alex Johnson",
+    "form_link": "https://app.example.com/form/123",
+}
+
+
+@router.post("/templates/{template_type}/preview", response_model=PreviewResponse)
+def preview_template(
+    template_type: str,
+    body: PreviewRequest,
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    _validate_type(template_type)
+    context = {
+        **_SAMPLE_CONTEXT,
+        "agent_name": agent.full_name or "",
+        "agent_phone": agent.phone or "",
+        "agent_email": agent.email or "",
+    }
+    rendered = render_template_str(body.subject, body.body, context)
+    return PreviewResponse(subject_rendered=rendered["subject"], body_rendered=rendered["body"])
+
+
+# ---------------------------------------------------------------------------
+# Legacy PUT /agent/templates/{type}  — upsert by type (backward compat for onboarding)
+# ---------------------------------------------------------------------------
+
+
+@router.put("/templates/{template_type}", response_model=TemplateSaveResponse)
+def save_template_by_type(
     template_type: str,
     body: TemplateSaveRequest,
     db: Session = Depends(get_db),
     agent: AgentUser = Depends(get_current_agent),
 ):
-    """
-    Create or update the agent's template override for the given type.
-
-    - If no override exists: create with version=1.
-    - If override exists: update subject/body/tone and increment version by 1.
-    - Returns 422 for invalid template type.
-
-    Requirements: 14.2
-    """
+    """Legacy upsert — used by onboarding step. Creates or updates the active template for a type."""
     tmpl_type = _validate_type(template_type)
+    now = datetime.utcnow()
 
     existing: Optional[AgentTemplate] = (
         db.query(AgentTemplate)
         .filter(
             AgentTemplate.agent_user_id == agent.id,
             AgentTemplate.template_type == tmpl_type,
+            AgentTemplate.is_active == True,
         )
         .first()
     )
 
-    now = datetime.utcnow()
-
     if existing is None:
         new_tmpl = AgentTemplate(
             agent_user_id=agent.id,
+            name="My Template",
             template_type=tmpl_type,
             subject=body.subject,
             body=body.body,
@@ -284,102 +485,12 @@ def save_template(
         existing.body = body.body
         if body.tone is not None:
             existing.tone = body.tone
-        existing.version = existing.version + 1
+        existing.version += 1
         existing.updated_at = now
         db.commit()
         db.refresh(existing)
         return TemplateSaveResponse(ok=True, template_id=existing.id, version=existing.version)
 
-
-# ---------------------------------------------------------------------------
-# POST /agent/templates/{type}/preview
-# ---------------------------------------------------------------------------
-
-_SAMPLE_CONTEXT = {
-    "lead_name": "Alex Johnson",
-    "form_link": "https://app.example.com/form/123",
-}
-
-
-@router.post(
-    "/templates/{template_type}/preview",
-    response_model=PreviewResponse,
-    summary="Render a template with sample lead data",
-)
-def preview_template(
-    template_type: str,
-    body: PreviewRequest,
-    db: Session = Depends(get_db),
-    agent: AgentUser = Depends(get_current_agent),
-):
-    """
-    Render the provided subject and body with sample lead data.
-
-    Sample context:
-      lead_name   = "Alex Johnson"
-      agent_name  = agent.full_name
-      agent_phone = agent.phone
-      agent_email = agent.email
-      form_link   = "https://app.example.com/form/123"
-
-    Requirements: 14.3
-    """
-    _validate_type(template_type)
-
-    context = {
-        **_SAMPLE_CONTEXT,
-        "agent_name": agent.full_name or "",
-        "agent_phone": agent.phone or "",
-        "agent_email": agent.email or "",
-    }
-
-    rendered = render_template_str(body.subject, body.body, context)
-    return PreviewResponse(
-        subject_rendered=rendered["subject"],
-        body_rendered=rendered["body"],
-    )
-
-
-# ---------------------------------------------------------------------------
-# DELETE /agent/templates/{type}
-# ---------------------------------------------------------------------------
-
-
-@router.delete(
-    "/templates/{template_type}",
-    response_model=DeleteResponse,
-    summary="Delete agent template override, reverting to platform default",
-)
-def delete_template(
-    template_type: str,
-    db: Session = Depends(get_db),
-    agent: AgentUser = Depends(get_current_agent),
-):
-    """
-    Delete the agent's custom override for the given template type.
-
-    - If an override exists, it is deleted.
-    - If no override exists, returns 200 anyway (idempotent).
-    - After deletion the agent falls back to the platform default.
-
-    Requirements: 14.4
-    """
-    tmpl_type = _validate_type(template_type)
-
-    existing: Optional[AgentTemplate] = (
-        db.query(AgentTemplate)
-        .filter(
-            AgentTemplate.agent_user_id == agent.id,
-            AgentTemplate.template_type == tmpl_type,
-        )
-        .first()
-    )
-
-    if existing is not None:
-        db.delete(existing)
-        db.commit()
-
-    return DeleteResponse(ok=True, reverted_to="platform_default")
 
 
 # ---------------------------------------------------------------------------

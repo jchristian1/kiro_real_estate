@@ -24,7 +24,6 @@ from sqlalchemy import (
     String,
     Text,
     Time,
-    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -191,21 +190,19 @@ class BuyerAutomationConfig(Base):
 
 class AgentTemplate(Base):
     """
-    Agent-scoped email template overrides (cloned from platform defaults).
-
-    Each agent may have at most one active template per template_type.
+    Agent-scoped email templates. Multiple templates per type allowed;
+    is_active=True marks the one used for that pipeline step.
 
     Requirements: 8.4, 14.1, 14.2
     """
     __tablename__ = "agent_templates"
     __table_args__ = (
-        UniqueConstraint(
-            "agent_user_id", "template_type", name="uq_agent_templates_user_type"
-        ),
+        Index("ix_agent_templates_user_type", "agent_user_id", "template_type"),
     )
 
     id = Column(Integer, primary_key=True)
     agent_user_id = Column(Integer, ForeignKey("agent_users.id"), nullable=False)
+    name = Column(String(255), nullable=True)  # user-given name for the template
     template_type = Column(
         Enum(
             "INITIAL_INVITE",

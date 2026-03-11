@@ -64,8 +64,10 @@ export interface DashboardData {
 }
 
 export interface Template {
+  id?: number;
+  name?: string;
   type: string; subject: string; body: string;
-  tone: string; version: number; is_active: boolean;
+  tone: string; version: number; is_active: boolean; is_custom: boolean;
 }
 
 export interface AutomationConfig {
@@ -159,10 +161,36 @@ export const useSaveTemplate = () => {
   });
 };
 
+export const useCreateTemplate = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { template_type: string; name: string; subject: string; body: string; tone?: string; activate?: boolean }) =>
+      agentApi.post('/agent/templates', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: agentKeys.templates() }),
+  });
+};
+
+export const useUpdateTemplate = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: number; name?: string; subject?: string; body?: string; tone?: string }) =>
+      agentApi.put(`/agent/templates/${id}`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: agentKeys.templates() }),
+  });
+};
+
+export const useActivateTemplate = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => agentApi.post(`/agent/templates/${id}/activate`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: agentKeys.templates() }),
+  });
+};
+
 export const useDeleteTemplate = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (type: string) => agentApi.delete(`/agent/templates/${type}`),
+    mutationFn: (id: number) => agentApi.delete(`/agent/templates/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: agentKeys.templates() }),
   });
 };

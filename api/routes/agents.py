@@ -522,3 +522,72 @@ def delete_agent(
     return AgentDeleteResponse(
         message=f"Agent '{agent_id}' deleted successfully"
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /agents/{agent_id}/templates  — active templates per pipeline step (admin view)
+# ---------------------------------------------------------------------------
+
+@router.get("/{agent_id}/templates")
+def get_agent_templates(
+    agent_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return the active template for each pipeline step for a given agent."""
+    from gmail_lead_sync.agent_models import AgentUser, AgentTemplate
+
+    _PLATFORM_DEFAULTS = {
+        "INITIAL_INVITE": {"subject": "Hi {lead_name}, let's find your perfect home", "name": "Default"},
+        "POST_HOT":       {"subject": "Great news, {lead_name} — you're a top match!", "name": "Default"},
+        "POST_WARM":      {"subject": "{lead_name}, here are some options for you", "name": "Default"},
+        "POST_NURTURE":   {"subject": "Staying in touch, {lead_name}", "name": "Default"},
+    }
+    TYPE_LABELS = {
+        "INITIAL_INVITE": "Initial Outreach",
+        "POST_HOT":       "Post Form — Hot",
+        "POST_WARM":      "Post Form — Warm",
+        "POST_NURTURE":   "Post Form — Nurture",
+    }
+
+    # Resolve agent_user from numeric agent_id
+    try:
+        numeric_id = int(agent_id)
+        agent_user = db.query(AgentUser).filter(AgentUser.id == numeric_id).first()
+    except (ValueError, TypeError):
+        agent_user = None
+
+    result = []
+    for tmpl_type, label in TYPE_LABELS.items():
+        active_row = None
+        if agent_user:
+            active_row = (
+                db.query(AgentTemplate)
+                .filter(
+                    AgentTemplate.agent_user_id == agent_user.id,
+                    AgentTemplate.template_type == tmpl_type,
+                    AgentTemplate.is_active == True,
+                )
+                .first()
+            )
+        if active_row:
+            result.append({
+                "type": tmpl_type,
+                "label": label,
+                "name": active_row.name or "Custom",
+                "subject": active_row.subject,
+                "is_custom": True,
+                "version": active_row.version,
+            })
+        else:
+            default = _PLATFORM_DEFAULTS[tmpl_type]
+            result.append({
+                "type": tmpl_type,
+                "label": label,
+                "name": default["name"],
+                "subject": default["subject"],
+                "is_custom": False,
+                "version": 0,
+            })
+
+    return {"templates": result}

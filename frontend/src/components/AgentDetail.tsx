@@ -26,6 +26,10 @@ export interface WatcherStatus {
   error: string | null;
 }
 
+interface AgentTemplate {
+  type: string; label: string; name: string; subject: string; is_custom: boolean; version: number;
+}
+
 export interface AgentDetailProps {
   agentId: string;
   onBack?: () => void;
@@ -48,6 +52,7 @@ export const AgentDetail: React.FC<AgentDetailProps> = ({ agentId, onBack }) => 
   const t = useT();
   const [agent, setAgent] = useState<AgentDetailData | null>(null);
   const [watcherStatus, setWatcherStatus] = useState<WatcherStatus | null>(null);
+  const [agentTemplates, setAgentTemplates] = useState<AgentTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -56,12 +61,14 @@ export const AgentDetail: React.FC<AgentDetailProps> = ({ agentId, onBack }) => 
 
   const fetchData = useCallback(async () => {
     try {
-      const [agentRes, watchersRes] = await Promise.all([
+      const [agentRes, watchersRes, templatesRes] = await Promise.all([
         axios.get<AgentDetailData>(`${API_BASE_URL}/agents/${agentId}`),
         axios.get<{ watchers: WatcherStatus[] }>(`${API_BASE_URL}/watchers/status`),
+        axios.get<{ templates: AgentTemplate[] }>(`${API_BASE_URL}/agents/${agentId}/templates`).catch(() => ({ data: { templates: [] } })),
       ]);
       setAgent(agentRes.data);
       setWatcherStatus(watchersRes.data.watchers.find((w) => w.agent_id === agentId) ?? null);
+      setAgentTemplates(templatesRes.data.templates);
       setError(null);
     } catch {
       setError('Failed to load agent details');
@@ -233,6 +240,37 @@ export const AgentDetail: React.FC<AgentDetailProps> = ({ agentId, onBack }) => 
           </div>
         </div>
       </div>
+
+      {/* Templates card */}
+      {agentTemplates.length > 0 && (
+        <div style={t.card}>
+          <h2 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 600, color: t.text }}>Active Templates</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {agentTemplates.map(tpl => (
+              <div key={tpl.type} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '10px 12px', background: t.bgInput, borderRadius: 9,
+                border: `1px solid ${tpl.is_custom ? t.accent + '30' : t.border}`,
+              }}>
+                <div>
+                  <div style={{ fontSize: 11, color: t.textFaint, marginBottom: 2 }}>{tpl.label}</div>
+                  <div style={{ fontSize: 13, color: t.text, fontWeight: 500 }}>{tpl.name}</div>
+                  <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1, maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {tpl.subject}
+                  </div>
+                </div>
+                <span style={{
+                  padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 600,
+                  background: tpl.is_custom ? t.accentBg : t.bgBadge,
+                  color: tpl.is_custom ? t.accent : t.textMuted,
+                }}>
+                  {tpl.is_custom ? `Custom v${tpl.version}` : 'Default'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
