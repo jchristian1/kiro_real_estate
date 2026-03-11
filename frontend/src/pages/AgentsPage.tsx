@@ -68,8 +68,9 @@ export const AgentsPage: React.FC = () => {
 
   const statusStyle = (status: string | null) => {
     const s = status?.toLowerCase();
-    if (s === 'running') return { color: t.green, bg: t.greenBg };
-    if (s === 'failed')  return { color: t.red,   bg: t.redBg };
+    if (s === 'running')   return { color: t.green,    bg: t.greenBg };
+    if (s === 'failed')    return { color: t.red,      bg: t.redBg };
+    if (s === 'cancelled') return { color: t.orange,   bg: t.orangeBg ?? `${t.orange}18` };
     return { color: t.textMuted, bg: t.bgBadge };
   };
 
@@ -140,7 +141,7 @@ export const AgentsPage: React.FC = () => {
                       <td style={{ ...t.td, color: t.textMuted }}>{agent.company_name || '—'}</td>
                       <td style={t.td}>
                         <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: sc.color, background: sc.bg }}>
-                          {agent.watcher_status || 'Not Started'}
+                          {agent.watcher_status === 'cancelled' ? 'Cancelled' : agent.watcher_status || 'Not Started'}
                         </span>
                       </td>
                       <td style={{ ...t.td, color: t.textMuted }}>{new Date(agent.created_at).toLocaleDateString()}</td>

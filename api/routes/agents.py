@@ -213,9 +213,11 @@ async def list_agents(
                     prefs = db.query(AgentPreferences).filter(
                         AgentPreferences.agent_user_id == au.id
                     ).first()
-                    if prefs:
-                        watcher_status = "running" if (prefs.watcher_enabled and au.onboarding_completed) else "stopped"
-                    elif au.onboarding_completed:
+                    if not au.onboarding_completed:
+                        watcher_status = "cancelled"
+                    elif prefs:
+                        watcher_status = "running" if prefs.watcher_enabled else "stopped"
+                    else:
                         watcher_status = "stopped"
             except (ValueError, TypeError):
                 pass
