@@ -22,7 +22,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Raise `ValueError` with descriptive message if `ENCRYPTION_KEY` or `SECRET_KEY` is absent or shorter than 32 characters
     - _Requirements: 1.4, 4.4_
 
-  - [~] 2.3 Write property test for startup secret validation
+  - [x] 2.3 Write property test for startup secret validation
     - **Property 1: Startup rejects short or absent secrets**
     - **Validates: Requirements 1.4, 4.4**
     - File: `tests/property/test_prop_startup_validation.py`
