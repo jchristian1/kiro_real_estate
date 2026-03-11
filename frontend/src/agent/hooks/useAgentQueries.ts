@@ -199,3 +199,14 @@ export const useDisconnectGmail = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: agentKeys.gmail() }),
   });
 };
+
+export const useCancelSubscription = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => agentApi.post('/agent/account/cancel-subscription', {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: agentKeys.gmail() });
+      qc.invalidateQueries({ queryKey: agentKeys.dashboard() });
+    },
+  });
+};

@@ -185,6 +185,7 @@ async def list_agents(
     List all agents with status indicators.
     """
     from api.main import watcher_registry
+    from gmail_lead_sync.agent_models import AgentUser, AgentPreferences
 
     all_credentials = db.query(Credentials).order_by(Credentials.created_at.desc()).all()
 
@@ -199,7 +200,26 @@ async def list_agents(
             email = credentials_store.decrypt(creds.email_encrypted)
         except (ValueError, Exception):
             email = "[decryption-error]"
+
         watcher_info = all_statuses.get(creds.agent_id)
+        watcher_status = watcher_info["status"] if watcher_info else None
+
+        # For agent-app agents (numeric agent_id), also check AgentPreferences
+        if watcher_status is None:
+            try:
+                numeric_id = int(creds.agent_id)
+                au = db.query(AgentUser).filter(AgentUser.id == numeric_id).first()
+                if au:
+                    prefs = db.query(AgentPreferences).filter(
+                        AgentPreferences.agent_user_id == au.id
+                    ).first()
+                    if prefs:
+                        watcher_status = "running" if (prefs.watcher_enabled and au.onboarding_completed) else "stopped"
+                    elif au.onboarding_completed:
+                        watcher_status = "stopped"
+            except (ValueError, TypeError):
+                pass
+
         agents.append(AgentResponse(
             id=creds.id,
             agent_id=creds.agent_id,
@@ -210,7 +230,7 @@ async def list_agents(
             company_name=creds.company.name if creds.company else None,
             created_at=creds.created_at,
             updated_at=creds.updated_at,
-            watcher_status=watcher_info["status"] if watcher_info else None
+            watcher_status=watcher_status,
         ))
 
     return AgentListResponse(agents=agents)

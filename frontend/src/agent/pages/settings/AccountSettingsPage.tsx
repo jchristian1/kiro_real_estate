@@ -5,7 +5,7 @@
 import React, { useState } from 'react';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getTokens } from '../../../utils/theme';
-import { useAgentGmail, useToggleWatcher, useUpdateGmail, useDisconnectGmail } from '../../hooks/useAgentQueries';
+import { useAgentGmail, useToggleWatcher, useUpdateGmail, useDisconnectGmail, useCancelSubscription } from '../../hooks/useAgentQueries';
 import { agentApi, getAgentErrorMessage } from '../../api/agentApi';
 
 export const AccountSettingsPage: React.FC = () => {
@@ -15,6 +15,7 @@ export const AccountSettingsPage: React.FC = () => {
   const toggleWatcher = useToggleWatcher();
   const updateGmail = useUpdateGmail();
   const disconnectGmail = useDisconnectGmail();
+  const cancelSubscription = useCancelSubscription();
 
   const [gmailAddress, setGmailAddress] = useState('');
   const [appPassword, setAppPassword] = useState('');
@@ -22,6 +23,7 @@ export const AccountSettingsPage: React.FC = () => {
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState<'ok' | 'err'>('ok');
 
@@ -76,6 +78,19 @@ export const AccountSettingsPage: React.FC = () => {
       await toggleWatcher.mutateAsync(!gmail?.watcher_enabled);
     } catch (err) {
       flash(getAgentErrorMessage(err), 'err');
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!confirm('Cancel your subscription? This will stop your Gmail watcher. Your leads and data will be preserved.')) return;
+    setCancelling(true);
+    try {
+      await cancelSubscription.mutateAsync();
+      flash('Subscription cancelled. Watcher stopped.', 'ok');
+    } catch (err) {
+      flash(getAgentErrorMessage(err), 'err');
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -219,6 +234,32 @@ export const AccountSettingsPage: React.FC = () => {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Danger zone — cancel subscription */}
+      <div style={{
+        ...cardStyle,
+        border: `1px solid ${t.red}40`,
+        background: t.redBg,
+        marginTop: 8,
+      }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: t.red, marginBottom: 8 }}>Cancel Subscription</div>
+        <div style={{ fontSize: 13, color: t.textMuted, marginBottom: 16, lineHeight: 1.6 }}>
+          This will stop your Gmail watcher and deactivate your account. Your leads and data will be preserved and you can re-activate at any time.
+        </div>
+        <button
+          onClick={handleCancelSubscription}
+          disabled={cancelling}
+          style={{
+            padding: '10px 20px', background: 'transparent',
+            border: `1.5px solid ${t.red}`, borderRadius: 10,
+            fontSize: 13, fontWeight: 600, color: t.red,
+            cursor: cancelling ? 'not-allowed' : 'pointer',
+            opacity: cancelling ? 0.6 : 1, transition: 'all 0.15s',
+          }}
+        >
+          {cancelling ? 'Cancelling…' : 'Cancel Subscription'}
+        </button>
       </div>
     </div>
   );

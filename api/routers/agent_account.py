@@ -49,6 +49,7 @@ class GmailStatusResponse(BaseModel):
     last_sync: Optional[datetime]
     watcher_enabled: bool
     watcher_admin_locked: bool
+    watcher_admin_override: bool  # alias for frontend compatibility
 
 
 class GmailTestResponse(BaseModel):
@@ -104,6 +105,13 @@ class PreferencesUpdateResponse(BaseModel):
     """PUT /agent/account/preferences response."""
 
     ok: bool
+
+
+class CancelSubscriptionResponse(BaseModel):
+    """POST /agent/account/cancel-subscription response."""
+
+    ok: bool
+    message: str
 
 
 # ---------------------------------------------------------------------------
@@ -186,6 +194,7 @@ def get_gmail_status(
         last_sync=None,  # last_sync tracking not yet implemented in watcher
         watcher_enabled=prefs.watcher_enabled,
         watcher_admin_locked=prefs.watcher_admin_override,
+        watcher_admin_override=prefs.watcher_admin_override,
     )
 
 
@@ -441,3 +450,53 @@ def update_preferences(
     db.commit()
 
     return PreferencesUpdateResponse(ok=True)
+
+
+# ---------------------------------------------------------------------------
+# POST /agent/account/cancel-subscription
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/cancel-subscription",
+    response_model=CancelSubscriptionResponse,
+    summary="Cancel agent subscription — stops watcher and resets onboarding",
+)
+def cancel_subscription(
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    """
+    Cancel the agent's subscription.
+
+    - Stops the Gmail watcher via watcher_registry.
+    - Sets AgentPreferences.watcher_enabled = False.
+    - Sets AgentUser.onboarding_completed = False so the agent is shown
+      as inactive in the admin panel.
+    - Does NOT delete credentials or leads — data is preserved.
+    """
+    # Stop watcher in registry
+    try:
+        import asyncio as _asyncio
+        from api.main import watcher_registry as _registry
+        agent_id_str = str(agent.id)
+        loop = _asyncio.get_event_loop()
+        if loop.is_running():
+            _asyncio.ensure_future(_registry.stop_watcher(agent_id_str))
+    except Exception:
+        pass
+
+    # Disable watcher in preferences
+    prefs = _get_or_create_prefs(agent, db)
+    prefs.watcher_enabled = False
+
+    # Mark onboarding as not completed so admin panel shows inactive
+    agent.onboarding_completed = False
+    agent.onboarding_step = 5  # keep them at step 5 (go-live) so they can re-activate
+
+    db.commit()
+
+    return CancelSubscriptionResponse(
+        ok=True,
+        message="Subscription cancelled. Your data has been preserved.",
+    )
