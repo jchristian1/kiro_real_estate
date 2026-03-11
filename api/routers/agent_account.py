@@ -114,6 +114,13 @@ class CancelSubscriptionResponse(BaseModel):
     message: str
 
 
+class ReactivateSubscriptionResponse(BaseModel):
+    """POST /agent/account/reactivate-subscription response."""
+
+    ok: bool
+    message: str
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -522,4 +529,54 @@ def cancel_subscription(
     return CancelSubscriptionResponse(
         ok=True,
         message="Subscription cancelled. Your data has been preserved.",
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /agent/account/reactivate-subscription
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/reactivate-subscription",
+    response_model=ReactivateSubscriptionResponse,
+    summary="Reactivate agent subscription — re-enables watcher and marks onboarding complete",
+)
+def reactivate_subscription(
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    """
+    Reactivate the agent's subscription after cancellation.
+
+    - Sets AgentUser.onboarding_completed = True.
+    - Sets AgentPreferences.watcher_enabled = True (unless admin-locked).
+    - Restarts the Gmail watcher via watcher_registry if credentials exist.
+    """
+    # Re-enable watcher in preferences (unless admin-locked)
+    prefs = _get_or_create_prefs(agent, db)
+    if not prefs.watcher_admin_override:
+        prefs.watcher_enabled = True
+
+    # Mark onboarding as completed so admin panel shows active
+    agent.onboarding_completed = True
+    agent.onboarding_step = 6  # fully onboarded
+
+    db.commit()
+
+    # Restart watcher in registry if credentials exist
+    if agent.credentials_id is not None:
+        try:
+            import asyncio as _asyncio
+            from api.main import watcher_registry as _registry
+            agent_id_str = str(agent.id)
+            loop = _asyncio.get_event_loop()
+            if loop.is_running():
+                _asyncio.ensure_future(_registry.start_watcher(agent_id_str))
+        except Exception:
+            pass
+
+    return ReactivateSubscriptionResponse(
+        ok=True,
+        message="Subscription reactivated. Your watcher has been restarted.",
     )

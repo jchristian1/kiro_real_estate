@@ -207,6 +207,19 @@ export const useCancelSubscription = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: agentKeys.gmail() });
       qc.invalidateQueries({ queryKey: agentKeys.dashboard() });
+      qc.invalidateQueries({ queryKey: agentKeys.me() });
+    },
+  });
+};
+
+export const useReactivateSubscription = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => agentApi.post('/agent/account/reactivate-subscription', {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: agentKeys.gmail() });
+      qc.invalidateQueries({ queryKey: agentKeys.dashboard() });
+      qc.invalidateQueries({ queryKey: agentKeys.me() });
     },
   });
 };
