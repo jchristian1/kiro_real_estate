@@ -726,11 +726,12 @@ class GmailWatcher:
 
                 # Trigger buyer lead preapproval pipeline if tenant is configured
                 try:
-                    from gmail_lead_sync.models import Credentials
+                    from gmail_lead_sync.models import Credentials, Company
                     from gmail_lead_sync.preapproval.handlers import on_buyer_lead_email_received
                     from gmail_lead_sync.preapproval.models_preapproval import FormTemplate
 
-                    # Resolve tenant_id via agent_id → Credentials.company_id
+                    # Resolve tenant_id: try Credentials.company_id first,
+                    # then AgentUser.company_id, then fall back to first company.
                     tenant_id = None
                     if lead.agent_id:
                         creds = (
@@ -740,6 +741,29 @@ class GmailWatcher:
                         )
                         if creds and creds.company_id:
                             tenant_id = creds.company_id
+
+                    # Fallback: check AgentUser.company_id (agent app agents)
+                    if not tenant_id:
+                        try:
+                            numeric_id = int(self.agent_id)
+                            from gmail_lead_sync.agent_models import AgentUser
+                            au = self.db_session.query(AgentUser).filter(
+                                AgentUser.id == numeric_id
+                            ).first()
+                            if au and au.company_id:
+                                tenant_id = au.company_id
+                        except (ValueError, TypeError):
+                            pass
+
+                    # Last resort: use the first available company
+                    if not tenant_id:
+                        first_company = self.db_session.query(Company).first()
+                        if first_company:
+                            tenant_id = first_company.id
+                            logger.info(
+                                f"No company set for agent {self.agent_id}, "
+                                f"using default company {tenant_id}"
+                            )
 
                     if tenant_id:
                         # Only trigger if tenant has an active BUY form

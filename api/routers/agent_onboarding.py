@@ -917,6 +917,23 @@ def complete_onboarding(
     # --- Evaluate ---
     if gmail_connected and lead_source_selected and automation_configured and templates_active:
         agent.onboarding_completed = True
+
+        # Associate agent's credentials row with the agent's company (for preapproval pipeline)
+        if agent.company_id and agent.credentials_id:
+            creds_row = db.query(Credentials).filter(Credentials.id == agent.credentials_id).first()
+            if creds_row and not creds_row.company_id:
+                creds_row.company_id = agent.company_id
+        elif agent.credentials_id:
+            # No company set on agent — use the first available company as default
+            from gmail_lead_sync.models import Company as _Company
+            first_company = db.query(_Company).first()
+            if first_company:
+                creds_row = db.query(Credentials).filter(Credentials.id == agent.credentials_id).first()
+                if creds_row and not creds_row.company_id:
+                    creds_row.company_id = first_company.id
+                if not agent.company_id:
+                    agent.company_id = first_company.id
+
         db.commit()
 
         # Auto-start the watcher for this agent so email monitoring begins immediately
