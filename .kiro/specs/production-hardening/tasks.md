@@ -76,7 +76,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 5.1 Verify `api/models/error_models.py` defines `ErrorResponse` with fields `error`, `message`, `code`, `details`; create or update if missing
     - _Requirements: 5.1_
 
-  - [~] 5.2 Register exception handlers in `api/main.py` for `RequestValidationError` (422), `AuthenticationException` (401), `AuthorizationException` (403), `NotFoundException` (404), `ConflictException` (409), `TimeoutException` (408), `RateLimitExceeded` (429), and catch-all `Exception` (500)
+  - [x] 5.2 Register exception handlers in `api/main.py` for `RequestValidationError` (422), `AuthenticationException` (401), `AuthorizationException` (403), `NotFoundException` (404), `ConflictException` (409), `TimeoutException` (408), `RateLimitExceeded` (429), and catch-all `Exception` (500)
     - All handlers return `ErrorResponse` JSON
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 

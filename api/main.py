@@ -27,6 +27,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import FastAPI, Request, Response, Depends
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
@@ -302,22 +303,174 @@ async def log_requests(request: Request, call_next):
 
 
 # Custom exception handlers
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_error_handler(request: Request, exc: RequestValidationError):
+    """
+    Handler for Pydantic request validation errors (HTTP 422).
+
+    Extracts per-field error details from the Pydantic validation error and
+    returns them in the unified ErrorResponse schema.
+
+    Requirements: 5.1, 5.2
+    """
+    details = []
+    for error in exc.errors():
+        field = ".".join(str(loc) for loc in error.get("loc", [])) or None
+        details.append({
+            "field": field,
+            "message": error.get("msg", "Invalid value"),
+            "code": error.get("type", ErrorCode.VALIDATION_ERROR),
+        })
+
+    logger.warning(
+        "Request validation error",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "error_count": len(details),
+        },
+    )
+
+    error_response = create_error_response(
+        error="Validation Error",
+        message="Request validation failed",
+        code=ErrorCode.VALIDATION_ERROR,
+        details=details,
+    )
+    return JSONResponse(status_code=422, content=error_response.model_dump())
+
+
+@app.exception_handler(AuthenticationException)
+async def authentication_exception_handler(request: Request, exc: AuthenticationException):
+    """
+    Handler for authentication failures (HTTP 401).
+
+    Requirements: 5.1, 5.4
+    """
+    logger.warning(
+        f"Authentication error: {exc.message}",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "error_code": exc.code,
+        },
+    )
+    error_response = create_error_response(
+        error="Authentication Error",
+        message=exc.message,
+        code=exc.code,
+        details=exc.details,
+    )
+    return JSONResponse(status_code=401, content=error_response.model_dump())
+
+
+@app.exception_handler(AuthorizationException)
+async def authorization_exception_handler(request: Request, exc: AuthorizationException):
+    """
+    Handler for authorization failures (HTTP 403).
+
+    Requirements: 5.1, 5.5
+    """
+    logger.warning(
+        f"Authorization error: {exc.message}",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "error_code": exc.code,
+        },
+    )
+    error_response = create_error_response(
+        error="Authorization Error",
+        message=exc.message,
+        code=exc.code,
+        details=exc.details,
+    )
+    return JSONResponse(status_code=403, content=error_response.model_dump())
+
+
+@app.exception_handler(NotFoundException)
+async def not_found_exception_handler(request: Request, exc: NotFoundException):
+    """
+    Handler for resource not found errors (HTTP 404).
+
+    Requirements: 5.1, 5.3
+    """
+    logger.warning(
+        f"Not found: {exc.message}",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "error_code": exc.code,
+        },
+    )
+    error_response = create_error_response(
+        error="Not Found",
+        message=exc.message,
+        code=exc.code,
+        details=exc.details,
+    )
+    return JSONResponse(status_code=404, content=error_response.model_dump())
+
+
+@app.exception_handler(ConflictException)
+async def conflict_exception_handler(request: Request, exc: ConflictException):
+    """
+    Handler for resource conflict errors (HTTP 409).
+
+    Requirements: 5.1
+    """
+    logger.warning(
+        f"Conflict: {exc.message}",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "error_code": exc.code,
+        },
+    )
+    error_response = create_error_response(
+        error="Conflict",
+        message=exc.message,
+        code=exc.code,
+        details=exc.details,
+    )
+    return JSONResponse(status_code=409, content=error_response.model_dump())
+
+
+@app.exception_handler(TimeoutException)
+async def timeout_exception_handler(request: Request, exc: TimeoutException):
+    """
+    Handler for operation timeout errors (HTTP 408).
+
+    Requirements: 5.1
+    """
+    logger.warning(
+        f"Timeout: {exc.message}",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "error_code": exc.code,
+        },
+    )
+    error_response = create_error_response(
+        error="Request Timeout",
+        message=exc.message,
+        code=exc.code,
+        details=exc.details,
+    )
+    return JSONResponse(status_code=408, content=error_response.model_dump())
+
+
 @app.exception_handler(APIException)
 async def api_exception_handler(request: Request, exc: APIException):
     """
-    Handler for custom API exceptions.
-    
-    Converts APIException instances to structured error responses with
-    appropriate HTTP status codes.
-    
-    Args:
-        request: The incoming request
-        exc: The APIException instance
-    
-    Returns:
-        JSONResponse with structured error information
+    Fallback handler for any remaining APIException subclasses.
+
+    Converts APIException instances to structured error responses using
+    the exception's own status_code, message, code, and details.
+
+    Requirements: 5.1
     """
-    # Log the error with context
     logger.warning(
         f"API exception: {exc.message}",
         extra={
@@ -325,99 +478,99 @@ async def api_exception_handler(request: Request, exc: APIException):
             "path": request.url.path,
             "error_code": exc.code,
             "status_code": exc.status_code,
-            "exception_type": type(exc).__name__
-        }
+            "exception_type": type(exc).__name__,
+        },
     )
-    
-    # Create structured error response
     error_response = create_error_response(
         error=type(exc).__name__.replace("Exception", " Error"),
         message=exc.message,
         code=exc.code,
-        details=exc.details
+        details=exc.details,
     )
-    
     return JSONResponse(
         status_code=exc.status_code,
-        content=error_response.model_dump()
+        content=error_response.model_dump(),
     )
 
 
 @app.exception_handler(ValueError)
 async def value_error_handler(request: Request, exc: ValueError):
     """
-    Handler for ValueError exceptions.
-    
-    Converts ValueError to a validation error response.
-    
-    Args:
-        request: The incoming request
-        exc: The ValueError instance
-    
-    Returns:
-        JSONResponse with validation error information
+    Handler for ValueError exceptions (HTTP 400).
     """
     logger.warning(
         f"Value error: {str(exc)}",
         extra={
             "method": request.method,
             "path": request.url.path,
-            "exception_type": "ValueError"
-        }
+            "exception_type": "ValueError",
+        },
     )
-    
     error_response = create_error_response(
         error="Validation Error",
         message=str(exc),
-        code=ErrorCode.VALIDATION_ERROR
+        code=ErrorCode.VALIDATION_ERROR,
     )
-    
-    return JSONResponse(
-        status_code=400,
-        content=error_response.model_dump()
-    )
+    return JSONResponse(status_code=400, content=error_response.model_dump())
 
 
 # Global exception handler for unhandled errors
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """
-    Global exception handler for unhandled errors.
-    
-    Returns a generic error message to clients and logs the full exception
-    server-side for debugging. This ensures no sensitive information is
-    exposed in error responses.
-    
-    Args:
-        request: The incoming request
-        exc: The unhandled exception
-    
-    Returns:
-        JSONResponse with generic error message
+    Global catch-all handler for unhandled errors (HTTP 500).
+
+    Logs the full stack trace server-side and returns a generic message to
+    the client — never exposing internal details.
+
+    Requirements: 5.1
     """
-    # Log the full exception with stack trace
     logger.error(
-        f"Unhandled exception: {str(exc)}",
+        f"Unhandled exception: {type(exc).__name__}",
         exc_info=True,
         extra={
             "method": request.method,
             "path": request.url.path,
             "exception_type": type(exc).__name__,
-            "client_host": request.client.host if request.client else None
-        }
+            "client_host": request.client.host if request.client else None,
+        },
     )
-    
-    # Return generic error response (no sensitive information)
     error_response = create_error_response(
         error="Internal Server Error",
         message="An unexpected error occurred. Please contact support if the issue persists.",
-        code=ErrorCode.INTERNAL_SERVER_ERROR
+        code=ErrorCode.INTERNAL_SERVER_ERROR,
     )
-    
-    return JSONResponse(
-        status_code=500,
-        content=error_response.model_dump()
-    )
+    return JSONResponse(status_code=500, content=error_response.model_dump())
+
+
+# Register slowapi RateLimitExceeded handler if slowapi is installed
+try:
+    from slowapi.errors import RateLimitExceeded
+
+    @app.exception_handler(RateLimitExceeded)
+    async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+        """
+        Handler for slowapi rate limit exceeded errors (HTTP 429).
+
+        Requirements: 5.1
+        """
+        logger.warning(
+            "Rate limit exceeded",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "client_host": request.client.host if request.client else None,
+            },
+        )
+        error_response = create_error_response(
+            error="Too Many Requests",
+            message="Rate limit exceeded. Please slow down and try again later.",
+            code="RATE_LIMIT_EXCEEDED",
+        )
+        return JSONResponse(status_code=429, content=error_response.model_dump())
+
+except ImportError:
+    pass  # slowapi not installed; handler registered when package is added
 
 
 # Health check endpoint is now in api/routes/health.py
