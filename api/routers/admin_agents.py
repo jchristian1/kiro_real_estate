@@ -67,6 +67,41 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     return auth_get_current_user(request, db)
 
 
+def _assert_agent_access(agent_id: str, current_user: User, db: Session) -> None:
+    """
+    Validate that the authenticated user has permission to access the specified agent.
+    
+    Platform admins (role='admin' or 'platform_admin') can access all agents.
+    Company-scoped admins can only access agents in their own company.
+    
+    Raises NotFoundException if agent not found or user lacks permission.
+    
+    Requirements: 6.1, 6.2
+    """
+    from api.models.error_models import ErrorCode
+    from api.exceptions import NotFoundException
+    
+    # Platform admins can access all agents
+    if getattr(current_user, 'role', None) in ('admin', 'platform_admin'):
+        return
+    
+    # Company-scoped admins can only access agents in their company
+    cred_repo = CredentialRepository(db)
+    credentials = cred_repo.get_by_agent_id(agent_id)
+    
+    if not credentials:
+        raise NotFoundException(
+            message=f"Agent '{agent_id}' not found",
+            code=ErrorCode.NOT_FOUND_RESOURCE
+        )
+    
+    if credentials.company_id != current_user.company_id:
+        raise NotFoundException(
+            message=f"Agent '{agent_id}' not found",
+            code=ErrorCode.NOT_FOUND_RESOURCE
+        )
+
+
 def get_credentials_store(db: Session = Depends(get_db)) -> EncryptedDBCredentialsStore:
     """
     Create and return an EncryptedDBCredentialsStore instance.
@@ -186,6 +221,10 @@ async def list_agents(
 ):
     """
     List all agents with status indicators.
+    
+    Platform admins see all agents. Company-scoped admins only see agents in their company.
+    
+    Requirements: 6.1, 6.2 - Enforce tenant isolation
     """
     from api.main import watcher_registry
     from gmail_lead_sync.agent_models import AgentUser
@@ -194,7 +233,12 @@ async def list_agents(
     agent_repo = AgentRepository(db)
     prefs_repo = AgentPreferencesRepository(db)
 
+    # Get all credentials, filtered by company if user is company-scoped
     all_credentials = cred_repo.list_all()
+    
+    # Filter by company for company-scoped admins
+    if getattr(current_user, 'role', None) not in ('admin', 'platform_admin'):
+        all_credentials = [c for c in all_credentials if c.company_id == current_user.company_id]
 
     try:
         all_statuses = await watcher_registry.get_all_statuses()
@@ -262,13 +306,17 @@ def get_agent(
         Agent details (credentials excluded)
         
     Raises:
-        NotFoundException: If agent not found
+        NotFoundException: If agent not found or user lacks permission
         
     Requirements:
         - 1.1: Provide endpoints for reading Agent records
         - 1.3: Exclude decrypted credentials from API response
         - 1.6: Provide detail view showing Agent configuration
+        - 6.1, 6.2: Enforce tenant isolation
     """
+    # Validate tenant access
+    _assert_agent_access(agent_id, current_user, db)
+    
     # Find agent credentials
     cred_repo = CredentialRepository(db)
     credentials = cred_repo.get_by_agent_id(agent_id)
@@ -321,14 +369,18 @@ def update_agent(
         Updated agent details (credentials excluded)
         
     Raises:
-        NotFoundException: If agent not found
+        NotFoundException: If agent not found or user lacks permission
         ValidationException: If no fields to update or validation fails
         
     Requirements:
         - 1.1: Provide endpoints for updating Agent records
         - 1.2: Encrypt credentials before storage
         - 1.8: Record all Agent modification operations
+        - 6.1, 6.2: Enforce tenant isolation
     """
+    # Validate tenant access
+    _assert_agent_access(agent_id, current_user, db)
+    
     # Find agent credentials
     cred_repo = CredentialRepository(db)
     credentials = cred_repo.get_by_agent_id(agent_id)
@@ -452,13 +504,17 @@ def delete_agent(
         Success message
         
     Raises:
-        NotFoundException: If agent not found
+        NotFoundException: If agent not found or user lacks permission
         
     Requirements:
         - 1.1: Provide endpoints for deleting Agent records
         - 1.7: Stop any running Watcher when Agent is deleted
         - 1.8: Record all Agent deletion operations
+        - 6.1, 6.2: Enforce tenant isolation
     """
+    # Validate tenant access
+    _assert_agent_access(agent_id, current_user, db)
+    
     # Find agent credentials
     cred_repo = CredentialRepository(db)
     credentials = cred_repo.get_by_agent_id(agent_id)
@@ -531,7 +587,12 @@ def get_agent_templates(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Return ALL templates (all pipeline steps, all versions) for a given agent."""
+    """Return ALL templates (all pipeline steps, all versions) for a given agent.
+    
+    Requirements: 6.1, 6.2 - Enforce tenant isolation
+    """
+    # Validate tenant access
+    _assert_agent_access(agent_id, current_user, db)
     _PLATFORM_DEFAULTS = {
         "INITIAL_INVITE": {
             "subject": "Hi {lead_name}, let's find your perfect home",
@@ -615,7 +676,12 @@ def admin_activate_template(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Admin: set a template as active for its pipeline step."""
+    """Admin: set a template as active for its pipeline step.
+    
+    Requirements: 6.1, 6.2 - Enforce tenant isolation
+    """
+    # Validate tenant access
+    _assert_agent_access(agent_id, current_user, db)
     agent_repo = AgentRepository(db)
     tmpl_repo = TemplateRepository(db)
 
@@ -642,7 +708,12 @@ def admin_delete_template(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Admin: delete a specific template."""
+    """Admin: delete a specific template.
+    
+    Requirements: 6.1, 6.2 - Enforce tenant isolation
+    """
+    # Validate tenant access
+    _assert_agent_access(agent_id, current_user, db)
     agent_repo = AgentRepository(db)
     tmpl_repo = TemplateRepository(db)
 

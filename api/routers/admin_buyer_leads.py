@@ -59,8 +59,16 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
 # ---------------------------------------------------------------------------
 
 def _assert_tenant(tid: int, current_user: User) -> None:
-    if getattr(current_user, 'role', None) == 'admin':
-        return
+    """
+    Validate that the requested tenant_id matches the authenticated user's company_id.
+    
+    Platform admins (role='admin' or 'platform_admin') can access all tenants.
+    Company-scoped admins can only access their own company's data.
+    
+    Requirements: 6.1, 6.2
+    """
+    if getattr(current_user, 'role', None) in ('admin', 'platform_admin'):
+        return  # Platform admin can access all tenants
     if current_user.company_id != tid:
         raise NotFoundException(
             message="Tenant not found",

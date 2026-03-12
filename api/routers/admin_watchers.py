@@ -67,6 +67,41 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     return auth_get_current_user(request, db)
 
 
+def _assert_agent_access(agent_id: str, current_user: User, db: Session) -> None:
+    """
+    Validate that the authenticated user has permission to access the specified agent.
+    
+    Platform admins (role='admin' or 'platform_admin') can access all agents.
+    Company-scoped admins can only access agents in their own company.
+    
+    Raises NotFoundException if agent not found or user lacks permission.
+    
+    Requirements: 6.1, 6.2
+    """
+    from api.models.error_models import ErrorCode
+    from api.exceptions import NotFoundException
+    
+    # Platform admins can access all agents
+    if getattr(current_user, 'role', None) in ('admin', 'platform_admin'):
+        return
+    
+    # Company-scoped admins can only access agents in their company
+    cred_repo = CredentialRepository(db)
+    credentials = cred_repo.get_by_agent_id(agent_id)
+    
+    if not credentials:
+        raise NotFoundException(
+            message=f"Agent '{agent_id}' not found",
+            code=ErrorCode.NOT_FOUND_RESOURCE
+        )
+    
+    if credentials.company_id != current_user.company_id:
+        raise NotFoundException(
+            message=f"Agent '{agent_id}' not found",
+            code=ErrorCode.NOT_FOUND_RESOURCE
+        )
+
+
 def get_watcher_registry():
     """
     Get the global WatcherRegistry instance.
@@ -105,7 +140,7 @@ async def start_watcher(
         Watcher start confirmation with status
         
     Raises:
-        NotFoundException: If agent not found
+        NotFoundException: If agent not found or user lacks permission
         ConflictException: If watcher already running
         
     Requirements:
@@ -113,7 +148,11 @@ async def start_watcher(
         - 4.2: Create background task for agent when watcher is started
         - 4.4: Prevent multiple concurrent watchers for same agent
         - 4.8: Record all watcher start operations
+        - 6.1, 6.2: Enforce tenant isolation
     """
+    # Validate tenant access
+    _assert_agent_access(agent_id, current_user, db)
+    
     # Verify agent exists
     cred_repo = CredentialRepository(db)
     credentials = cred_repo.get_by_agent_id(agent_id)
@@ -175,13 +214,17 @@ async def stop_watcher(
         Watcher stop confirmation
         
     Raises:
-        NotFoundException: If agent or watcher not found
+        NotFoundException: If agent or watcher not found, or user lacks permission
         
     Requirements:
         - 4.1: Provide endpoints for stopping watcher
         - 4.3: Gracefully terminate background task when watcher is stopped
         - 4.8: Record all watcher stop operations
+        - 6.1, 6.2: Enforce tenant isolation
     """
+    # Validate tenant access
+    _assert_agent_access(agent_id, current_user, db)
+    
     # Verify agent exists
     cred_repo = CredentialRepository(db)
     credentials = cred_repo.get_by_agent_id(agent_id)
@@ -240,14 +283,18 @@ async def trigger_sync(
         Sync trigger confirmation
         
     Raises:
-        NotFoundException: If agent or watcher not found
+        NotFoundException: If agent not found or user lacks permission
         ValidationException: If watcher not running
         
     Requirements:
         - 4.1: Provide endpoints for triggering sync operations
         - 4.5: Execute single sync operation when manual sync is triggered
         - 4.8: Record all watcher sync operations
+        - 6.1, 6.2: Enforce tenant isolation
     """
+    # Validate tenant access
+    _assert_agent_access(agent_id, current_user, db)
+    
     # Verify agent exists
     cred_repo = CredentialRepository(db)
     credentials = cred_repo.get_by_agent_id(agent_id)

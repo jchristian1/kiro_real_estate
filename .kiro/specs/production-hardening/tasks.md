@@ -125,7 +125,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - _Requirements: 11.2, 11.3_
 
 - [~] 9. Multi-tenant isolation enforcement
-  - [~] 9.1 Audit every route that returns tenant-scoped resources; replace any user-supplied `agent_id` / `tenant_id` path/query params with the value from the authenticated session
+  - [x] 9.1 Audit every route that returns tenant-scoped resources; replace any user-supplied `agent_id` / `tenant_id` path/query params with the value from the authenticated session
     - _Requirements: 6.1, 6.2_
 
   - [~] 9.2 Add integration tests for cross-tenant access on each resource type (leads, credentials, watchers, lead sources)
