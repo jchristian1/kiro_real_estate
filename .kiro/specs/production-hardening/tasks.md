@@ -60,7 +60,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - `frontend` service: builds from `frontend/Dockerfile`, serves `dist/` via nginx
     - _Requirements: 1.1, 1.2_
 
-- [~] 4. Health endpoint
+- [x] 4. Health endpoint
   - [x] 4.1 Create `GET /api/v1/health` route in `api/routers/public_health.py`
     - No authentication required
     - Query DB connectivity; query active watcher count and last heartbeat per agent from `WatcherRegistry`
