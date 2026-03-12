@@ -7,7 +7,7 @@ This package exports all SQLAlchemy models including:
 - Error response models (ErrorResponse, ErrorDetail, ErrorCode)
 """
 
-from gmail_lead_sync.models import Base, Lead, LeadSource, Template, Credentials, ProcessingLog
+from gmail_lead_sync.models import Base, Lead, LeadSource, Template, Credentials, ProcessingLog, ProcessedMessage
 from api.models.web_ui_models import (
     User,
     Session,
@@ -27,6 +27,7 @@ __all__ = [
     'Template',
     'Credentials',
     'ProcessingLog',
+    'ProcessedMessage',
     # New Web UI models
     'User',
     'Session',
