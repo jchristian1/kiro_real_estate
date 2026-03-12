@@ -172,7 +172,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 11.3 Update `GmailWatcher.is_email_processed` to use `ProcessedMessage` table lookup by `message_id_hash` instead of `Lead.gmail_uid`
     - _Requirements: 10.4_
 
-- [~] 12. Watcher/worker resilience
+- [x] 12. Watcher/worker resilience
   - [x] 12.1 Replace fixed `RETRY_DELAYS` in `WatcherRegistry._run_watcher` with exponential backoff: `min(5 * 2^(attempt-1), 300)` seconds, up to 5 consecutive attempts, then transition to `FAILED`
     - _Requirements: 10.1_
 
