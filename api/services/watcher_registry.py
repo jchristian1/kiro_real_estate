@@ -316,12 +316,15 @@ class WatcherRegistry:
                 logger.warning(f"No lead sources configured for agent {agent_id}")
             
             # Main monitoring loop
+            cycle = 0
             while True:
                 try:
-                    # Update heartbeat
+                    cycle += 1
+                    # Update heartbeat and emit DEBUG-level heartbeat log entry
                     async with self._lock:
                         if agent_id in self._watchers:
                             self._watchers[agent_id].last_heartbeat = datetime.utcnow()
+                    logger.debug(f"Watcher heartbeat: agent_id={agent_id}, cycle={cycle}")
                     
                     # Refresh sender list each cycle in case lead sources changed
                     lead_sources = db_session.query(LeadSource).all()

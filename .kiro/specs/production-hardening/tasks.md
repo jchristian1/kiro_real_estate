@@ -176,7 +176,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 12.1 Replace fixed `RETRY_DELAYS` in `WatcherRegistry._run_watcher` with exponential backoff: `min(5 * 2^(attempt-1), 300)` seconds, up to 5 consecutive attempts, then transition to `FAILED`
     - _Requirements: 10.1_
 
-  - [~] 12.2 Add `last_heartbeat` field to `WatcherInfo`; emit `DEBUG`-level heartbeat log entry every polling cycle and update `last_heartbeat` timestamp
+  - [x] 12.2 Add `last_heartbeat` field to `WatcherInfo`; emit `DEBUG`-level heartbeat log entry every polling cycle and update `last_heartbeat` timestamp
     - _Requirements: 10.6_
 
   - [~] 12.3 Wrap `watcher.process_unseen_emails()` in `asyncio.wait_for(..., timeout=30)`; on `TimeoutError` log WARNING and continue to next cycle
