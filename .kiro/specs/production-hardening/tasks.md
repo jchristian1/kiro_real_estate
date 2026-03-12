@@ -102,7 +102,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Assert `CredentialRepository` methods reject cross-tenant access
     - _Requirements: 6.1, 6.4_
 
-- [~] 7. Backend 4-layer architecture — dependencies module
+- [x] 7. Backend 4-layer architecture — dependencies module
   - Create `api/dependencies/__init__.py`, `api/dependencies/auth.py`, `api/dependencies/db.py`, `api/dependencies/pagination.py`
   - `auth.py`: implement `get_current_agent`, `get_current_admin`, `require_role(role)` factory
   - `db.py`: move `get_db` session generator here

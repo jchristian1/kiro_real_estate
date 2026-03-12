@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from api.exceptions import AuthenticationException
 from api.models.error_models import ErrorCode
-from api.main import get_db
+from api.dependencies.db import get_db
 from gmail_lead_sync.agent_models import AgentSession, AgentUser
 
 # Must match the cookie name used in agent_auth.py

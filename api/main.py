@@ -200,13 +200,17 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-# Database dependency
+# Database dependency — canonical definition lives in api/dependencies/db.py.
+# Re-exported here so that existing `from api.main import get_db` imports
+# continue to work without modification.
 def get_db() -> Session:
     """
     FastAPI dependency for database sessions.
-    
+
     Yields a database session and ensures it's closed after use.
-    
+    The canonical implementation is in ``api/dependencies/db.py``; this
+    wrapper keeps backward-compatible imports working.
+
     Example:
         @app.get("/api/v1/example")
         def example(db: Session = Depends(get_db)):
