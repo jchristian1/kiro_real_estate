@@ -13,7 +13,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - Consolidate duplicate root-level docs: move `API_DOCUMENTATION.md` + `API_USAGE_GUIDE.md` → `docs/API.md`; remove `BACKEND_API_REVIEW.md`, `BACKEND_COMPLETION_SUMMARY.md`, `FRONTEND_IMPLEMENTATION_PLAN.md`, `TESTING_GUIDE.md`, `TESTING_SUMMARY.md`
   - _Requirements: 15.1, 15.2, 15.3, 15.4_
 
-- [~] 2. Environment variables and secrets management
+- [x] 2. Environment variables and secrets management
   - [x] 2.1 Create root-level `.env.example` with every variable from the design's env table, inline comments, and safe placeholder values
     - Variables: `DATABASE_URL`, `ENCRYPTION_KEY`, `SECRET_KEY`, `API_HOST`, `API_PORT`, `CORS_ORIGINS`, `SESSION_TIMEOUT_HOURS`, `SYNC_INTERVAL_SECONDS`, `REGEX_TIMEOUT_MS`, `ENABLE_AUTO_RESTART`, `ENVIRONMENT`, `LOG_LEVEL`
     - _Requirements: 1.3, 4.2_
