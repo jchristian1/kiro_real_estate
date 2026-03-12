@@ -20,7 +20,7 @@ from sqlalchemy.orm import sessionmaker
 from gmail_lead_sync.models import Base
 from api.models.web_ui_models import User, AuditLog
 from api.main import app
-from api.routes.health import get_db, get_watcher_registry
+from api.routers.public_health import get_db, get_watcher_registry
 
 
 # Test database setup

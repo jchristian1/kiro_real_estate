@@ -111,7 +111,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - _Requirements: 7.4_
 
 - [~] 8. Backend 4-layer architecture — router consolidation
-  - [~] 8.1 Rename/consolidate `api/routes/` into `api/routers/` using the naming convention: `admin_*.py`, `agent_*.py`, `public_*.py`
+  - [-] 8.1 Rename/consolidate `api/routes/` into `api/routers/` using the naming convention: `admin_*.py`, `agent_*.py`, `public_*.py`
     - Remove or merge `api/routes/agents.py` and any other files that overlap with `api/routers/` equivalents
     - _Requirements: 5.8, 7.1, 7.6_
 

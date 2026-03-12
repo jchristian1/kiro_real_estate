@@ -76,7 +76,7 @@ def auth_token(db, admin_user):
 @pytest.fixture
 def client(db, admin_user, auth_token):
     """TestClient with DB and auth overrides applied."""
-    from api.routes import agents, lead_sources, templates, watchers
+    from api.routers import admin_agents as agents, admin_lead_sources as lead_sources, admin_templates as templates, admin_watchers as watchers
 
     def override_db():
         yield db
@@ -88,7 +88,7 @@ def client(db, admin_user, auth_token):
         return EncryptedDBCredentialsStore(db, encryption_key=TEST_ENCRYPTION_KEY)
 
     app.dependency_overrides[get_db] = override_db
-    from api.routes import leads as leads_module
+    from api.routers import admin_leads as leads_module
 
     for module in (agents, lead_sources, templates, watchers, leads_module):
         if hasattr(module, "get_db"):

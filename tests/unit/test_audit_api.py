@@ -77,7 +77,7 @@ def client(db_session):
         return db_session.query(User).first()
     
     # Import the dependency functions from the audit router
-    from api.routes.audit import get_db_dependency, get_current_user_dependency
+    from api.routers.admin_audit import get_db_dependency, get_current_user_dependency
     
     # Override dependencies at the app level
     app.dependency_overrides[get_db_dependency] = override_get_db

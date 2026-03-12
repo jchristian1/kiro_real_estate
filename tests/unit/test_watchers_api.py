@@ -153,7 +153,7 @@ def client(db_session, test_user, auth_session, mock_watcher_registry):
         return mock_watcher_registry
     
     # Import the dependencies
-    from api.routes import watchers
+    from api.routers import admin_watchers as watchers
     from api.main import get_db as main_get_db
     
     # Override dependencies

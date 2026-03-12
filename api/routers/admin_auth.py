@@ -22,7 +22,7 @@ from api.auth import (
     clear_session_cookie,
     get_current_user
 )
-from api.main import get_db
+from api.dependencies.db import get_db
 from api.models.web_ui_models import User
 from api.models.error_models import ErrorCode
 from api.exceptions import AuthenticationException

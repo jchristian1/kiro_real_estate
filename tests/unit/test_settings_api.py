@@ -101,7 +101,7 @@ def client(db_session, test_user, auth_session):
         return test_user
     
     # Import the dependencies from the settings module
-    from api.routes import settings
+    from api.routers import admin_settings as settings
     from api.main import get_db as main_get_db
     
     # Override dependencies

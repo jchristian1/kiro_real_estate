@@ -112,7 +112,7 @@ def client(db_session, test_user, auth_session):
         return EncryptedDBCredentialsStore(db_session, encryption_key=TEST_ENCRYPTION_KEY)
     
     # Import the dependencies from the agents module
-    from api.routes import agents
+    from api.routers import admin_agents as agents
     from api.main import get_db as main_get_db
     
     # Override dependencies

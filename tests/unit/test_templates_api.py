@@ -99,7 +99,7 @@ def client(db_session, test_user, auth_session):
         """Mock authentication - returns test user."""
         return test_user
     
-    from api.routes import templates
+    from api.routers import admin_templates as templates
     from api.main import get_db as main_get_db
     
     app.dependency_overrides[main_get_db] = override_get_db
