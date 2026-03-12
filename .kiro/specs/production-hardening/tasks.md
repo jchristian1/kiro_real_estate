@@ -200,7 +200,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - File: `tests/property/test_prop_watcher_resilience.py`
     - Strategy: inject random exception types into the poll loop body; assert loop continues
 
-  - [~] 12.8 Write property test for heartbeat reflected in health endpoint
+  - [x] 12.8 Write property test for heartbeat reflected in health endpoint
     - **Property 11: Watcher heartbeat reflected in health endpoint**
     - **Validates: Requirements 10.6**
     - File: `tests/property/test_prop_watcher_heartbeat.py`
