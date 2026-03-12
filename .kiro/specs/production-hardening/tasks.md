@@ -166,7 +166,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Unique constraint on `(agent_id, message_id_hash)`
     - _Requirements: 10.4_
 
-  - [~] 11.2 Generate Alembic migration for `processed_messages` table
+  - [x] 11.2 Generate Alembic migration for `processed_messages` table
     - _Requirements: 10.4_
 
   - [~] 11.3 Update `GmailWatcher.is_email_processed` to use `ProcessedMessage` table lookup by `message_id_hash` instead of `Lead.gmail_uid`
