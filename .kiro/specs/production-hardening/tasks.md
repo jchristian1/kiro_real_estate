@@ -68,7 +68,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Return HTTP 200 when healthy, HTTP 503 when database unreachable
     - _Requirements: 1.6, 2.3, 2.5_
 
-  - [~] 4.2 Write unit test for health endpoint response shape
+  - [x] 4.2 Write unit test for health endpoint response shape
     - Assert all required fields present; assert HTTP 200 on healthy DB; assert HTTP 503 on DB error
     - _Requirements: 2.3, 2.5_
 
