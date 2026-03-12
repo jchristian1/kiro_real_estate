@@ -128,7 +128,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 9.1 Audit every route that returns tenant-scoped resources; replace any user-supplied `agent_id` / `tenant_id` path/query params with the value from the authenticated session
     - _Requirements: 6.1, 6.2_
 
-  - [~] 9.2 Add integration tests for cross-tenant access on each resource type (leads, credentials, watchers, lead sources)
+  - [x] 9.2 Add integration tests for cross-tenant access on each resource type (leads, credentials, watchers, lead sources)
     - Assert HTTP 403 returned; assert response body contains no data from the other tenant
     - _Requirements: 6.6_
 
