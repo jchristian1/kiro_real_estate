@@ -160,7 +160,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - **Validates: Requirements 8.7**
     - File: `tests/property/test_prop_event_log_order.py` (new)
 
-- [~] 11. ProcessedMessage model and watcher idempotency
+- [x] 11. ProcessedMessage model and watcher idempotency
   - [x] 11.1 Create `ProcessedMessage` SQLAlchemy model in `api/models/` (or `gmail_lead_sync/models.py`)
     - Fields: `id`, `agent_id`, `message_id_hash` (SHA-256 of Message-ID header), `processed_at`, `lead_id` (nullable FK)
     - Unique constraint on `(agent_id, message_id_hash)`
