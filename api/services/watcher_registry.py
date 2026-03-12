@@ -11,7 +11,8 @@ Requirements: 4.2, 4.3, 4.4, 4.7, 20.1, 20.2
 
 import asyncio
 import logging
-from datetime import datetime
+import os
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, Optional
 from dataclasses import dataclass
@@ -380,23 +381,36 @@ class WatcherRegistry:
         
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"Fatal error in watcher task for agent {agent_id}: {error_msg}", exc_info=True)
-            
+            error_type = type(e).__name__
+            failed_at = datetime.now(timezone.utc)
+
+            # Requirement 10.2: log ERROR with agent_id, error_type, message, and timestamp
+            logger.error(
+                f"Watcher FAILED: agent_id={agent_id}, error_type={error_type}, "
+                f"error={error_msg}, timestamp={failed_at.isoformat()}",
+                exc_info=True,
+            )
+
             async with self._lock:
                 if agent_id in self._watchers:
                     watcher_info = self._watchers[agent_id]
                     watcher_info.status = WatcherStatus.FAILED
                     watcher_info.error = error_msg
                     watcher_info.last_error = error_msg
-                    
-                    if watcher_info.retry_count < self.MAX_RETRIES:
-                        # Calculate exponential backoff: min(5 * 2^(attempt-1), 300) seconds
-                        retry_delay = min(5 * (2 ** watcher_info.retry_count), 300)
-                        watcher_info.retry_count += 1
-                        logger.info(f"Scheduling auto-restart for agent {agent_id} (retry {watcher_info.retry_count}/{self.MAX_RETRIES}) in {retry_delay}s")
-                        asyncio.create_task(self._auto_restart_watcher(agent_id, retry_delay))
+
+                    # Requirement 10.3: auto-restart after 60s cooldown only when ENABLE_AUTO_RESTART=true
+                    enable_auto_restart = os.getenv("ENABLE_AUTO_RESTART", "true").lower() in ("true", "1", "yes")
+                    if enable_auto_restart:
+                        logger.info(
+                            f"Scheduling auto-restart for agent {agent_id} after 60s cooldown "
+                            f"(retry {watcher_info.retry_count + 1}/{self.MAX_RETRIES})"
+                        )
+                        asyncio.create_task(self._auto_restart_watcher(agent_id, delay=60))
                     else:
-                        logger.error(f"Watcher for agent {agent_id} failed permanently after {self.MAX_RETRIES} retries.")
+                        logger.info(
+                            f"Auto-restart disabled (ENABLE_AUTO_RESTART is not true); "
+                            f"watcher for agent {agent_id} remains FAILED"
+                        )
         
         finally:
             if watcher:
@@ -414,44 +428,57 @@ class WatcherRegistry:
     
     async def _auto_restart_watcher(self, agent_id: str, delay: int) -> None:
         """
-        Automatically restart a failed watcher after a delay.
-        
-        This method is called when a watcher fails and has retries remaining.
-        It waits for the specified delay, then attempts to restart the watcher.
-        
+        Automatically restart a failed watcher after a cooldown delay.
+
+        Waits for ``delay`` seconds, then restarts the watcher unless it was
+        manually stopped or has exceeded MAX_RETRIES.
+
         Args:
             agent_id: Unique identifier for the agent
-            delay: Delay in seconds before restarting
-            
-        Requirements: 20.4, 20.5
+            delay: Cooldown delay in seconds before restarting
+
+        Requirements: 10.3
         """
         try:
             logger.info(f"Waiting {delay} seconds before restarting watcher for agent {agent_id}")
             await asyncio.sleep(delay)
-            
+
             async with self._lock:
                 if agent_id not in self._watchers:
                     logger.warning(f"Watcher for agent {agent_id} no longer exists, skipping restart")
                     return
-                
+
                 watcher_info = self._watchers[agent_id]
-                
+
                 # Check if watcher was manually stopped
                 if watcher_info.status == WatcherStatus.STOPPED:
                     logger.info(f"Watcher for agent {agent_id} was manually stopped, skipping restart")
                     return
-                
+
+                # Enforce max retries
+                if watcher_info.retry_count >= self.MAX_RETRIES:
+                    logger.error(
+                        f"Watcher for agent {agent_id} has exceeded MAX_RETRIES ({self.MAX_RETRIES}); "
+                        f"not restarting"
+                    )
+                    return
+
+                watcher_info.retry_count += 1
+
                 # Update status to starting
                 watcher_info.status = WatcherStatus.STARTING
                 watcher_info.error = None
                 watcher_info.started_at = datetime.utcnow()
                 watcher_info.sync_event = asyncio.Event()
-                
+
                 # Create new background task
                 task = asyncio.create_task(self._run_watcher(agent_id))
                 watcher_info.task = task
-                
-                logger.info(f"Auto-restarting watcher for agent {agent_id} (attempt {watcher_info.retry_count})")
-        
+
+                logger.info(
+                    f"Auto-restarting watcher for agent {agent_id} "
+                    f"(attempt {watcher_info.retry_count}/{self.MAX_RETRIES})"
+                )
+
         except Exception as e:
             logger.error(f"Error during auto-restart for agent {agent_id}: {e}", exc_info=True)
