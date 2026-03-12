@@ -37,7 +37,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 2.5 Create `scripts/generate_secrets.sh` that writes cryptographically secure `ENCRYPTION_KEY` and `SECRET_KEY` to `.env`
     - _Requirements: 4.5_
 
-- [~] 3. Makefile and Docker Compose one-command startup
+- [x] 3. Makefile and Docker Compose one-command startup
   - [x] 3.1 Create root-level `Makefile` with targets: `up`, `down`, `migrate`, `test`, `lint`, `typecheck`, `build`, `generate-secrets`
     - `up`: `docker compose up --build -d`
     - `down`: `docker compose down`
