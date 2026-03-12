@@ -72,7 +72,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Assert all required fields present; assert HTTP 200 on healthy DB; assert HTTP 503 on DB error
     - _Requirements: 2.3, 2.5_
 
-- [~] 5. Unified error response schema
+- [x] 5. Unified error response schema
   - [x] 5.1 Verify `api/models/error_models.py` defines `ErrorResponse` with fields `error`, `message`, `code`, `details`; create or update if missing
     - _Requirements: 5.1_
 
