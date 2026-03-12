@@ -132,7 +132,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Assert HTTP 403 returned; assert response body contains no data from the other tenant
     - _Requirements: 6.6_
 
-  - [~] 9.3 Verify property test for tenant isolation covers new repository layer
+  - [x] 9.3 Verify property test for tenant isolation covers new repository layer
     - **Property 4: Tenant isolation — cross-tenant access returns 403**
     - **Validates: Requirements 6.1, 6.2, 6.3, 6.4**
     - File: `tests/property/test_prop_tenant_isolation.py` (already exists — extend to cover repository-layer paths)
