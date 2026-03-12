@@ -332,8 +332,17 @@ class WatcherRegistry:
                     
                     # Process unseen emails
                     if sender_list:
-                        watcher.process_unseen_emails(sender_list)
-                        
+                        try:
+                            await asyncio.wait_for(
+                                asyncio.to_thread(watcher.process_unseen_emails, sender_list),
+                                timeout=30,
+                            )
+                        except asyncio.TimeoutError:
+                            logger.warning(
+                                f"process_unseen_emails timed out after 30s for agent_id={agent_id}; skipping cycle"
+                            )
+                            continue
+
                         # Update last sync timestamp
                         async with self._lock:
                             if agent_id in self._watchers:
@@ -356,7 +365,11 @@ class WatcherRegistry:
                     raise
                 
                 except Exception as e:
-                    logger.error(f"Error in watcher loop for agent {agent_id}: {e}", exc_info=True)
+                    logger.error(
+                        f"Unhandled error in watcher polling loop: agent_id={agent_id}, "
+                        f"error_type={type(e).__name__}, error={e}",
+                        exc_info=True,
+                    )
                     await asyncio.sleep(60)
         
         except asyncio.CancelledError:

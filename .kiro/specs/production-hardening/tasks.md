@@ -179,7 +179,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 12.2 Add `last_heartbeat` field to `WatcherInfo`; emit `DEBUG`-level heartbeat log entry every polling cycle and update `last_heartbeat` timestamp
     - _Requirements: 10.6_
 
-  - [~] 12.3 Wrap `watcher.process_unseen_emails()` in `asyncio.wait_for(..., timeout=30)`; on `TimeoutError` log WARNING and continue to next cycle
+  - [x] 12.3 Wrap `watcher.process_unseen_emails()` in `asyncio.wait_for(..., timeout=30)`; on `TimeoutError` log WARNING and continue to next cycle
     - _Requirements: 10.5_
 
   - [~] 12.4 Ensure the `except Exception` in the polling loop logs `agent_id`, `error_type`, and full stack trace (`exc_info=True`) at ERROR level and continues the loop
