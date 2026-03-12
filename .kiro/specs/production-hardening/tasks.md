@@ -138,7 +138,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - File: `tests/property/test_prop_tenant_isolation.py` (already exists — extend to cover repository-layer paths)
 
 - [~] 10. Lead state machine consolidation
-  - [~] 10.1 Create `api/services/lead_state_machine.py` that re-exports (or moves) the canonical `LeadStateMachine` and `LeadState` enum from `gmail_lead_sync/preapproval/state_machine.py`
+  - [x] 10.1 Create `api/services/lead_state_machine.py` that re-exports (or moves) the canonical `LeadStateMachine` and `LeadState` enum from `gmail_lead_sync/preapproval/state_machine.py`
     - Ensure all other modules import `LeadState` and `LeadStateMachine` from the new canonical path
     - _Requirements: 8.1, 8.2_
 

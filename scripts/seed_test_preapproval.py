@@ -19,6 +19,7 @@ from datetime import datetime, timezone, timedelta
 sys.path.insert(0, ".")
 
 from api.main import SessionLocal
+from api.services.lead_state_machine import LeadState
 from gmail_lead_sync.preapproval.models_preapproval import (
     LeadStateTransition,
     FormSubmission,

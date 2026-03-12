@@ -18,18 +18,17 @@ from sqlalchemy.orm import Session
 
 from gmail_lead_sync.models import Credentials, Lead
 from gmail_lead_sync.preapproval.invitation_service import FormInvitationService
+from api.services.lead_state_machine import LeadState, LeadStateMachine
 from gmail_lead_sync.preapproval.models_preapproval import (
     Channel,
     FormTemplate,
     FormVersion,
     IntentType,
     LeadInteraction,
-    LeadState,
     MessageTemplate,
     MessageTemplateKey,
     MessageTemplateVersion,
 )
-from gmail_lead_sync.preapproval.state_machine import LeadStateMachine
 from gmail_lead_sync.preapproval.template_engine import TemplateRenderEngine
 
 logger = logging.getLogger(__name__)
