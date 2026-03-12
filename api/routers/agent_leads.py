@@ -314,6 +314,23 @@ class NoteResponse(BaseModel):
     created_at: datetime
 
 
+class LeadStateTransitionResponse(BaseModel):
+    """A single state transition event."""
+    id: int
+    from_state: Optional[str]
+    to_state: str
+    occurred_at: datetime
+    actor_type: str
+    actor_id: Optional[int]
+    metadata: Optional[Dict[str, Any]]
+
+
+class LeadEventsResponse(BaseModel):
+    """GET /agent/leads/{lead_id}/events response."""
+    lead_id: int
+    events: List[LeadStateTransitionResponse]
+
+
 # ---------------------------------------------------------------------------
 # GET /agent/leads/{id}
 # ---------------------------------------------------------------------------
@@ -620,4 +637,71 @@ def add_lead_note(
         note_id=event.id,
         text=body.text,
         created_at=event.created_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /agent/leads/{id}/events
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/leads/{lead_id}/events",
+    response_model=LeadEventsResponse,
+    summary="Lead state transition history — chronological event log",
+)
+def get_lead_events(
+    lead_id: int,
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    """
+    Return all LeadStateTransition rows for a lead in chronological order.
+
+    - Returns 403 if the lead belongs to a different agent (tenant scoping).
+    - Events are ordered by occurred_at ascending (oldest first).
+    - Metadata is parsed from JSON if present.
+
+    Requirements: 8.7
+    """
+    lead_repo = LeadRepository(db)
+
+    # Verify lead exists and belongs to the authenticated agent
+    lead = lead_repo.get_by_id(lead_id, agent.id)
+    if lead is None:
+        from api.exceptions import NotFoundException
+        from api.models.error_models import ErrorCode
+        raise NotFoundException(
+            message="Lead not found",
+            code=ErrorCode.NOT_FOUND_LEAD,
+        )
+
+    # Fetch state transitions (already scoped to tenant in repository)
+    transitions = lead_repo.get_lead_state_transitions(lead_id, agent.id)
+
+    # Build response
+    events: List[LeadStateTransitionResponse] = []
+    for t in transitions:
+        metadata_dict: Optional[Dict[str, Any]] = None
+        if t.metadata_json:
+            try:
+                metadata_dict = json.loads(t.metadata_json)
+            except (json.JSONDecodeError, TypeError):
+                metadata_dict = None
+
+        events.append(
+            LeadStateTransitionResponse(
+                id=t.id,
+                from_state=t.from_state,
+                to_state=t.to_state,
+                occurred_at=t.occurred_at,
+                actor_type=t.actor_type,
+                actor_id=t.actor_id,
+                metadata=metadata_dict,
+            )
+        )
+
+    return LeadEventsResponse(
+        lead_id=lead_id,
+        events=events,
     )

@@ -208,6 +208,29 @@ class LeadRepository:
             query = query.offset(skip).limit(limit)
         return query.all()
 
+    def get_lead_state_transitions(self, lead_id: int, tenant_id: int) -> list:
+        """Return all LeadStateTransition rows for a lead, scoped to tenant.
+
+        Returns transitions ordered by occurred_at ascending (chronological order).
+        Returns empty list if the lead doesn't exist or belongs to a different tenant.
+
+        Requirements: 8.7
+        """
+        from gmail_lead_sync.preapproval.models_preapproval import LeadStateTransition
+
+        # First verify the lead belongs to the tenant
+        lead = self.get_by_id(lead_id, tenant_id)
+        if lead is None:
+            return []
+
+        # Fetch transitions ordered chronologically
+        return (
+            self._db.query(LeadStateTransition)
+            .filter(LeadStateTransition.lead_id == lead_id)
+            .order_by(LeadStateTransition.occurred_at.asc())
+            .all()
+        )
+
 
 # ---------------------------------------------------------------------------
 # Lead event repository (added for router refactoring — task 8.2)

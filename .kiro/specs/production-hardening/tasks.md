@@ -145,7 +145,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 10.2 Add idempotency check to `LeadStateMachine.transition()`: before writing a `LeadStateTransition` row, check for an existing row with the same `(lead_id, from_state, to_state)` within the last 5 seconds; return existing row if found
     - _Requirements: 8.5, 8.6_
 
-  - [~] 10.3 Create `GET /api/v1/agent/leads/{lead_id}/events` endpoint in `api/routers/agent_leads.py`
+  - [x] 10.3 Create `GET /api/v1/agent/leads/{lead_id}/events` endpoint in `api/routers/agent_leads.py`
     - Returns `LeadStateTransition` rows for the lead ordered by `occurred_at` ascending
     - Scoped to authenticated agent's tenant
     - _Requirements: 8.7_

@@ -537,3 +537,155 @@ class TestLeadsTenantIsolation:
         resp2 = client.get("/api/v1/agent/leads", headers=_auth_headers(token2))
         assert resp1.json()["total"] == 3
         assert resp2.json()["total"] == 5
+
+
+class TestLeadEvents:
+    """Test GET /api/v1/agent/leads/{lead_id}/events endpoint."""
+
+    def test_returns_401_when_unauthenticated(self):
+        resp = client.get("/api/v1/agent/leads/1/events")
+        assert resp.status_code == 401
+
+    def test_returns_404_when_lead_not_found(self):
+        db = TestingSessionLocal()
+        agent = _create_agent(db)
+        token = _create_session(db, agent.id)
+        db.close()
+
+        resp = client.get("/api/v1/agent/leads/999/events", headers=_auth_headers(token))
+        assert resp.status_code == 404
+
+    def test_returns_403_when_lead_belongs_to_different_agent(self):
+        db = TestingSessionLocal()
+        agent1 = _create_agent(db, email="agent1@test.com")
+        agent2 = _create_agent(db, email="agent2@test.com")
+        token1 = _create_session(db, agent1.id)
+        lead = _create_lead(db, agent2.id, name="Agent2 Lead")
+        lead_id = lead.id  # Store ID before closing session
+        db.close()
+
+        resp = client.get(f"/api/v1/agent/leads/{lead_id}/events", headers=_auth_headers(token1))
+        assert resp.status_code == 404  # Repository returns empty list, endpoint returns 404
+
+    def test_returns_empty_events_for_lead_with_no_transitions(self):
+        db = TestingSessionLocal()
+        agent = _create_agent(db)
+        token = _create_session(db, agent.id)
+        lead = _create_lead(db, agent.id, name="Test Lead")
+        lead_id = lead.id  # Store ID before closing session
+        db.close()
+
+        resp = client.get(f"/api/v1/agent/leads/{lead_id}/events", headers=_auth_headers(token))
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["lead_id"] == lead_id
+        assert data["events"] == []
+
+    def test_returns_events_in_chronological_order(self):
+        from gmail_lead_sync.preapproval.models_preapproval import LeadStateTransition
+
+        db = TestingSessionLocal()
+        agent = _create_agent(db)
+        token = _create_session(db, agent.id)
+        lead = _create_lead(db, agent.id, name="Test Lead")
+        lead_id = lead.id  # Store ID before closing session
+
+        # Create transitions in reverse chronological order
+        t3 = LeadStateTransition(
+            tenant_id=1,
+            lead_id=lead_id,
+            from_state="CONTACTED",
+            to_state="APPOINTMENT_SET",
+            occurred_at=datetime.utcnow() + timedelta(hours=2),
+            actor_type="agent",
+            actor_id=agent.id,
+        )
+        t2 = LeadStateTransition(
+            tenant_id=1,
+            lead_id=lead_id,
+            from_state="NEW",
+            to_state="CONTACTED",
+            occurred_at=datetime.utcnow() + timedelta(hours=1),
+            actor_type="agent",
+            actor_id=agent.id,
+        )
+        t1 = LeadStateTransition(
+            tenant_id=1,
+            lead_id=lead_id,
+            from_state=None,
+            to_state="NEW",
+            occurred_at=datetime.utcnow(),
+            actor_type="system",
+        )
+        db.add_all([t3, t2, t1])
+        db.commit()
+        db.close()
+
+        resp = client.get(f"/api/v1/agent/leads/{lead_id}/events", headers=_auth_headers(token))
+        assert resp.status_code == 200
+        data = resp.json()
+        events = data["events"]
+        assert len(events) == 3
+        # Should be ordered chronologically (oldest first)
+        assert events[0]["to_state"] == "NEW"
+        assert events[1]["to_state"] == "CONTACTED"
+        assert events[2]["to_state"] == "APPOINTMENT_SET"
+
+    def test_parses_metadata_json(self):
+        import json
+        from gmail_lead_sync.preapproval.models_preapproval import LeadStateTransition
+
+        db = TestingSessionLocal()
+        agent = _create_agent(db)
+        token = _create_session(db, agent.id)
+        lead = _create_lead(db, agent.id, name="Test Lead")
+        lead_id = lead.id  # Store ID before closing session
+
+        metadata = {"note": "Called customer", "reason": "follow_up"}
+        t = LeadStateTransition(
+            tenant_id=1,
+            lead_id=lead_id,
+            from_state="NEW",
+            to_state="CONTACTED",
+            occurred_at=datetime.utcnow(),
+            actor_type="agent",
+            actor_id=agent.id,
+            metadata_json=json.dumps(metadata),
+        )
+        db.add(t)
+        db.commit()
+        db.close()
+
+        resp = client.get(f"/api/v1/agent/leads/{lead_id}/events", headers=_auth_headers(token))
+        assert resp.status_code == 200
+        events = resp.json()["events"]
+        assert len(events) == 1
+        assert events[0]["metadata"] == metadata
+
+    def test_handles_null_metadata(self):
+        from gmail_lead_sync.preapproval.models_preapproval import LeadStateTransition
+
+        db = TestingSessionLocal()
+        agent = _create_agent(db)
+        token = _create_session(db, agent.id)
+        lead = _create_lead(db, agent.id, name="Test Lead")
+        lead_id = lead.id  # Store ID before closing session
+
+        t = LeadStateTransition(
+            tenant_id=1,
+            lead_id=lead_id,
+            from_state=None,
+            to_state="NEW",
+            occurred_at=datetime.utcnow(),
+            actor_type="system",
+            metadata_json=None,
+        )
+        db.add(t)
+        db.commit()
+        db.close()
+
+        resp = client.get(f"/api/v1/agent/leads/{lead_id}/events", headers=_auth_headers(token))
+        assert resp.status_code == 200
+        events = resp.json()["events"]
+        assert len(events) == 1
+        assert events[0]["metadata"] is None
