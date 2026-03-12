@@ -49,7 +49,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - `generate-secrets`: `scripts/generate_secrets.sh`
     - _Requirements: 1.1, 1.5, 3.1, 3.2, 3.3_
 
-  - [~] 3.2 Create `docker-entrypoint.sh` with three-step startup sequence
+  - [x] 3.2 Create `docker-entrypoint.sh` with three-step startup sequence
     - Step 1: validate `ENCRYPTION_KEY` and `SECRET_KEY` (length ≥ 32); exit 1 with descriptive message on failure
     - Step 2: run `alembic upgrade head`; exit 1 with full stack trace on migration failure
     - Step 3: exec `uvicorn api.main:app`
