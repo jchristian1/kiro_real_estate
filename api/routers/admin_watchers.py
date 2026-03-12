@@ -28,7 +28,6 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
-from gmail_lead_sync.models import Credentials
 from api.models.web_ui_models import User
 from api.models.watcher_models import (
     WatcherStartResponse,
@@ -43,6 +42,7 @@ from api.exceptions import (
     ConflictException,
     ValidationException
 )
+from api.repositories import CredentialRepository
 from api.services.audit_log import record_audit_log
 
 
@@ -114,7 +114,8 @@ async def start_watcher(
         - 4.8: Record all watcher start operations
     """
     # Verify agent exists
-    credentials = db.query(Credentials).filter(Credentials.agent_id == agent_id).first()
+    cred_repo = CredentialRepository(db)
+    credentials = cred_repo.get_by_agent_id(agent_id)
     if not credentials:
         raise NotFoundException(
             message=f"Agent '{agent_id}' not found",
@@ -181,7 +182,8 @@ async def stop_watcher(
         - 4.8: Record all watcher stop operations
     """
     # Verify agent exists
-    credentials = db.query(Credentials).filter(Credentials.agent_id == agent_id).first()
+    cred_repo = CredentialRepository(db)
+    credentials = cred_repo.get_by_agent_id(agent_id)
     if not credentials:
         raise NotFoundException(
             message=f"Agent '{agent_id}' not found",
@@ -246,7 +248,8 @@ async def trigger_sync(
         - 4.8: Record all watcher sync operations
     """
     # Verify agent exists
-    credentials = db.query(Credentials).filter(Credentials.agent_id == agent_id).first()
+    cred_repo = CredentialRepository(db)
+    credentials = cred_repo.get_by_agent_id(agent_id)
     if not credentials:
         raise NotFoundException(
             message=f"Agent '{agent_id}' not found",

@@ -96,3 +96,39 @@ class WatcherRepository:
         self._db.commit()
         self._db.refresh(prefs)
         return prefs
+
+
+# ---------------------------------------------------------------------------
+# Preferences repository (added for router refactoring — task 8.2)
+# ---------------------------------------------------------------------------
+
+
+class AgentPreferencesRepository:
+    """Data-access layer for AgentPreferences records."""
+
+    def __init__(self, db: Session) -> None:
+        self._db = db
+
+    def get_or_create(self, agent_id: int) -> AgentPreferences:
+        """Return existing preferences or create a new record for *agent_id*."""
+        from datetime import datetime
+
+        prefs = (
+            self._db.query(AgentPreferences)
+            .filter(AgentPreferences.agent_user_id == agent_id)
+            .first()
+        )
+        if prefs is None:
+            prefs = AgentPreferences(
+                agent_user_id=agent_id,
+                created_at=datetime.utcnow(),
+            )
+            self._db.add(prefs)
+            self._db.flush()
+        return prefs
+
+    def save(self, prefs: AgentPreferences) -> AgentPreferences:
+        """Commit pending changes to *prefs* and return the refreshed record."""
+        self._db.commit()
+        self._db.refresh(prefs)
+        return prefs

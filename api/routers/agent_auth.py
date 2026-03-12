@@ -17,10 +17,10 @@ from typing import Optional
 import bcrypt
 from fastapi import APIRouter, Cookie, Depends, Response, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from api.main import get_db
+from api.repositories import AgentRepository, AgentSessionRepository
 from gmail_lead_sync.agent_models import AgentUser, AgentSession
 
 # Session cookie configuration (mirrors design.md spec)
@@ -95,19 +95,10 @@ def _hash_password(password: str) -> str:
 
 def _create_agent_session(db: Session, agent_user_id: int) -> AgentSession:
     """Create a new 64-byte secure session for an agent."""
-    token = secrets.token_hex(AGENT_SESSION_TOKEN_BYTES)  # 128-char hex = 64 bytes
-    now = datetime.utcnow()
-    session = AgentSession(
-        id=token,
-        agent_user_id=agent_user_id,
-        created_at=now,
-        expires_at=now + timedelta(days=AGENT_SESSION_EXPIRY_DAYS),
-        last_accessed=now,
-    )
-    db.add(session)
-    db.commit()
-    db.refresh(session)
-    return session
+    token = secrets.token_hex(AGENT_SESSION_TOKEN_BYTES)
+    expires_at = datetime.utcnow() + timedelta(days=AGENT_SESSION_EXPIRY_DAYS)
+    session_repo = AgentSessionRepository(db)
+    return session_repo.create_session(agent_user_id, token, expires_at)
 
 
 def _set_agent_session_cookie(response: Response, token: str) -> None:
@@ -153,29 +144,19 @@ async def signup(
     # Hash password
     password_hash = _hash_password(body.password)
 
-    # Create agent user
-    agent_user = AgentUser(
+    # Create agent user via repository (handles duplicate email check)
+    agent_repo = AgentRepository(db)
+    agent_user, created = agent_repo.create_with_duplicate_check(
         email=body.email,
         password_hash=password_hash,
         full_name=body.full_name or "",
-        onboarding_step=0,
-        onboarding_completed=False,
-        created_at=datetime.utcnow(),
     )
-    db.add(agent_user)
-
-    try:
-        db.flush()  # Detect unique constraint violation before commit
-    except IntegrityError:
-        db.rollback()
+    if not created:
         return Response(
             content='{"error": "EMAIL_ALREADY_EXISTS"}',
             status_code=status.HTTP_409_CONFLICT,
             media_type="application/json",
         )
-
-    db.commit()
-    db.refresh(agent_user)
 
     # Auto-login: create session and set cookie
     session = _create_agent_session(db, agent_user.id)
@@ -196,13 +177,8 @@ def _get_session(db: Session, token: Optional[str]) -> Optional[AgentSession]:
     """Return the AgentSession for *token* if it exists and has not expired."""
     if not token:
         return None
-    now = datetime.utcnow()
-    session = (
-        db.query(AgentSession)
-        .filter(AgentSession.id == token, AgentSession.expires_at > now)
-        .first()
-    )
-    return session
+    session_repo = AgentSessionRepository(db)
+    return session_repo.get_valid_session(token)
 
 
 # ---------------------------------------------------------------------------
@@ -231,7 +207,8 @@ async def login(
     Requirements: 2.1, 2.2, 2.6
     """
     # Look up agent by email
-    agent_user = db.query(AgentUser).filter(AgentUser.email == body.email).first()
+    agent_repo = AgentRepository(db)
+    agent_user = agent_repo.get_by_email(body.email)
 
     # Verify password (constant-time via bcrypt)
     if agent_user is None or not bcrypt.checkpw(
@@ -276,8 +253,8 @@ async def logout(
     Requirements: 2.3
     """
     if agent_session:
-        db.query(AgentSession).filter(AgentSession.id == agent_session).delete()
-        db.commit()
+        session_repo = AgentSessionRepository(db)
+        session_repo.delete_session(agent_session)
 
     response.delete_cookie(
         key=AGENT_SESSION_COOKIE_NAME,
@@ -320,7 +297,7 @@ async def me(
             code=ErrorCode.AUTH_SESSION_EXPIRED,
         )
 
-    agent_user = db.query(AgentUser).filter(AgentUser.id == session.agent_user_id).first()
+    agent_user = AgentSessionRepository(db).get_agent_by_id(session.agent_user_id)
     if agent_user is None:
         from api.exceptions import AuthenticationException
         from api.models.error_models import ErrorCode
@@ -328,7 +305,6 @@ async def me(
             message="Invalid or expired session",
             code=ErrorCode.AUTH_SESSION_EXPIRED,
         )
-
     return MeResponse(
         agent_user_id=agent_user.id,
         email=agent_user.email,

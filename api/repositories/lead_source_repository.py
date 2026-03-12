@@ -127,3 +127,78 @@ class LeadSourceRepository:
         self._db.delete(source)
         self._db.commit()
         return True
+
+
+# ---------------------------------------------------------------------------
+# Regex Profile Version Repository
+# ---------------------------------------------------------------------------
+
+
+class RegexProfileVersionRepository:
+    """Data-access layer for RegexProfileVersion records."""
+
+    def __init__(self, db: Session) -> None:
+        self._db = db
+
+    def get_latest_for_source(self, lead_source_id: int):
+        """Return the latest RegexProfileVersion for *lead_source_id*, or None."""
+        from api.models.web_ui_models import RegexProfileVersion
+        return (
+            self._db.query(RegexProfileVersion)
+            .filter(RegexProfileVersion.lead_source_id == lead_source_id)
+            .order_by(RegexProfileVersion.version.desc())
+            .first()
+        )
+
+    def list_for_source(self, lead_source_id: int) -> list:
+        """Return all RegexProfileVersion records for *lead_source_id* ordered by version desc."""
+        from api.models.web_ui_models import RegexProfileVersion
+        return (
+            self._db.query(RegexProfileVersion)
+            .filter(RegexProfileVersion.lead_source_id == lead_source_id)
+            .order_by(RegexProfileVersion.version.desc())
+            .all()
+        )
+
+    def get_by_version(self, lead_source_id: int, version: int):
+        """Return the RegexProfileVersion for *lead_source_id* at *version*, or None."""
+        from api.models.web_ui_models import RegexProfileVersion
+        return (
+            self._db.query(RegexProfileVersion)
+            .filter(
+                RegexProfileVersion.lead_source_id == lead_source_id,
+                RegexProfileVersion.version == version,
+            )
+            .first()
+        )
+
+    def create(self, lead_source, user_id: int) -> int:
+        """Create a new version record for *lead_source*. Returns the new version number."""
+        from api.models.web_ui_models import RegexProfileVersion
+        latest = self.get_latest_for_source(lead_source.id)
+        new_version = (latest.version + 1) if latest else 1
+        version_record = RegexProfileVersion(
+            lead_source_id=lead_source.id,
+            version=new_version,
+            name_regex=lead_source.name_regex,
+            phone_regex=lead_source.phone_regex,
+            identifier_snippet=lead_source.identifier_snippet,
+            created_by=user_id,
+        )
+        self._db.add(version_record)
+        self._db.commit()
+        return new_version
+
+
+class TemplateExistenceRepository:
+    """Minimal repository for checking Template existence (used by lead source router)."""
+
+    def __init__(self, db: Session) -> None:
+        self._db = db
+
+    def exists(self, template_id: int) -> bool:
+        """Return True if a Template with *template_id* exists."""
+        from gmail_lead_sync.models import Template
+        return (
+            self._db.query(Template).filter(Template.id == template_id).first()
+        ) is not None

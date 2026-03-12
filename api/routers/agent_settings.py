@@ -25,6 +25,14 @@ from sqlalchemy.orm import Session
 
 from api.dependencies.agent_auth import get_current_agent
 from api.main import get_db
+from api.repositories.template_repository import (
+    AutomationConfigRepository,
+    AutomationConfigUpdate,
+    TemplateCreate,
+    TemplateRepository,
+    TemplateUpdate,
+)
+from api.repositories.watcher_repository import AgentPreferencesRepository
 from api.services.template_renderer import render_template_str
 from gmail_lead_sync.agent_models import AgentPreferences, AgentTemplate, AgentUser, BuyerAutomationConfig
 
@@ -187,11 +195,8 @@ def _validate_type(template_type: str) -> str:
 
 def _deactivate_type(agent_id: int, tmpl_type: str, db: Session) -> None:
     """Set is_active=False for all templates of this type for this agent."""
-    db.query(AgentTemplate).filter(
-        AgentTemplate.agent_user_id == agent_id,
-        AgentTemplate.template_type == tmpl_type,
-        AgentTemplate.is_active == True,
-    ).update({"is_active": False})
+    repo = TemplateRepository(db)
+    repo.deactivate_type(agent_id, tmpl_type)
 
 
 # ---------------------------------------------------------------------------
@@ -209,12 +214,7 @@ def list_templates(
     For each pipeline type, if no custom templates exist, inject the platform default
     as a virtual entry (id=None, is_custom=False, is_active=True).
     """
-    rows: list[AgentTemplate] = (
-        db.query(AgentTemplate)
-        .filter(AgentTemplate.agent_user_id == agent.id)
-        .order_by(AgentTemplate.template_type, AgentTemplate.created_at)
-        .all()
-    )
+    rows: list[AgentTemplate] = TemplateRepository(db).list_for_agent(agent.id)
 
     # Group by type
     by_type: dict[str, list[AgentTemplate]] = {t: [] for t in VALID_TEMPLATE_TYPES}
@@ -271,26 +271,22 @@ def create_template(
     agent: AgentUser = Depends(get_current_agent),
 ):
     tmpl_type = _validate_type(body.template_type)
-    now = datetime.utcnow()
 
     if body.activate:
         _deactivate_type(agent.id, tmpl_type, db)
 
-    new_tmpl = AgentTemplate(
-        agent_user_id=agent.id,
-        name=body.name,
-        template_type=tmpl_type,
-        subject=body.subject,
-        body=body.body,
-        tone=body.tone or "PROFESSIONAL",
-        is_active=body.activate,
-        version=1,
-        created_at=now,
-        updated_at=now,
+    repo = TemplateRepository(db)
+    new_tmpl = repo.create(
+        agent.id,
+        TemplateCreate(
+            template_type=tmpl_type,
+            name=body.name,
+            subject=body.subject,
+            body=body.body,
+            tone=body.tone or "PROFESSIONAL",
+            is_active=body.activate,
+        ),
     )
-    db.add(new_tmpl)
-    db.commit()
-    db.refresh(new_tmpl)
     return TemplateCreateResponse(ok=True, template_id=new_tmpl.id, version=new_tmpl.version)
 
 
@@ -306,25 +302,14 @@ def update_template(
     db: Session = Depends(get_db),
     agent: AgentUser = Depends(get_current_agent),
 ):
-    row: Optional[AgentTemplate] = db.query(AgentTemplate).filter(
-        AgentTemplate.id == template_id,
-        AgentTemplate.agent_user_id == agent.id,
-    ).first()
+    repo = TemplateRepository(db)
+    row = repo.update(
+        template_id,
+        agent.id,
+        TemplateUpdate(name=body.name, subject=body.subject, body=body.body, tone=body.tone),
+    )
     if row is None:
         raise HTTPException(status_code=404, detail="Template not found")
-
-    now = datetime.utcnow()
-    if body.name is not None:
-        row.name = body.name
-    if body.subject is not None:
-        row.subject = body.subject
-    if body.body is not None:
-        row.body = body.body
-    if body.tone is not None:
-        row.tone = body.tone
-    row.version += 1
-    row.updated_at = now
-    db.commit()
     return TemplateUpdateResponse(ok=True, version=row.version)
 
 
@@ -339,16 +324,10 @@ def activate_template(
     db: Session = Depends(get_db),
     agent: AgentUser = Depends(get_current_agent),
 ):
-    row: Optional[AgentTemplate] = db.query(AgentTemplate).filter(
-        AgentTemplate.id == template_id,
-        AgentTemplate.agent_user_id == agent.id,
-    ).first()
+    repo = TemplateRepository(db)
+    row = repo.activate(template_id, agent.id)
     if row is None:
         raise HTTPException(status_code=404, detail="Template not found")
-
-    _deactivate_type(agent.id, row.template_type, db)
-    row.is_active = True
-    db.commit()
     return ActivateResponse(ok=True)
 
 
@@ -363,29 +342,19 @@ def delete_template_by_id(
     db: Session = Depends(get_db),
     agent: AgentUser = Depends(get_current_agent),
 ):
-    row: Optional[AgentTemplate] = db.query(AgentTemplate).filter(
-        AgentTemplate.id == template_id,
-        AgentTemplate.agent_user_id == agent.id,
-    ).first()
+    repo = TemplateRepository(db)
+    row = repo.delete(template_id, agent.id)
     if row is None:
         raise HTTPException(status_code=404, detail="Template not found")
 
     was_active = row.is_active
     tmpl_type = row.template_type
-    db.delete(row)
-    db.commit()
 
     # If deleted template was active, activate the most recent remaining one
     if was_active:
-        remaining = (
-            db.query(AgentTemplate)
-            .filter(AgentTemplate.agent_user_id == agent.id, AgentTemplate.template_type == tmpl_type)
-            .order_by(AgentTemplate.created_at.desc())
-            .first()
-        )
+        remaining = repo.get_most_recent_for_type(agent.id, tmpl_type)
         if remaining:
-            remaining.is_active = True
-            db.commit()
+            repo.activate(remaining.id, agent.id)
 
     return DeleteResponse(ok=True, reverted_to="platform_default" if was_active else "n/a")
 
@@ -402,11 +371,7 @@ def delete_template_by_type(
     agent: AgentUser = Depends(get_current_agent),
 ):
     tmpl_type = _validate_type(template_type)
-    db.query(AgentTemplate).filter(
-        AgentTemplate.agent_user_id == agent.id,
-        AgentTemplate.template_type == tmpl_type,
-    ).delete()
-    db.commit()
+    TemplateRepository(db).delete_by_type(agent.id, tmpl_type)
     return DeleteResponse(ok=True, reverted_to="platform_default")
 
 
@@ -452,46 +417,32 @@ def save_template_by_type(
 ):
     """Legacy upsert — used by onboarding step. Creates or updates the active template for a type."""
     tmpl_type = _validate_type(template_type)
-    now = datetime.utcnow()
 
-    existing: Optional[AgentTemplate] = (
-        db.query(AgentTemplate)
-        .filter(
-            AgentTemplate.agent_user_id == agent.id,
-            AgentTemplate.template_type == tmpl_type,
-            AgentTemplate.is_active == True,
-        )
-        .first()
-    )
+    repo = TemplateRepository(db)
+    existing = repo.get_active_for_type(agent.id, tmpl_type)
 
     if existing is None:
-        new_tmpl = AgentTemplate(
-            agent_user_id=agent.id,
-            name="My Template",
-            template_type=tmpl_type,
-            subject=body.subject,
-            body=body.body,
-            tone=body.tone or "PROFESSIONAL",
-            is_active=True,
-            version=1,
-            created_at=now,
-            updated_at=now,
+        new_tmpl = repo.create(
+            agent.id,
+            TemplateCreate(
+                template_type=tmpl_type,
+                name="My Template",
+                subject=body.subject,
+                body=body.body,
+                tone=body.tone or "PROFESSIONAL",
+                is_active=True,
+            ),
         )
-        db.add(new_tmpl)
-        db.flush()
-        db.commit()
-        db.refresh(new_tmpl)
         return TemplateSaveResponse(ok=True, template_id=new_tmpl.id, version=new_tmpl.version)
     else:
-        existing.subject = body.subject
-        existing.body = body.body
-        if body.tone is not None:
-            existing.tone = body.tone
-        existing.version += 1
-        existing.updated_at = now
-        db.commit()
-        db.refresh(existing)
-        return TemplateSaveResponse(ok=True, template_id=existing.id, version=existing.version)
+        updated = repo.update(
+            existing.id,
+            agent.id,
+            TemplateUpdate(subject=body.subject, body=body.body, tone=body.tone),
+        )
+        if updated is None:
+            updated = existing
+        return TemplateSaveResponse(ok=True, template_id=updated.id, version=updated.version)
 
 
 
@@ -610,19 +561,8 @@ def get_automation(
 
     Requirements: 15.1
     """
-    prefs: Optional[AgentPreferences] = (
-        db.query(AgentPreferences)
-        .filter(AgentPreferences.agent_user_id == agent.id)
-        .first()
-    )
-
-    config_row: Optional[BuyerAutomationConfig] = None
-    if prefs and prefs.buyer_automation_config_id:
-        config_row = (
-            db.query(BuyerAutomationConfig)
-            .filter(BuyerAutomationConfig.id == prefs.buyer_automation_config_id)
-            .first()
-        )
+    auto_repo = AutomationConfigRepository(db)
+    prefs, config_row = auto_repo.get_for_agent_via_prefs(agent.id)
 
     if config_row is not None:
         # Use sla_minutes_hot from prefs if available, else from config default
@@ -694,83 +634,22 @@ def update_automation(
 
     Requirements: 15.2, 15.3
     """
-    now = datetime.utcnow()
-
-    # Load or create AgentPreferences
-    prefs: Optional[AgentPreferences] = (
-        db.query(AgentPreferences)
-        .filter(AgentPreferences.agent_user_id == agent.id)
-        .first()
+    auto_repo = AutomationConfigRepository(db)
+    prefs, config_row = auto_repo.upsert_for_agent(
+        agent_id=agent.id,
+        data=AutomationConfigUpdate(
+            hot_threshold=body.hot_threshold,
+            warm_threshold=body.warm_threshold,
+            enable_tour_question=body.enable_tour_question,
+            weight_timeline=body.weight_timeline,
+            weight_preapproval=body.weight_preapproval,
+            weight_phone_provided=body.weight_phone_provided,
+            weight_tour_interest=body.weight_tour_interest,
+            weight_budget_match=body.weight_budget_match,
+            sla_minutes_hot=body.sla_minutes_hot,
+        ),
+        platform_defaults=_PLATFORM_DEFAULT_CONFIG,
     )
-    if prefs is None:
-        prefs = AgentPreferences(
-            agent_user_id=agent.id,
-            created_at=now,
-        )
-        db.add(prefs)
-        db.flush()
-
-    # Load existing BuyerAutomationConfig if linked
-    config_row: Optional[BuyerAutomationConfig] = None
-    if prefs.buyer_automation_config_id:
-        config_row = (
-            db.query(BuyerAutomationConfig)
-            .filter(BuyerAutomationConfig.id == prefs.buyer_automation_config_id)
-            .first()
-        )
-
-    if config_row is None:
-        # Create a new config seeded with current prefs / platform defaults
-        config_row = BuyerAutomationConfig(
-            agent_user_id=agent.id,
-            name=f"Agent {agent.id} Config",
-            is_platform_default=False,
-            hot_threshold=prefs.hot_threshold,
-            warm_threshold=prefs.warm_threshold,
-            weight_timeline=_PLATFORM_DEFAULT_CONFIG["weight_timeline"],
-            weight_preapproval=_PLATFORM_DEFAULT_CONFIG["weight_preapproval"],
-            weight_phone_provided=_PLATFORM_DEFAULT_CONFIG["weight_phone_provided"],
-            weight_tour_interest=_PLATFORM_DEFAULT_CONFIG["weight_tour_interest"],
-            weight_budget_match=_PLATFORM_DEFAULT_CONFIG["weight_budget_match"],
-            enable_tour_question=prefs.enable_tour_question,
-            created_at=now,
-        )
-        db.add(config_row)
-        db.flush()
-        prefs.buyer_automation_config_id = config_row.id
-
-    # Apply updates to config
-    if body.hot_threshold is not None:
-        config_row.hot_threshold = body.hot_threshold
-    if body.warm_threshold is not None:
-        config_row.warm_threshold = body.warm_threshold
-    if body.enable_tour_question is not None:
-        config_row.enable_tour_question = body.enable_tour_question
-    if body.weight_timeline is not None:
-        config_row.weight_timeline = body.weight_timeline
-    if body.weight_preapproval is not None:
-        config_row.weight_preapproval = body.weight_preapproval
-    if body.weight_phone_provided is not None:
-        config_row.weight_phone_provided = body.weight_phone_provided
-    if body.weight_tour_interest is not None:
-        config_row.weight_tour_interest = body.weight_tour_interest
-    if body.weight_budget_match is not None:
-        config_row.weight_budget_match = body.weight_budget_match
-    config_row.updated_at = now
-
-    # Sync relevant fields onto AgentPreferences
-    if body.sla_minutes_hot is not None:
-        prefs.sla_minutes_hot = body.sla_minutes_hot
-    if body.enable_tour_question is not None:
-        prefs.enable_tour_question = body.enable_tour_question
-    if body.hot_threshold is not None:
-        prefs.hot_threshold = body.hot_threshold
-    if body.warm_threshold is not None:
-        prefs.warm_threshold = body.warm_threshold
-    prefs.updated_at = now
-
-    db.commit()
-    db.refresh(config_row)
 
     return AutomationUpdateResponse(ok=True, config_id=config_row.id)
 
@@ -795,11 +674,8 @@ def get_sources(
     agent: AgentUser = Depends(get_current_agent),
 ):
     """Return the agent's saved enabled_lead_source_ids from AgentPreferences."""
-    prefs: Optional[AgentPreferences] = (
-        db.query(AgentPreferences)
-        .filter(AgentPreferences.agent_user_id == agent.id)
-        .first()
-    )
+    prefs_repo = AgentPreferencesRepository(db)
+    prefs: Optional[AgentPreferences] = prefs_repo.get_or_create(agent.id)
     if prefs is None or prefs.enabled_lead_source_ids is None:
         return SourcePrefsResponse(enabled_lead_source_ids=[])
     try:

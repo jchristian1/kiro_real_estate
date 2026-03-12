@@ -17,8 +17,9 @@ from sqlalchemy.orm import Session
 
 from api.dependencies.agent_auth import get_current_agent
 from api.main import get_db
-from gmail_lead_sync.agent_models import AgentPreferences, AgentUser, LeadEvent
-from gmail_lead_sync.models import Lead
+from api.repositories import LeadRepository, LeadEventRepository
+from api.repositories.watcher_repository import AgentPreferencesRepository
+from gmail_lead_sync.agent_models import AgentUser
 
 router = APIRouter(prefix="/agent", tags=["Agent Dashboard"])
 
@@ -83,17 +84,16 @@ def get_dashboard(
     """
     now = datetime.utcnow()
 
+    prefs_repo = AgentPreferencesRepository(db)
+    lead_repo = LeadRepository(db)
+    event_repo = LeadEventRepository(db)
+
     # ------------------------------------------------------------------
     # Resolve AgentPreferences (for SLA and watcher_enabled)
     # ------------------------------------------------------------------
-    prefs: Optional[AgentPreferences] = (
-        db.query(AgentPreferences)
-        .filter(AgentPreferences.agent_user_id == agent.id)
-        .first()
-    )
+    prefs = prefs_repo.get_config_by_agent_id(agent.id)
     sla_minutes_hot: int = prefs.sla_minutes_hot if prefs else 5
 
-    # Requirement 10.5: watcher_status from watcher_enabled flag
     if prefs is None:
         watcher_status = "stopped"
     elif prefs.watcher_enabled:
@@ -102,16 +102,10 @@ def get_dashboard(
         watcher_status = "stopped"
 
     # ------------------------------------------------------------------
-    # HOT leads — scoped by agent_user_id (Requirement 10.2)
+    # HOT leads — scoped by agent_user_id
     # ------------------------------------------------------------------
-    hot_leads_rows: List[Lead] = (
-        db.query(Lead)
-        .filter(
-            Lead.agent_user_id == agent.id,
-            Lead.score_bucket == "HOT",
-        )
-        .all()
-    )
+    all_leads = lead_repo.list_for_tenant_filtered(tenant_id=agent.id)
+    hot_leads_rows = [lead for lead in all_leads if lead.score_bucket == "HOT"]
 
     hot_lead_summaries: List[HotLeadSummary] = []
     aging_lead_summaries: List[AgingLeadSummary] = []
@@ -128,7 +122,6 @@ def get_dashboard(
             )
         )
 
-        # Requirement 10.3: aging = no agent action AND age > sla_minutes_hot
         if lead.last_agent_action_at is None and lead.created_at is not None:
             age_minutes = (now - lead.created_at).total_seconds() / 60.0
             if age_minutes > sla_minutes_hot:
@@ -142,36 +135,28 @@ def get_dashboard(
                 )
 
     # ------------------------------------------------------------------
-    # Response time today (Requirement 10.4)
+    # Response time today
     # ------------------------------------------------------------------
     today_start = datetime.combine(date.today(), datetime.min.time())
+    lead_ids = {lead.id for lead in all_leads}
 
-    # Find all AGENT_CONTACTED events for this agent today
-    contacted_events: List[LeadEvent] = (
-        db.query(LeadEvent)
-        .filter(
-            LeadEvent.agent_user_id == agent.id,
-            LeadEvent.event_type == "AGENT_CONTACTED",
-            LeadEvent.created_at >= today_start,
-        )
-        .all()
+    contacted_events = event_repo.list_for_agent_in_period(
+        agent_id=agent.id,
+        event_type="AGENT_CONTACTED",
+        lead_ids=lead_ids,
+        start_date=today_start,
     )
 
     response_times: List[float] = []
     for contacted_event in contacted_events:
-        # Find the corresponding EMAIL_RECEIVED event for the same lead
-        email_received_event: Optional[LeadEvent] = (
-            db.query(LeadEvent)
-            .filter(
-                LeadEvent.lead_id == contacted_event.lead_id,
-                LeadEvent.event_type == "EMAIL_RECEIVED",
-            )
-            .order_by(LeadEvent.created_at.asc())
-            .first()
+        received_events = event_repo.list_by_lead_ids_and_type(
+            lead_ids=[contacted_event.lead_id],
+            event_type="EMAIL_RECEIVED",
         )
-        if email_received_event is not None:
+        if received_events:
+            earliest = min(received_events, key=lambda e: e.created_at)
             diff_minutes = (
-                contacted_event.created_at - email_received_event.created_at
+                contacted_event.created_at - earliest.created_at
             ).total_seconds() / 60.0
             response_times.append(diff_minutes)
 

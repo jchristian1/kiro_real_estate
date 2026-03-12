@@ -8,14 +8,14 @@ Endpoints:
 - GET /api/v1/audit-logs - List audit logs with pagination and filtering
 """
 
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
 
-from api.models.web_ui_models import AuditLog, User
+from api.models.web_ui_models import User
 from api.models.audit_models import AuditLogResponse, AuditLogListResponse
+from api.repositories.audit_repository import AuditRepository
 
 
 router = APIRouter()
@@ -50,54 +50,29 @@ def list_audit_logs(
 ):
     """
     List audit logs with pagination and filtering.
-    
-    Supports filtering by:
-    - action: Action type (e.g., 'agent_created', 'template_updated')
-    - user_id: User who performed the action
-    - start_date: Start of date range (inclusive)
-    - end_date: End of date range (inclusive)
-    
-    Returns paginated results with total count.
-    
+
     Requirements:
         - 7.1: Provide endpoints for retrieving Audit_Log records with pagination
         - 7.2: Support filtering Audit_Log by action type, user, and date range
         - 7.4: Display audit logs in a filterable table
     """
-    # Build filter conditions
-    filters = []
-    
-    if action:
-        filters.append(AuditLog.action == action)
-    
-    if user_id:
-        filters.append(AuditLog.user_id == user_id)
-    
-    if start_date:
-        filters.append(AuditLog.timestamp >= start_date)
-    
-    if end_date:
-        filters.append(AuditLog.timestamp <= end_date)
-    
-    # Build query with filters
-    query = db.query(AuditLog)
-    if filters:
-        query = query.filter(and_(*filters))
-    
-    # Get total count
-    total = query.count()
-    
-    # Calculate pagination
     offset = (page - 1) * per_page
+    repo = AuditRepository(db)
+
+    logs, total = repo.list_with_filters(
+        action=action,
+        user_id=user_id,
+        start_date=start_date,
+        end_date=end_date,
+        skip=offset,
+        limit=per_page,
+    )
+
     pages = (total + per_page - 1) // per_page if total > 0 else 0
-    
-    # Get paginated results, ordered by timestamp descending (most recent first)
-    logs = query.order_by(AuditLog.timestamp.desc()).offset(offset).limit(per_page).all()
-    
-    # Convert to response models with username
+
     log_responses = []
     for log in logs:
-        user = db.query(User).filter(User.id == log.user_id).first()
+        user = repo.get_user_by_id(log.user_id)
         log_responses.append(
             AuditLogResponse(
                 id=log.id,
@@ -110,7 +85,7 @@ def list_audit_logs(
                 details=log.details
             )
         )
-    
+
     return AuditLogListResponse(
         logs=log_responses,
         total=total,

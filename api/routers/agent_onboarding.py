@@ -23,8 +23,10 @@ from api.services.imap_service import (
     check_and_record_imap_attempt,
     test_imap_connection,
 )
+from api.repositories.company_repository import CompanyRepository
+from api.repositories.credential_repository import CredentialRepository
+from api.repositories.lead_source_repository import LeadSourceRepository
 from gmail_lead_sync.agent_models import AgentUser
-from gmail_lead_sync.models import Company, Credentials
 
 router = APIRouter(prefix="/agent/onboarding", tags=["Agent Onboarding"])
 
@@ -121,27 +123,24 @@ def update_profile(
 
     Requirements: 4.1, 4.3
     """
-    agent.full_name = body.full_name
-    agent.phone = body.phone
-    agent.timezone = body.timezone if body.timezone else "UTC"
-    agent.service_area = body.service_area
+    from api.repositories.agent_repository import AgentRepository
 
-    # Associate with company if join code provided (Requirement 4.3)
+    company_id: Optional[int] = None
     if body.company_join_code:
-        company = (
-            db.query(Company)
-            .filter(Company.name == body.company_join_code)
-            .first()
-        )
+        company_repo = CompanyRepository(db)
+        company = company_repo.get_by_name(body.company_join_code)
         if company:
-            agent.company_id = company.id
+            company_id = company.id
 
-    # Advance onboarding step (Requirement 4.1)
-    if agent.onboarding_step < 2:
-        agent.onboarding_step = 2
-
-    db.commit()
-    db.refresh(agent)
+    agent_repo = AgentRepository(db)
+    agent = agent_repo.update_profile(
+        agent=agent,
+        full_name=body.full_name,
+        phone=body.phone,
+        timezone=body.timezone if body.timezone else "UTC",
+        service_area=body.service_area,
+        company_id=company_id,
+    )
 
     return ProfileResponse(ok=True, onboarding_step=agent.onboarding_step)
 
@@ -208,37 +207,18 @@ def connect_gmail(
         encrypted_email = body.gmail_address
         encrypted_password = encrypt_app_password(body.app_password.get_secret_value())
 
-    if agent.credentials_id is not None:
-        # Update existing credentials record
-        creds = db.query(Credentials).filter(Credentials.id == agent.credentials_id).first()
-        if creds is not None:
-            creds.email_encrypted = encrypted_email
-            creds.app_password_encrypted = encrypted_password
-        else:
-            # Stale FK — create a new record
-            creds = Credentials(
-                agent_id=str(agent.id),
-                email_encrypted=encrypted_email,
-                app_password_encrypted=encrypted_password,
-            )
-            db.add(creds)
-            db.flush()
-            agent.credentials_id = creds.id
-    else:
-        creds = Credentials(
-            agent_id=str(agent.id),
-            email_encrypted=encrypted_email,
-            app_password_encrypted=encrypted_password,
-        )
-        db.add(creds)
-        db.flush()
-        agent.credentials_id = creds.id
+    cred_repo = CredentialRepository(db)
+    creds = cred_repo.upsert_for_agent(
+        agent_id=str(agent.id),
+        credential_id=agent.credentials_id,
+        email_encrypted=encrypted_email,
+        app_password_encrypted=encrypted_password,
+    )
 
-    # Advance onboarding step to 3
-    if agent.onboarding_step < 3:
-        agent.onboarding_step = 3
-
-    db.commit()
+    from api.repositories.agent_repository import AgentRepository
+    agent_repo = AgentRepository(db)
+    agent.credentials_id = creds.id
+    agent = agent_repo.advance_onboarding_step(agent, 3)
 
     return GmailResponse(
         connected=True,
@@ -280,8 +260,8 @@ def list_sources(
     agent: AgentUser = Depends(get_current_agent),
 ):
     """Return all platform lead sources for the agent to choose from."""
-    from gmail_lead_sync.models import LeadSource
-    sources = db.query(LeadSource).order_by(LeadSource.id).all()
+    ls_repo = LeadSourceRepository(db)
+    sources = ls_repo.list_all(limit=10000)
     return LeadSourcesListResponse(
         sources=[LeadSourceItem(id=s.id, name=s.sender_email, description=getattr(s, 'identifier_snippet', None)) for s in sources]
     )
@@ -323,21 +303,19 @@ def update_sources(
 
     Requirements: 6.2
     """
-    from gmail_lead_sync.agent_models import AgentPreferences
+    from api.repositories.watcher_repository import AgentPreferencesRepository
+    from api.repositories.agent_repository import AgentRepository
 
-    # Upsert AgentPreferences
-    prefs = agent.preferences
-    if prefs is None:
-        prefs = AgentPreferences(agent_user_id=agent.id)
-        db.add(prefs)
+    # Upsert AgentPreferences via repository
+    prefs_repo = AgentPreferencesRepository(db)
+    prefs = prefs_repo.get_or_create(agent.id)
 
     prefs.enabled_lead_source_ids = _json.dumps(body.enabled_lead_source_ids)
+    prefs_repo.save(prefs)
 
-    # Advance onboarding step
-    if agent.onboarding_step < 4:
-        agent.onboarding_step = 4
-
-    db.commit()
+    # Advance onboarding step via repository
+    agent_repo = AgentRepository(db)
+    agent = agent_repo.advance_onboarding_step(agent, 4)
 
     return SourcesResponse(ok=True, onboarding_step=4)
 
@@ -402,32 +380,35 @@ def update_automation(
     Requirements: 7.1
     """
     from gmail_lead_sync.agent_models import AgentPreferences, BuyerAutomationConfig
+    from api.repositories.template_repository import AutomationConfigRepository, AutomationConfigUpdate
 
-    # Step 1: Upsert BuyerAutomationConfig
-    config = (
-        db.query(BuyerAutomationConfig)
-        .filter(BuyerAutomationConfig.agent_user_id == agent.id)
-        .first()
+    # Step 1: Upsert BuyerAutomationConfig via repository
+    auto_repo = AutomationConfigRepository(db)
+    _prefs, config = auto_repo.upsert_for_agent(
+        agent_id=agent.id,
+        data=AutomationConfigUpdate(
+            hot_threshold=body.hot_threshold,
+            warm_threshold=body.warm_threshold,
+            enable_tour_question=body.enable_tour_question,
+        ),
+        platform_defaults={
+            "hot_threshold": 80,
+            "warm_threshold": 50,
+            "enable_tour_question": True,
+            "weight_timeline": 25,
+            "weight_preapproval": 30,
+            "weight_phone_provided": 15,
+            "weight_tour_interest": 20,
+            "weight_budget_match": 10,
+            "sla_minutes_hot": 5,
+            "form_link_template": None,
+        },
     )
-    if config is None:
-        config = BuyerAutomationConfig(
-            agent_user_id=agent.id,
-            name=f"{agent.full_name or 'Agent'} Config",
-        )
-        db.add(config)
-
-    config.hot_threshold = body.hot_threshold
-    config.warm_threshold = body.warm_threshold
-    config.enable_tour_question = body.enable_tour_question
-
-    db.flush()  # ensure config.id is populated
 
     # Step 2: Upsert AgentPreferences
-    prefs = agent.preferences
-    if prefs is None:
-        prefs = AgentPreferences(agent_user_id=agent.id)
-        db.add(prefs)
-
+    from api.repositories.watcher_repository import AgentPreferencesRepository
+    prefs_repo = AgentPreferencesRepository(db)
+    prefs = prefs_repo.get_or_create(agent.id)
     prefs.sla_minutes_hot = body.sla_minutes_hot
     prefs.enable_tour_question = body.enable_tour_question
     prefs.buyer_automation_config_id = config.id
@@ -437,11 +418,12 @@ def update_automation(
     if body.working_hours_end is not None:
         prefs.quiet_hours_end = _parse_time(body.working_hours_end)
 
-    # Step 3: Advance onboarding step
-    if agent.onboarding_step < 5:
-        agent.onboarding_step = 5
+    prefs_repo.save(prefs)
 
-    db.commit()
+    # Step 3: Advance onboarding step via repository
+    from api.repositories.agent_repository import AgentRepository
+    agent_repo = AgentRepository(db)
+    agent = agent_repo.advance_onboarding_step(agent, 5)
 
     return AutomationResponse(ok=True, onboarding_step=5)
 
@@ -512,6 +494,7 @@ def update_templates(
     Requirements: 8.4, 8.5
     """
     from gmail_lead_sync.agent_models import AgentTemplate
+    from api.repositories.template_repository import TemplateRepository, TemplateCreate, TemplateUpdate
 
     # Step 1 & 2: Validate placeholders across all templates before any DB writes
     for tmpl in body.templates:
@@ -530,38 +513,33 @@ def update_templates(
                     },
                 )
 
-    # Step 3: Upsert each template
+    # Step 3: Upsert each template via repository
+    tmpl_repo = TemplateRepository(db)
     for tmpl in body.templates:
-        existing = (
-            db.query(AgentTemplate)
-            .filter(
-                AgentTemplate.agent_user_id == agent.id,
-                AgentTemplate.template_type == tmpl.template_type,
-            )
-            .first()
-        )
+        existing = tmpl_repo.get_active_for_type(agent.id, tmpl.template_type)
         if existing is None:
-            new_tmpl = AgentTemplate(
-                agent_user_id=agent.id,
-                template_type=tmpl.template_type,
-                subject=tmpl.subject,
-                body=tmpl.body,
-                tone=tmpl.tone,
-                is_active=True,
-                version=1,
+            tmpl_repo.create(
+                agent.id,
+                TemplateCreate(
+                    template_type=tmpl.template_type,
+                    name="My Template",
+                    subject=tmpl.subject,
+                    body=tmpl.body,
+                    tone=tmpl.tone or "PROFESSIONAL",
+                    is_active=True,
+                ),
             )
-            db.add(new_tmpl)
         else:
-            existing.subject = tmpl.subject
-            existing.body = tmpl.body
-            existing.tone = tmpl.tone
-            existing.version = existing.version + 1
+            tmpl_repo.update(
+                existing.id,
+                agent.id,
+                TemplateUpdate(subject=tmpl.subject, body=tmpl.body, tone=tmpl.tone),
+            )
 
-    # Step 4: Advance onboarding step
-    if agent.onboarding_step < 6:
-        agent.onboarding_step = 6
-
-    db.commit()
+    # Step 4: Advance onboarding step via repository
+    from api.repositories.agent_repository import AgentRepository
+    agent_repo = AgentRepository(db)
+    agent = agent_repo.advance_onboarding_step(agent, 6)
 
     return TemplatesResponse(ok=True, onboarding_step=6)
 
@@ -650,7 +628,7 @@ def simulate_onboarding_test(agent: AgentUser, db: Session) -> Dict[str, Any]:
 
     Requirements: 9.1, 9.2, 9.3
     """
-    from gmail_lead_sync.agent_models import AgentPreferences, AgentTemplate, BuyerAutomationConfig
+    from api.repositories.template_repository import AutomationConfigRepository, TemplateRepository
 
     # ------------------------------------------------------------------
     # 1. Sample lead (never persisted)
@@ -666,11 +644,8 @@ def simulate_onboarding_test(agent: AgentUser, db: Session) -> Dict[str, Any]:
     # ------------------------------------------------------------------
     # 2. Resolve BuyerAutomationConfig (agent's own or defaults)
     # ------------------------------------------------------------------
-    config = (
-        db.query(BuyerAutomationConfig)
-        .filter(BuyerAutomationConfig.agent_user_id == agent.id)
-        .first()
-    )
+    auto_repo = AutomationConfigRepository(db)
+    _prefs_row, config = auto_repo.get_for_agent_via_prefs(agent.id)
 
     # Use attribute values or fall back to defaults
     hot_threshold = config.hot_threshold if config else 80
@@ -685,15 +660,8 @@ def simulate_onboarding_test(agent: AgentUser, db: Session) -> Dict[str, Any]:
     # ------------------------------------------------------------------
     # 3. Resolve INITIAL_INVITE template
     # ------------------------------------------------------------------
-    invite_tmpl_row = (
-        db.query(AgentTemplate)
-        .filter(
-            AgentTemplate.agent_user_id == agent.id,
-            AgentTemplate.template_type == "INITIAL_INVITE",
-            AgentTemplate.is_active == True,
-        )
-        .first()
-    )
+    tmpl_repo = TemplateRepository(db)
+    invite_tmpl_row = tmpl_repo.get_active_for_type(agent.id, "INITIAL_INVITE")
     if invite_tmpl_row:
         invite_subject = invite_tmpl_row.subject
         invite_body = invite_tmpl_row.body
@@ -753,15 +721,7 @@ def simulate_onboarding_test(agent: AgentUser, db: Session) -> Dict[str, Any]:
     # 7. Resolve POST_* template based on bucket
     # ------------------------------------------------------------------
     post_type = f"POST_{bucket}"
-    post_tmpl_row = (
-        db.query(AgentTemplate)
-        .filter(
-            AgentTemplate.agent_user_id == agent.id,
-            AgentTemplate.template_type == post_type,
-            AgentTemplate.is_active == True,
-        )
-        .first()
-    )
+    post_tmpl_row = tmpl_repo.get_active_for_type(agent.id, post_type)
     if post_tmpl_row:
         post_subject = post_tmpl_row.subject
         post_body = post_tmpl_row.body
@@ -880,7 +840,9 @@ def complete_onboarding(
 
     Requirements: 9.4, 9.5
     """
-    from gmail_lead_sync.agent_models import AgentPreferences, AgentTemplate, BuyerAutomationConfig
+    from api.repositories.template_repository import AutomationConfigRepository, TemplateRepository
+    from api.repositories.credential_repository import CredentialRepository
+    from api.repositories.company_repository import CompanyRepository
 
     # --- Precondition 1: Gmail connected ---
     gmail_connected = agent.credentials_id is not None
@@ -896,45 +858,39 @@ def complete_onboarding(
             lead_source_selected = False
 
     # --- Precondition 3: BuyerAutomationConfig exists ---
-    automation_configured = (
-        db.query(BuyerAutomationConfig)
-        .filter(BuyerAutomationConfig.agent_user_id == agent.id)
-        .first()
-    ) is not None
+    auto_repo = AutomationConfigRepository(db)
+    _prefs_row, config_row = auto_repo.get_for_agent_via_prefs(agent.id)
+    automation_configured = config_row is not None
 
     # --- Precondition 4: All 4 template types active ---
-    active_types = {
-        row.template_type
-        for row in db.query(AgentTemplate.template_type)
-        .filter(
-            AgentTemplate.agent_user_id == agent.id,
-            AgentTemplate.is_active == True,
-        )
-        .all()
-    }
+    tmpl_repo = TemplateRepository(db)
+    all_templates = tmpl_repo.list_for_agent(agent.id)
+    active_types = {row.template_type for row in all_templates if row.is_active}
     templates_active = _REQUIRED_TEMPLATE_TYPES.issubset(active_types)
 
     # --- Evaluate ---
     if gmail_connected and lead_source_selected and automation_configured and templates_active:
-        agent.onboarding_completed = True
-
         # Associate agent's credentials row with the agent's company (for preapproval pipeline)
+        cred_repo = CredentialRepository(db)
+        company_repo = CompanyRepository(db)
         if agent.company_id and agent.credentials_id:
-            creds_row = db.query(Credentials).filter(Credentials.id == agent.credentials_id).first()
+            creds_row = cred_repo.get_by_id(agent.credentials_id)
             if creds_row and not creds_row.company_id:
                 creds_row.company_id = agent.company_id
         elif agent.credentials_id:
             # No company set on agent — use the first available company as default
-            from gmail_lead_sync.models import Company as _Company
-            first_company = db.query(_Company).first()
+            all_companies = company_repo.list_all()
+            first_company = all_companies[0] if all_companies else None
             if first_company:
-                creds_row = db.query(Credentials).filter(Credentials.id == agent.credentials_id).first()
+                creds_row = cred_repo.get_by_id(agent.credentials_id)
                 if creds_row and not creds_row.company_id:
                     creds_row.company_id = first_company.id
                 if not agent.company_id:
                     agent.company_id = first_company.id
 
-        db.commit()
+        from api.repositories.agent_repository import AgentRepository
+        agent_repo = AgentRepository(db)
+        agent = agent_repo.complete_onboarding(agent)
 
         # Auto-start the watcher for this agent so email monitoring begins immediately
         try:

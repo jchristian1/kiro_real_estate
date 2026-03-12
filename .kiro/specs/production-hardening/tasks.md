@@ -115,7 +115,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Remove or merge `api/routes/agents.py` and any other files that overlap with `api/routers/` equivalents
     - _Requirements: 5.8, 7.1, 7.6_
 
-  - [~] 8.2 Audit all router modules: remove direct SQLAlchemy queries from routers; replace with repository or service calls
+  - [x] 8.2 Audit all router modules: remove direct SQLAlchemy queries from routers; replace with repository or service calls
     - Ensure no `FastAPI`-specific imports (`Request`, `Response`, `Depends`) appear in service modules
     - _Requirements: 7.2, 7.3_
 

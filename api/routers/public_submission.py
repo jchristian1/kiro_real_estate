@@ -31,6 +31,7 @@ from gmail_lead_sync.preapproval.invitation_service import (
     TokenUsedError,
 )
 from gmail_lead_sync.preapproval.handlers import on_buyer_form_submitted
+from api.repositories.buyer_leads_repository import FormInvitationRepository
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -111,10 +112,10 @@ async def get_buyer_qualification_form(
     """
     import hashlib, json as _json
     from datetime import datetime as _dt
-    from gmail_lead_sync.preapproval.models_preapproval import FormInvitation, FormVersion
 
     token_hash = hashlib.sha256(token.encode()).hexdigest()
-    invitation = db.query(FormInvitation).filter(FormInvitation.token_hash == token_hash).first()
+    inv_repo = FormInvitationRepository(db)
+    invitation = inv_repo.get_invitation_by_token_hash(token_hash)
 
     if not invitation:
         return JSONResponse(status_code=404, content={"error": "Invalid link"})
@@ -123,7 +124,7 @@ async def get_buyer_qualification_form(
     if invitation.expires_at < _dt.utcnow():
         return JSONResponse(status_code=410, content={"error": "This link has expired"})
 
-    form_version = db.get(FormVersion, invitation.form_version_id)
+    form_version = inv_repo.get_form_version_by_id(invitation.form_version_id)
     schema = _json.loads(form_version.schema_json)
     questions = schema if isinstance(schema, list) else schema.get("questions", [])
 

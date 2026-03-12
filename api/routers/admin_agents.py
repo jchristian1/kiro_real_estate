@@ -24,7 +24,6 @@ from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
 from gmail_lead_sync.credentials import EncryptedDBCredentialsStore
-from gmail_lead_sync.models import Credentials
 from api.models.web_ui_models import User
 from api.models.agent_models import (
     AgentCreateRequest,
@@ -39,6 +38,9 @@ from api.exceptions import (
     NotFoundException,
     ConflictException
 )
+from api.repositories import CredentialRepository, AgentRepository
+from api.repositories.template_repository import TemplateRepository
+from api.repositories.watcher_repository import AgentPreferencesRepository
 from api.services.audit_log import record_audit_log
 from api.config import load_config
 
@@ -113,7 +115,8 @@ def create_agent(
         - 21.3: Preserve all existing security features
     """
     # Check if agent_id already exists
-    existing = db.query(Credentials).filter(Credentials.agent_id == agent_data.agent_id).first()
+    cred_repo = CredentialRepository(db)
+    existing = cred_repo.get_by_agent_id(agent_data.agent_id)
     if existing:
         raise ConflictException(
             message=f"Agent with ID '{agent_data.agent_id}' already exists",
@@ -134,18 +137,17 @@ def create_agent(
         )
     
     # Retrieve the created credentials record
-    credentials = db.query(Credentials).filter(Credentials.agent_id == agent_data.agent_id).first()
+    credentials = cred_repo.get_by_agent_id(agent_data.agent_id)
     
     # Store display_name and phone if provided
     if agent_data.display_name is not None or agent_data.phone is not None or agent_data.company_id is not None:
-        if agent_data.display_name is not None:
-            credentials.display_name = agent_data.display_name
-        if agent_data.phone is not None:
-            credentials.phone = agent_data.phone
-        if agent_data.company_id is not None:
-            credentials.company_id = agent_data.company_id
-        db.commit()
-        db.refresh(credentials)
+        from api.repositories.credential_repository import CredentialUpdate
+        cred_repo.update(agent_data.agent_id, CredentialUpdate(
+            display_name=agent_data.display_name,
+            phone=agent_data.phone,
+            company_id=agent_data.company_id,
+        ))
+        credentials = cred_repo.get_by_agent_id(agent_data.agent_id)
     
     # Record audit log
     record_audit_log(
@@ -185,9 +187,13 @@ async def list_agents(
     List all agents with status indicators.
     """
     from api.main import watcher_registry
-    from gmail_lead_sync.agent_models import AgentUser, AgentPreferences
+    from gmail_lead_sync.agent_models import AgentUser
 
-    all_credentials = db.query(Credentials).order_by(Credentials.created_at.desc()).all()
+    cred_repo = CredentialRepository(db)
+    agent_repo = AgentRepository(db)
+    prefs_repo = AgentPreferencesRepository(db)
+
+    all_credentials = cred_repo.list_all()
 
     try:
         all_statuses = await watcher_registry.get_all_statuses()
@@ -204,18 +210,14 @@ async def list_agents(
         watcher_info = all_statuses.get(creds.agent_id)
         watcher_status = watcher_info["status"] if watcher_info else None
 
-        # For agent-app agents (numeric agent_id), onboarding_completed=False
-        # means "cancelled" — this always takes priority over registry status
         try:
             numeric_id = int(creds.agent_id)
-            au = db.query(AgentUser).filter(AgentUser.id == numeric_id).first()
+            au = agent_repo.get_by_id(numeric_id)
             if au:
                 if not au.onboarding_completed:
                     watcher_status = "cancelled"
                 elif watcher_status is None:
-                    prefs = db.query(AgentPreferences).filter(
-                        AgentPreferences.agent_user_id == au.id
-                    ).first()
+                    prefs = prefs_repo.get_config_by_agent_id(au.id)
                     watcher_status = "running" if (prefs and prefs.watcher_enabled) else "stopped"
         except (ValueError, TypeError):
             pass
@@ -267,7 +269,8 @@ def get_agent(
         - 1.6: Provide detail view showing Agent configuration
     """
     # Find agent credentials
-    credentials = db.query(Credentials).filter(Credentials.agent_id == agent_id).first()
+    cred_repo = CredentialRepository(db)
+    credentials = cred_repo.get_by_agent_id(agent_id)
     
     if not credentials:
         raise NotFoundException(
@@ -326,7 +329,8 @@ def update_agent(
         - 1.8: Record all Agent modification operations
     """
     # Find agent credentials
-    credentials = db.query(Credentials).filter(Credentials.agent_id == agent_id).first()
+    cred_repo = CredentialRepository(db)
+    credentials = cred_repo.get_by_agent_id(agent_id)
     
     if not credentials:
         raise NotFoundException(
@@ -361,16 +365,13 @@ def update_agent(
         )
     
     # Update display_name and phone if provided
-    if agent_data.display_name is not None:
-        credentials.display_name = agent_data.display_name
-    if agent_data.phone is not None:
-        credentials.phone = agent_data.phone
-    if agent_data.company_id is not None:
-        credentials.company_id = agent_data.company_id
-    db.commit()
-    
-    # Refresh credentials from database
-    db.refresh(credentials)
+    if agent_data.display_name is not None or agent_data.phone is not None or agent_data.company_id is not None:
+        from api.repositories.credential_repository import CredentialUpdate
+        credentials = cred_repo.update(agent_id, CredentialUpdate(
+            display_name=agent_data.display_name,
+            phone=agent_data.phone,
+            company_id=agent_data.company_id,
+        )) or credentials
     
     # Record audit log
     details = []
@@ -458,7 +459,8 @@ def delete_agent(
         - 1.8: Record all Agent deletion operations
     """
     # Find agent credentials
-    credentials = db.query(Credentials).filter(Credentials.agent_id == agent_id).first()
+    cred_repo = CredentialRepository(db)
+    credentials = cred_repo.get_by_agent_id(agent_id)
     
     if not credentials:
         raise NotFoundException(
@@ -498,24 +500,20 @@ def delete_agent(
     )
     
     # Delete credentials
-    db.delete(credentials)
+    cred_repo.delete(agent_id)
 
     # Also remove the matching AgentUser record (agent app account)
-    # so the email can be re-used for a fresh signup
     try:
-        from gmail_lead_sync.agent_models import AgentUser
         from cryptography.fernet import Fernet
-        from api.config import load_config
         config = load_config()
         fernet = Fernet(config.encryption_key.encode())
         email = fernet.decrypt(credentials.email_encrypted.encode()).decode()
-        agent_user = db.query(AgentUser).filter(AgentUser.email == email).first()
+        agent_repo = AgentRepository(db)
+        agent_user = agent_repo.get_by_email(email)
         if agent_user:
-            db.delete(agent_user)
+            agent_repo.delete(agent_user.id)
     except Exception:
         pass  # Don't fail the delete if agent_user cleanup fails
-
-    db.commit()
     
     return AgentDeleteResponse(
         message=f"Agent '{agent_id}' deleted successfully"
@@ -533,8 +531,6 @@ def get_agent_templates(
     current_user: User = Depends(get_current_user),
 ):
     """Return ALL templates (all pipeline steps, all versions) for a given agent."""
-    from gmail_lead_sync.agent_models import AgentUser, AgentTemplate
-
     _PLATFORM_DEFAULTS = {
         "INITIAL_INVITE": {
             "subject": "Hi {lead_name}, let's find your perfect home",
@@ -565,28 +561,22 @@ def get_agent_templates(
     }
 
     # Resolve agent_user from numeric agent_id
+    agent_repo = AgentRepository(db)
+    tmpl_repo = TemplateRepository(db)
     try:
         numeric_id = int(agent_id)
-        agent_user = db.query(AgentUser).filter(AgentUser.id == numeric_id).first()
+        agent_user = agent_repo.get_by_id(numeric_id)
     except (ValueError, TypeError):
         agent_user = None
 
     result = []
     for tmpl_type, label in TYPE_LABELS.items():
-        # Always inject platform default
         default = _PLATFORM_DEFAULTS[tmpl_type]
         db_rows = []
         has_active = False
         if agent_user:
-            db_rows = (
-                db.query(AgentTemplate)
-                .filter(
-                    AgentTemplate.agent_user_id == agent_user.id,
-                    AgentTemplate.template_type == tmpl_type,
-                )
-                .order_by(AgentTemplate.created_at)
-                .all()
-            )
+            db_rows = tmpl_repo.list_for_agent(agent_user.id)
+            db_rows = [r for r in db_rows if r.template_type == tmpl_type]
             has_active = any(r.is_active for r in db_rows)
 
         result.append({
@@ -625,35 +615,22 @@ def admin_activate_template(
     current_user: User = Depends(get_current_user),
 ):
     """Admin: set a template as active for its pipeline step."""
-    from gmail_lead_sync.agent_models import AgentUser, AgentTemplate
+    agent_repo = AgentRepository(db)
+    tmpl_repo = TemplateRepository(db)
 
     try:
         numeric_id = int(agent_id)
-        agent_user = db.query(AgentUser).filter(AgentUser.id == numeric_id).first()
+        agent_user = agent_repo.get_by_id(numeric_id)
     except (ValueError, TypeError):
         agent_user = None
 
     if not agent_user:
-        from api.exceptions import NotFoundException
-        from api.models.error_models import ErrorCode
         raise NotFoundException(message=f"Agent '{agent_id}' not found", code=ErrorCode.NOT_FOUND_RESOURCE)
 
-    row = db.query(AgentTemplate).filter(
-        AgentTemplate.id == template_id,
-        AgentTemplate.agent_user_id == agent_user.id,
-    ).first()
+    row = tmpl_repo.activate(template_id, agent_user.id)
     if not row:
-        from api.exceptions import NotFoundException
-        from api.models.error_models import ErrorCode
         raise NotFoundException(message="Template not found", code=ErrorCode.NOT_FOUND_RESOURCE)
 
-    db.query(AgentTemplate).filter(
-        AgentTemplate.agent_user_id == agent_user.id,
-        AgentTemplate.template_type == row.template_type,
-        AgentTemplate.is_active == True,
-    ).update({"is_active": False})
-    row.is_active = True
-    db.commit()
     return {"ok": True}
 
 
@@ -665,42 +642,25 @@ def admin_delete_template(
     current_user: User = Depends(get_current_user),
 ):
     """Admin: delete a specific template."""
-    from gmail_lead_sync.agent_models import AgentUser, AgentTemplate
+    agent_repo = AgentRepository(db)
+    tmpl_repo = TemplateRepository(db)
 
     try:
         numeric_id = int(agent_id)
-        agent_user = db.query(AgentUser).filter(AgentUser.id == numeric_id).first()
+        agent_user = agent_repo.get_by_id(numeric_id)
     except (ValueError, TypeError):
         agent_user = None
 
     if not agent_user:
-        from api.exceptions import NotFoundException
-        from api.models.error_models import ErrorCode
         raise NotFoundException(message=f"Agent '{agent_id}' not found", code=ErrorCode.NOT_FOUND_RESOURCE)
 
-    row = db.query(AgentTemplate).filter(
-        AgentTemplate.id == template_id,
-        AgentTemplate.agent_user_id == agent_user.id,
-    ).first()
+    row = tmpl_repo.delete(template_id, agent_user.id)
     if not row:
-        from api.exceptions import NotFoundException
-        from api.models.error_models import ErrorCode
         raise NotFoundException(message="Template not found", code=ErrorCode.NOT_FOUND_RESOURCE)
 
-    was_active = row.is_active
-    tmpl_type = row.template_type
-    db.delete(row)
-    db.commit()
-
-    if was_active:
-        remaining = (
-            db.query(AgentTemplate)
-            .filter(AgentTemplate.agent_user_id == agent_user.id, AgentTemplate.template_type == tmpl_type)
-            .order_by(AgentTemplate.created_at.desc())
-            .first()
-        )
+    if row.is_active:
+        remaining = tmpl_repo.get_most_recent_for_type(agent_user.id, row.template_type)
         if remaining:
-            remaining.is_active = True
-            db.commit()
+            tmpl_repo.activate(remaining.id, agent_user.id)
 
     return {"ok": True}

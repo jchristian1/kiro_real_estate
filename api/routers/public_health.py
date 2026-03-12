@@ -33,10 +33,10 @@ from typing import Dict, Optional
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sqlalchemy import text, and_
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from api.models.web_ui_models import AuditLog
+from api.repositories.audit_repository import AuditRepository
 
 logger = logging.getLogger(__name__)
 
@@ -143,21 +143,13 @@ async def health_check(
         )
 
     # ------------------------------------------------------------------
-    # 3. Error count from the last 24 hours (via AuditLog)
+    # 3. Error count from the last 24 hours (via AuditRepository)
     # ------------------------------------------------------------------
     errors_last_24h = 0
     try:
         cutoff = datetime.utcnow() - timedelta(hours=24)
-        errors_last_24h = (
-            db.query(AuditLog)
-            .filter(
-                and_(
-                    AuditLog.timestamp >= cutoff,
-                    AuditLog.action.like("%error%") | AuditLog.action.like("%failed%"),
-                )
-            )
-            .count()
-        )
+        audit_repo = AuditRepository(db)
+        errors_last_24h = audit_repo.count_errors_since(cutoff)
     except Exception as exc:
         logger.error("Health check: could not query error count: %s", exc, exc_info=True)
 

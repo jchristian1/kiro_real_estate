@@ -23,13 +23,10 @@ from sqlalchemy.orm import Session
 
 from api.dependencies.agent_auth import get_current_agent
 from api.main import get_db
-from gmail_lead_sync.agent_models import (
-    AgentPreferences,
-    AgentTemplate,
-    AgentUser,
-    LeadEvent,
-)
-from gmail_lead_sync.models import Lead
+from api.repositories import LeadRepository
+from api.repositories.lead_repository import LeadEventWriteRepository
+from api.repositories.watcher_repository import AgentPreferencesRepository
+from gmail_lead_sync.agent_models import AgentUser
 
 router = APIRouter(prefix="/agent", tags=["Agent Leads"])
 
@@ -125,49 +122,18 @@ def get_leads(
     """
     now = datetime.utcnow()
 
-    # ------------------------------------------------------------------
-    # Resolve AgentPreferences for SLA (Requirement 11.5)
-    # ------------------------------------------------------------------
-    prefs: Optional[AgentPreferences] = (
-        db.query(AgentPreferences)
-        .filter(AgentPreferences.agent_user_id == agent.id)
-        .first()
-    )
+    prefs_repo = AgentPreferencesRepository(db)
+    lead_repo = LeadRepository(db)
+
+    prefs = prefs_repo.get_config_by_agent_id(agent.id)
     sla_minutes_hot: int = prefs.sla_minutes_hot if prefs else 5
 
-    # ------------------------------------------------------------------
-    # Base query — tenant isolation (Requirement 11.7)
-    # ------------------------------------------------------------------
-    query = db.query(Lead).filter(Lead.agent_user_id == agent.id)
-
-    # ------------------------------------------------------------------
-    # Bucket filter (Requirement 11.2)
-    # ------------------------------------------------------------------
-    if bucket and bucket.upper() != "ALL":
-        query = query.filter(Lead.score_bucket == bucket.upper())
-
-    # ------------------------------------------------------------------
-    # Status filter (Requirement 11.2)
-    # ------------------------------------------------------------------
-    if status and status.upper() != "ALL":
-        query = query.filter(Lead.agent_current_state == status.upper())
-
-    # ------------------------------------------------------------------
-    # Search filter (Requirement 11.3) — case-insensitive LIKE
-    # ------------------------------------------------------------------
-    if search and search.strip():
-        term = f"%{search.strip()}%"
-        query = query.filter(
-            Lead.name.ilike(term)
-            | Lead.property_address.ilike(term)
-            | Lead.lead_source_name.ilike(term)
-        )
-
-    # ------------------------------------------------------------------
-    # Fetch all matching leads for Python-side urgency sort
-    # (SQLite CASE on nullable enum columns is unreliable via SQLAlchemy)
-    # ------------------------------------------------------------------
-    all_leads: List[Lead] = query.all()
+    all_leads = lead_repo.list_for_tenant_with_filters(
+        tenant_id=agent.id,
+        bucket=bucket,
+        status=status,
+        search=search,
+    )
 
     # ------------------------------------------------------------------
     # Urgency sort: HOT=0, WARM=1, NURTURE=2, None=3 (Requirement 11.1)
@@ -375,7 +341,11 @@ def get_lead_detail(
     """
     now = datetime.utcnow()
 
-    lead: Optional[Lead] = db.query(Lead).filter(Lead.id == lead_id).first()
+    lead_repo = LeadRepository(db)
+    event_write_repo = LeadEventWriteRepository(db)
+    prefs_repo = AgentPreferencesRepository(db)
+
+    lead = lead_repo.get_by_agent_id_str(lead_id)
     if lead is None:
         from api.exceptions import NotFoundException
         from api.models.error_models import ErrorCode
@@ -394,11 +364,7 @@ def get_lead_detail(
         )
 
     # Aging annotation
-    prefs: Optional[AgentPreferences] = (
-        db.query(AgentPreferences)
-        .filter(AgentPreferences.agent_user_id == agent.id)
-        .first()
-    )
+    prefs = prefs_repo.get_config_by_agent_id(agent.id)
     sla_minutes_hot: int = prefs.sla_minutes_hot if prefs else 5
     is_aging = False
     bucket_val = lead.score_bucket or ""
@@ -443,12 +409,7 @@ def get_lead_detail(
             pass
 
     # Timeline — all events ordered by created_at ASC
-    events: List[LeadEvent] = (
-        db.query(LeadEvent)
-        .filter(LeadEvent.lead_id == lead_id)
-        .order_by(LeadEvent.created_at.asc())
-        .all()
-    )
+    events = event_write_repo.list_for_lead(lead_id)
 
     timeline: List[TimelineEvent] = []
     rendered_emails: List[RenderedEmail] = []
@@ -532,7 +493,10 @@ def update_lead_status(
 
     Requirements: 12.4, 12.6, 20.3
     """
-    lead: Optional[Lead] = db.query(Lead).filter(Lead.id == lead_id).first()
+    lead_repo = LeadRepository(db)
+    event_write_repo = LeadEventWriteRepository(db)
+
+    lead = lead_repo.get_by_agent_id_str(lead_id)
     if lead is None:
         from api.exceptions import NotFoundException
         from api.models.error_models import ErrorCode
@@ -569,14 +533,8 @@ def update_lead_status(
         )
 
     now = datetime.utcnow()
-    lead.agent_current_state = new_status
-
-    # Set last_agent_action_at on CONTACTED (Requirement 12.4)
-    if new_status == "CONTACTED":
-        lead.last_agent_action_at = now
 
     # Insert STATUS_CHANGED event (Requirement 20.3)
-    event_type = STATE_TO_EVENT.get(new_status, "STATUS_CHANGED")
     payload: Dict[str, Any] = {
         "from_state": current,
         "to_state": new_status,
@@ -584,17 +542,20 @@ def update_lead_status(
     if body.note:
         payload["note"] = body.note
 
-    db.add(
-        LeadEvent(
-            lead_id=lead_id,
-            agent_user_id=agent.id,
-            event_type="STATUS_CHANGED",
-            payload=json.dumps(payload),
-            created_at=now,
-        )
+    lead = lead_repo.update_agent_state(
+        lead_id=lead_id,
+        tenant_id=agent.id,
+        new_state=new_status,
+        last_action_at=now if new_status == "CONTACTED" else None,
     )
-    db.commit()
-    db.refresh(lead)
+
+    event_write_repo.create(
+        lead_id=lead_id,
+        agent_user_id=agent.id,
+        event_type="STATUS_CHANGED",
+        payload=json.dumps(payload),
+        created_at=now,
+    )
 
     return StatusUpdateResponse(
         ok=True,
@@ -625,7 +586,10 @@ def add_lead_note(
 
     Requirements: 12.5, 20.1
     """
-    lead: Optional[Lead] = db.query(Lead).filter(Lead.id == lead_id).first()
+    lead_repo = LeadRepository(db)
+    event_write_repo = LeadEventWriteRepository(db)
+
+    lead = lead_repo.get_by_agent_id_str(lead_id)
     if lead is None:
         from api.exceptions import NotFoundException
         from api.models.error_models import ErrorCode
@@ -643,16 +607,13 @@ def add_lead_note(
         )
 
     now = datetime.utcnow()
-    event = LeadEvent(
+    event = event_write_repo.create(
         lead_id=lead_id,
         agent_user_id=agent.id,
         event_type="NOTE_ADDED",
         payload=json.dumps({"text": body.text}),
         created_at=now,
     )
-    db.add(event)
-    db.commit()
-    db.refresh(event)
 
     return NoteResponse(
         note_id=event.id,

@@ -79,6 +79,16 @@ class CredentialRepository:
             .first()
         )
 
+    def list_all(self, *, skip: int = 0, limit: int = 1000) -> list[Credentials]:
+        """Return all credentials records ordered by created_at desc — admin use only."""
+        return (
+            self._db.query(Credentials)
+            .order_by(Credentials.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
     # ------------------------------------------------------------------
     # Write
     # ------------------------------------------------------------------
@@ -134,3 +144,51 @@ class CredentialRepository:
         self._db.delete(cred)
         self._db.commit()
         return True
+
+
+    def get_by_id(self, credential_id: int) -> Optional[Credentials]:
+        """Return the credentials record with the given primary key, or ``None``."""
+        return (
+            self._db.query(Credentials)
+            .filter(Credentials.id == credential_id)
+            .first()
+        )
+
+    def get_by_company_id(self, company_id: int) -> list[Credentials]:
+        """Return all credentials records for a given company_id."""
+        return (
+            self._db.query(Credentials)
+            .filter(Credentials.company_id == company_id)
+            .all()
+        )
+
+    def upsert_for_agent(
+        self,
+        agent_id: str,
+        credential_id: Optional[int],
+        email_encrypted: str,
+        app_password_encrypted: str,
+    ) -> Credentials:
+        """Update existing credentials or create a new record.
+
+        Returns the persisted Credentials record.
+        """
+        cred: Optional[Credentials] = None
+        if credential_id is not None:
+            cred = self.get_by_id(credential_id)
+
+        if cred is not None:
+            cred.email_encrypted = email_encrypted
+            cred.app_password_encrypted = app_password_encrypted
+        else:
+            cred = Credentials(
+                agent_id=agent_id,
+                email_encrypted=email_encrypted,
+                app_password_encrypted=app_password_encrypted,
+            )
+            self._db.add(cred)
+            self._db.flush()
+
+        self._db.commit()
+        self._db.refresh(cred)
+        return cred

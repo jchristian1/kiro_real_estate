@@ -18,8 +18,8 @@ from sqlalchemy.orm import Session
 
 from api.dependencies.agent_auth import get_current_agent
 from api.main import get_db
-from gmail_lead_sync.agent_models import AgentUser, LeadEvent
-from gmail_lead_sync.models import Lead
+from api.repositories import LeadRepository, LeadEventRepository
+from gmail_lead_sync.agent_models import AgentUser
 
 router = APIRouter(prefix="/agent/reports", tags=["Agent Reports"])
 
@@ -78,19 +78,10 @@ def get_reports_summary(
     Return a summary of pipeline metrics for the authenticated agent over the
     requested period.
 
-    - leads_by_source: lead counts grouped by lead_source_name, sorted DESC.
-    - bucket_distribution: HOT / WARM / NURTURE counts within the period.
-    - avg_response_time_minutes: mean minutes between EMAIL_RECEIVED and the
-      first AGENT_CONTACTED event for each lead that was contacted within the
-      period; null when no data is available.
-    - appointments_set: count of leads with agent_current_state == 'APPOINTMENT_SET'.
-    - period_start / period_end: UTC datetimes bounding the query window.
-
     All data is scoped to the authenticated agent (Requirement 17.3).
 
     Requirements: 17.1, 17.2, 17.3
     """
-    # Validate period (Requirement 17.2) — return 422 for unknown values
     if period not in _VALID_PERIODS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -101,18 +92,17 @@ def get_reports_summary(
     period_end = datetime.utcnow()
     period_start = period_end - timedelta(days=days)
 
-    # Base queryset — tenant isolation (Requirement 17.3)
-    base_q = (
-        db.query(Lead)
-        .filter(
-            Lead.agent_user_id == agent.id,
-            Lead.created_at >= period_start,
-        )
+    lead_repo = LeadRepository(db)
+    event_repo = LeadEventRepository(db)
+
+    # Tenant-scoped leads for the period
+    period_leads = lead_repo.list_for_tenant_filtered(
+        tenant_id=agent.id,
+        start_date=period_start,
     )
-    period_leads: List[Lead] = base_q.all()
 
     # ------------------------------------------------------------------
-    # leads_by_source — group by lead_source_name, count, sort DESC
+    # leads_by_source
     # ------------------------------------------------------------------
     source_counts: Dict[str, int] = {}
     for lead in period_leads:
@@ -125,7 +115,7 @@ def get_reports_summary(
     ]
 
     # ------------------------------------------------------------------
-    # bucket_distribution — count per score_bucket
+    # bucket_distribution
     # ------------------------------------------------------------------
     bucket_counts: Dict[str, int] = {"HOT": 0, "WARM": 0, "NURTURE": 0}
     for lead in period_leads:
@@ -140,7 +130,7 @@ def get_reports_summary(
     )
 
     # ------------------------------------------------------------------
-    # appointments_set — leads with agent_current_state == 'APPOINTMENT_SET'
+    # appointments_set
     # ------------------------------------------------------------------
     appointments_set = sum(
         1 for lead in period_leads if lead.agent_current_state == "APPOINTMENT_SET"
@@ -148,46 +138,29 @@ def get_reports_summary(
 
     # ------------------------------------------------------------------
     # avg_response_time_minutes
-    #
-    # For each lead that has an AGENT_CONTACTED event within the period:
-    #   - Find the earliest EMAIL_RECEIVED event for that lead
-    #   - Compute difference in minutes
-    # Return the mean of all differences, rounded to 2 decimal places.
-    # Return null if no data.
     # ------------------------------------------------------------------
     lead_ids_in_period = {lead.id for lead in period_leads}
 
-    # Fetch all AGENT_CONTACTED events within the period for this agent's leads
-    contacted_events: List[LeadEvent] = (
-        db.query(LeadEvent)
-        .filter(
-            LeadEvent.agent_user_id == agent.id,
-            LeadEvent.event_type == "AGENT_CONTACTED",
-            LeadEvent.created_at >= period_start,
-            LeadEvent.lead_id.in_(lead_ids_in_period),
-        )
-        .all()
-    ) if lead_ids_in_period else []
+    contacted_events = event_repo.list_for_agent_in_period(
+        agent_id=agent.id,
+        event_type="AGENT_CONTACTED",
+        lead_ids=lead_ids_in_period,
+        start_date=period_start,
+    )
 
     avg_response_time_minutes: Optional[float] = None
 
     if contacted_events:
-        # Group AGENT_CONTACTED events by lead_id — keep earliest per lead
         earliest_contacted: Dict[int, datetime] = {}
         for ev in contacted_events:
             existing = earliest_contacted.get(ev.lead_id)
             if existing is None or ev.created_at < existing:
                 earliest_contacted[ev.lead_id] = ev.created_at
 
-        # For each lead with a contact event, find the earliest EMAIL_RECEIVED
         contacted_lead_ids = list(earliest_contacted.keys())
-        email_received_events: List[LeadEvent] = (
-            db.query(LeadEvent)
-            .filter(
-                LeadEvent.lead_id.in_(contacted_lead_ids),
-                LeadEvent.event_type == "EMAIL_RECEIVED",
-            )
-            .all()
+        email_received_events = event_repo.list_by_lead_ids_and_type(
+            lead_ids=contacted_lead_ids,
+            event_type="EMAIL_RECEIVED",
         )
 
         earliest_received: Dict[int, datetime] = {}
@@ -196,7 +169,6 @@ def get_reports_summary(
             if existing is None or ev.created_at < existing:
                 earliest_received[ev.lead_id] = ev.created_at
 
-        # Compute differences in minutes
         diffs: List[float] = []
         for lead_id, contacted_at in earliest_contacted.items():
             received_at = earliest_received.get(lead_id)
