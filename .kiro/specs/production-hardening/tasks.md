@@ -87,7 +87,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Strategy: send random invalid requests to each endpoint category; assert response body matches `ErrorResponse` schema for all 4xx/5xx
 
 - [~] 6. Backend 4-layer architecture — repositories layer
-  - [~] 6.1 Create `api/repositories/__init__.py` and `api/repositories/lead_repository.py`
+  - [x] 6.1 Create `api/repositories/__init__.py` and `api/repositories/lead_repository.py`
     - Implement `LeadRepository` with `get_by_id(lead_id, tenant_id)`, `list_for_tenant(tenant_id, skip, limit)`, `list_all_with_tenant(skip, limit)`, `create(data, tenant_id)`, `update(lead_id, tenant_id, data)`
     - All tenant-scoped methods MUST include `tenant_id` / `agent_id` filter in the query; never trust user-supplied IDs
     - _Requirements: 6.1, 7.1, 7.2_
