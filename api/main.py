@@ -483,10 +483,11 @@ watcher_registry = WatcherRegistry(
 )
 
 # Mount API routes
-from api.routes import audit, agents, lead_sources, templates, watchers, leads, health, settings, auth, companies
+from api.routes import audit, agents, lead_sources, templates, watchers, leads, settings, auth, companies
 from api.routes.public_submission import router as public_submission_router
 from api.routes.buyer_leads import router as buyer_leads_router
 from api.routers import agent_auth, agent_onboarding, agent_dashboard, agent_leads, agent_settings, agent_account, agent_reports
+from api.routers.public_health import router as public_health_router
 from api.auth import get_current_user
 
 # Create wrapper for get_current_user that works with FastAPI dependency injection
@@ -497,9 +498,9 @@ def get_current_user_wrapper(request: Request, db: Session = Depends(get_db)) ->
 # Include routers
 # Public router — no auth middleware
 app.include_router(public_submission_router)
+app.include_router(public_health_router, prefix="/api/v1", tags=["Health"])
 
 app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
-app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 app.include_router(audit.router, prefix="/api/v1", tags=["Audit Logs"])
 app.include_router(agents.router, prefix="/api/v1", tags=["Agents"])
 app.include_router(lead_sources.router, prefix="/api/v1", tags=["Lead Sources"])

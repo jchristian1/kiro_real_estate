@@ -61,7 +61,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - _Requirements: 1.1, 1.2_
 
 - [~] 4. Health endpoint
-  - [~] 4.1 Create `GET /api/v1/health` route in `api/routers/public_health.py`
+  - [x] 4.1 Create `GET /api/v1/health` route in `api/routers/public_health.py`
     - No authentication required
     - Query DB connectivity; query active watcher count and last heartbeat per agent from `WatcherRegistry`
     - Return `{"status": "healthy"|"degraded", "database": "connected"|"error", "active_watchers": int, "errors_last_24h": int, "watchers": {agent_id: {"status": str, "last_heartbeat": str|null}}}`
