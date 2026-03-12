@@ -97,7 +97,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Credential repository methods always scope to owning agent
     - _Requirements: 6.4, 7.1, 7.2_
 
-  - [~] 6.3 Write unit tests for repository tenant scoping
+  - [x] 6.3 Write unit tests for repository tenant scoping
     - Assert `LeadRepository.get_by_id` returns `None` when `tenant_id` does not match
     - Assert `CredentialRepository` methods reject cross-tenant access
     - _Requirements: 6.1, 6.4_
