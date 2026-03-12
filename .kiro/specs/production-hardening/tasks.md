@@ -182,7 +182,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 12.3 Wrap `watcher.process_unseen_emails()` in `asyncio.wait_for(..., timeout=30)`; on `TimeoutError` log WARNING and continue to next cycle
     - _Requirements: 10.5_
 
-  - [~] 12.4 Ensure the `except Exception` in the polling loop logs `agent_id`, `error_type`, and full stack trace (`exc_info=True`) at ERROR level and continues the loop
+  - [x] 12.4 Ensure the `except Exception` in the polling loop logs `agent_id`, `error_type`, and full stack trace (`exc_info=True`) at ERROR level and continues the loop
     - _Requirements: 10.7_
 
   - [~] 12.5 Implement auto-restart cooldown: when `ENABLE_AUTO_RESTART=true`, schedule watcher restart after 60-second cooldown following `FAILED` transition; log ERROR with `agent_id`, error type, message, and timestamp when marking `FAILED`
