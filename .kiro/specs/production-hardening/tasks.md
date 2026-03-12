@@ -55,7 +55,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Step 3: exec `uvicorn api.main:app`
     - _Requirements: 1.4, 2.2, 2.4_
 
-  - [~] 3.3 Create or update `docker-compose.yml` with `api` and `frontend` services
+  - [x] 3.3 Create or update `docker-compose.yml` with `api` and `frontend` services
     - `api` service: builds from `Dockerfile`, uses `docker-entrypoint.sh`, mounts `.env`
     - `frontend` service: builds from `frontend/Dockerfile`, serves `dist/` via nginx
     - _Requirements: 1.1, 1.2_
