@@ -34,7 +34,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - File: `tests/property/test_prop_env_example_coverage.py`
     - Strategy: enumerate all variable names referenced in `load_config()`; assert each appears in `.env.example`
 
-  - [~] 2.5 Create `scripts/generate_secrets.sh` that writes cryptographically secure `ENCRYPTION_KEY` and `SECRET_KEY` to `.env`
+  - [x] 2.5 Create `scripts/generate_secrets.sh` that writes cryptographically secure `ENCRYPTION_KEY` and `SECRET_KEY` to `.env`
     - _Requirements: 4.5_
 
 - [~] 3. Makefile and Docker Compose one-command startup
