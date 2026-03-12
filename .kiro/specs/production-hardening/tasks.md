@@ -28,7 +28,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - File: `tests/property/test_prop_startup_validation.py`
     - Strategy: `st.text(max_size=31)` for key values; assert `ValueError` raised
 
-  - [~] 2.4 Write property test for .env.example coverage
+  - [x] 2.4 Write property test for .env.example coverage
     - **Property 2: .env.example covers all config variables**
     - **Validates: Requirements 1.3, 4.2**
     - File: `tests/property/test_prop_env_example_coverage.py`
