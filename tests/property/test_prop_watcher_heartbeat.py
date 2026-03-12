@@ -14,7 +14,7 @@ timestamp within the last ``SYNC_INTERVAL_SECONDS + 30`` seconds.
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -112,6 +112,13 @@ def _seconds_ago(n: int) -> datetime:
     return datetime.now(timezone.utc) - timedelta(seconds=n)
 
 
+def _override_registry(mock_registry):
+    """Return a FastAPI dependency override that yields the mock registry."""
+    def _dep():
+        return mock_registry
+    return _dep
+
+
 # ---------------------------------------------------------------------------
 # Strategies
 # ---------------------------------------------------------------------------
@@ -161,9 +168,12 @@ class TestProperty11WatcherHeartbeatInHealthEndpoint:
         agent_id = f"agent_{uuid.uuid4().hex[:8]}"
         mock_registry = _make_mock_registry(agent_id, heartbeat)
 
-        with patch("api.routers.public_health._get_registry", return_value=lambda: mock_registry):
+        app.dependency_overrides[_get_registry] = _override_registry(mock_registry)
+        try:
             with TestClient(app, raise_server_exceptions=False) as client:
                 resp = client.get("/api/v1/health")
+        finally:
+            app.dependency_overrides.pop(_get_registry, None)
 
         assert resp.status_code == 200, (
             f"Expected 200 from health endpoint, got {resp.status_code}: {resp.text}"
@@ -183,12 +193,6 @@ class TestProperty11WatcherHeartbeatInHealthEndpoint:
         # Parse the returned timestamp and verify it is within the tolerance window
         returned_ts_str = watcher_entry["last_heartbeat"]
         returned_ts = datetime.fromisoformat(returned_ts_str.replace("Z", "+00:00"))
-
-        # Make heartbeat timezone-aware for comparison
-        if heartbeat.tzinfo is None:
-            heartbeat_aware = heartbeat.replace(tzinfo=timezone.utc)
-        else:
-            heartbeat_aware = heartbeat
 
         now = datetime.now(timezone.utc)
         age_seconds = (now - returned_ts).total_seconds()
@@ -217,9 +221,12 @@ class TestProperty11WatcherHeartbeatInHealthEndpoint:
         agent_id = f"agent_{uuid.uuid4().hex[:8]}"
         mock_registry = _make_mock_registry(agent_id, heartbeat)
 
-        with patch("api.routers.public_health._get_registry", return_value=lambda: mock_registry):
+        app.dependency_overrides[_get_registry] = _override_registry(mock_registry)
+        try:
             with TestClient(app, raise_server_exceptions=False) as client:
                 resp = client.get("/api/v1/health")
+        finally:
+            app.dependency_overrides.pop(_get_registry, None)
 
         assert resp.status_code == 200
         body = resp.json()
@@ -246,9 +253,12 @@ class TestProperty11WatcherHeartbeatInHealthEndpoint:
         agent_id = f"agent_{uuid.uuid4().hex[:8]}"
         mock_registry = _make_mock_registry(agent_id, last_heartbeat=None)
 
-        with patch("api.routers.public_health._get_registry", return_value=lambda: mock_registry):
+        app.dependency_overrides[_get_registry] = _override_registry(mock_registry)
+        try:
             with TestClient(app, raise_server_exceptions=False) as client:
                 resp = client.get("/api/v1/health")
+        finally:
+            app.dependency_overrides.pop(_get_registry, None)
 
         assert resp.status_code == 200
         body = resp.json()
@@ -309,9 +319,12 @@ class TestProperty11WatcherHeartbeatInHealthEndpoint:
         mock_registry = MagicMock()
         mock_registry.get_all_statuses = AsyncMock(return_value=all_statuses)
 
-        with patch("api.routers.public_health._get_registry", return_value=lambda: mock_registry):
+        app.dependency_overrides[_get_registry] = _override_registry(mock_registry)
+        try:
             with TestClient(app, raise_server_exceptions=False) as client:
                 resp = client.get("/api/v1/health")
+        finally:
+            app.dependency_overrides.pop(_get_registry, None)
 
         assert resp.status_code == 200
         body = resp.json()
@@ -345,9 +358,12 @@ class TestProperty11WatcherHeartbeatInHealthEndpoint:
         heartbeat = _seconds_ago(10)
         mock_registry = _make_mock_registry(agent_id, heartbeat)
 
-        with patch("api.routers.public_health._get_registry", return_value=lambda: mock_registry):
+        app.dependency_overrides[_get_registry] = _override_registry(mock_registry)
+        try:
             with TestClient(app, raise_server_exceptions=False) as client:
                 resp = client.get("/api/v1/health")
+        finally:
+            app.dependency_overrides.pop(_get_registry, None)
 
         assert resp.status_code == 200
         body = resp.json()
