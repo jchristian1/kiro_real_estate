@@ -92,7 +92,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - All tenant-scoped methods MUST include `tenant_id` / `agent_id` filter in the query; never trust user-supplied IDs
     - _Requirements: 6.1, 7.1, 7.2_
 
-  - [~] 6.2 Create `api/repositories/agent_repository.py`, `api/repositories/credential_repository.py`, `api/repositories/watcher_repository.py`, `api/repositories/lead_source_repository.py`
+  - [x] 6.2 Create `api/repositories/agent_repository.py`, `api/repositories/credential_repository.py`, `api/repositories/watcher_repository.py`, `api/repositories/lead_source_repository.py`
     - Each repository owns all SQLAlchemy queries for its domain
     - Credential repository methods always scope to owning agent
     - _Requirements: 6.4, 7.1, 7.2_
