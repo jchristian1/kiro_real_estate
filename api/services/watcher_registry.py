@@ -60,8 +60,7 @@ class WatcherRegistry:
     Requirements: 4.2, 4.3, 4.4, 4.7, 20.1, 20.2, 20.3, 20.4, 20.5, 8.7
     """
     
-    MAX_RETRIES = 3
-    RETRY_DELAYS = [10, 30, 60]  # Exponential backoff in seconds
+    MAX_RETRIES = 5
     
     def __init__(self, get_db_session: callable, credentials_store: EncryptedDBCredentialsStore):
         """
@@ -304,6 +303,7 @@ class WatcherRegistry:
                     self._watchers[agent_id].status = WatcherStatus.RUNNING
                     self._watchers[agent_id].last_heartbeat = datetime.utcnow()
                     self._watchers[agent_id].error = None
+                    self._watchers[agent_id].retry_count = 0  # Reset retry count on successful connection
             
             logger.info(f"Watcher for agent {agent_id} connected and running")
             
@@ -374,7 +374,8 @@ class WatcherRegistry:
                     watcher_info.last_error = error_msg
                     
                     if watcher_info.retry_count < self.MAX_RETRIES:
-                        retry_delay = self.RETRY_DELAYS[min(watcher_info.retry_count, len(self.RETRY_DELAYS) - 1)]
+                        # Calculate exponential backoff: min(5 * 2^(attempt-1), 300) seconds
+                        retry_delay = min(5 * (2 ** watcher_info.retry_count), 300)
                         watcher_info.retry_count += 1
                         logger.info(f"Scheduling auto-restart for agent {agent_id} (retry {watcher_info.retry_count}/{self.MAX_RETRIES}) in {retry_delay}s")
                         asyncio.create_task(self._auto_restart_watcher(agent_id, retry_delay))

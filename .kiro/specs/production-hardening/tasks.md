@@ -173,7 +173,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - _Requirements: 10.4_
 
 - [~] 12. Watcher/worker resilience
-  - [~] 12.1 Replace fixed `RETRY_DELAYS` in `WatcherRegistry._run_watcher` with exponential backoff: `min(5 * 2^(attempt-1), 300)` seconds, up to 5 consecutive attempts, then transition to `FAILED`
+  - [-] 12.1 Replace fixed `RETRY_DELAYS` in `WatcherRegistry._run_watcher` with exponential backoff: `min(5 * 2^(attempt-1), 300)` seconds, up to 5 consecutive attempts, then transition to `FAILED`
     - _Requirements: 10.1_
 
   - [~] 12.2 Add `last_heartbeat` field to `WatcherInfo`; emit `DEBUG`-level heartbeat log entry every polling cycle and update `last_heartbeat` timestamp
