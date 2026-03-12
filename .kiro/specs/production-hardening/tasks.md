@@ -124,7 +124,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - `agent_*.py` routers: `dependencies=[Depends(require_role("agent"))]`
     - _Requirements: 11.2, 11.3_
 
-- [~] 9. Multi-tenant isolation enforcement
+- [x] 9. Multi-tenant isolation enforcement
   - [x] 9.1 Audit every route that returns tenant-scoped resources; replace any user-supplied `agent_id` / `tenant_id` path/query params with the value from the authenticated session
     - _Requirements: 6.1, 6.2_
 
