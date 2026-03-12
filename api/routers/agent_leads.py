@@ -27,8 +27,9 @@ from api.repositories import LeadRepository
 from api.repositories.lead_repository import LeadEventWriteRepository
 from api.repositories.watcher_repository import AgentPreferencesRepository
 from gmail_lead_sync.agent_models import AgentUser
+from api.dependencies.auth import require_role
 
-router = APIRouter(prefix="/agent", tags=["Agent Leads"])
+router = APIRouter(prefix="/agent", tags=["Agent Leads"], dependencies=[Depends(require_role("agent"))])
 
 PAGE_SIZE = 25
 

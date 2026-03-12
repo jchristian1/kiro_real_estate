@@ -16,9 +16,10 @@ from sqlalchemy.orm import Session
 from api.models.web_ui_models import User
 from api.models.audit_models import AuditLogResponse, AuditLogListResponse
 from api.repositories.audit_repository import AuditRepository
+from api.dependencies.auth import require_role
 
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_role("platform_admin"))])
 
 
 def get_db_dependency():

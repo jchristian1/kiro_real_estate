@@ -10,8 +10,9 @@ from api.models.error_models import ErrorCode
 from api.exceptions import NotFoundException, ValidationException
 from api.services.audit_log import record_audit_log
 from api.repositories.company_repository import CompanyRepository, CompanyCreate, CompanyUpdate
+from api.dependencies.auth import require_role
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_role("platform_admin"))])
 
 
 def get_db():

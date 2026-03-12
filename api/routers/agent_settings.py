@@ -35,8 +35,9 @@ from api.repositories.template_repository import (
 from api.repositories.watcher_repository import AgentPreferencesRepository
 from api.services.template_renderer import render_template_str
 from gmail_lead_sync.agent_models import AgentPreferences, AgentTemplate, AgentUser, BuyerAutomationConfig
+from api.dependencies.auth import require_role
 
-router = APIRouter(prefix="/agent", tags=["Agent Settings"])
+router = APIRouter(prefix="/agent", tags=["Agent Settings"], dependencies=[Depends(require_role("agent"))])
 
 # ---------------------------------------------------------------------------
 # Valid template types

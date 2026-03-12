@@ -119,7 +119,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Ensure no `FastAPI`-specific imports (`Request`, `Response`, `Depends`) appear in service modules
     - _Requirements: 7.2, 7.3_
 
-  - [~] 8.3 Apply `require_role` dependency at `APIRouter` constructor level for all admin and agent routers
+  - [x] 8.3 Apply `require_role` dependency at `APIRouter` constructor level for all admin and agent routers
     - `admin_*.py` routers: `dependencies=[Depends(require_role("platform_admin"))]`
     - `agent_*.py` routers: `dependencies=[Depends(require_role("agent"))]`
     - _Requirements: 11.2, 11.3_

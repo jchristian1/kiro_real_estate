@@ -13,8 +13,9 @@ from api.models.web_ui_models import User
 from api.models.settings_models import SettingsResponse, SettingsUpdateRequest
 from api.services.audit_log import record_audit_log
 from api.repositories.settings_repository import SettingsRepository
+from api.dependencies.auth import require_role
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_role("platform_admin"))])
 
 DEFAULT_SETTINGS = {
     'sync_interval_seconds': '300',

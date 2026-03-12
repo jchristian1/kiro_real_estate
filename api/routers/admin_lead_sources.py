@@ -38,8 +38,9 @@ from api.repositories.lead_source_repository import (
     RegexProfileVersionRepository,
     TemplateExistenceRepository,
 )
+from api.dependencies.auth import require_role
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_role("platform_admin"))])
 
 
 def get_db():

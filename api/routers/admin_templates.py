@@ -32,8 +32,9 @@ from api.models.error_models import ErrorCode
 from api.exceptions import ValidationException, NotFoundException, ConflictException
 from api.services.audit_log import record_audit_log
 from api.repositories.template_repository import AdminTemplateRepository
+from api.dependencies.auth import require_role
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_role("platform_admin"))])
 
 
 def get_db():

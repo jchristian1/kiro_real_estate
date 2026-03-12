@@ -27,8 +27,9 @@ from api.repositories.company_repository import CompanyRepository
 from api.repositories.credential_repository import CredentialRepository
 from api.repositories.lead_source_repository import LeadSourceRepository
 from gmail_lead_sync.agent_models import AgentUser
+from api.dependencies.auth import require_role
 
-router = APIRouter(prefix="/agent/onboarding", tags=["Agent Onboarding"])
+router = APIRouter(prefix="/agent/onboarding", tags=["Agent Onboarding"], dependencies=[Depends(require_role("agent"))])
 
 
 # ---------------------------------------------------------------------------

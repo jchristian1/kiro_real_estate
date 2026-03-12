@@ -20,8 +20,9 @@ from api.dependencies.agent_auth import get_current_agent
 from api.main import get_db
 from api.repositories import LeadRepository, LeadEventRepository
 from gmail_lead_sync.agent_models import AgentUser
+from api.dependencies.auth import require_role
 
-router = APIRouter(prefix="/agent/reports", tags=["Agent Reports"])
+router = APIRouter(prefix="/agent/reports", tags=["Agent Reports"], dependencies=[Depends(require_role("agent"))])
 
 # Valid period values mapped to number of days
 _VALID_PERIODS: Dict[str, int] = {

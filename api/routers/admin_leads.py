@@ -30,9 +30,10 @@ from api.models.lead_models import (
 from api.models.error_models import ErrorCode
 from api.exceptions import NotFoundException
 from api.repositories import LeadRepository, CredentialRepository
+from api.dependencies.auth import require_role
 
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_role("platform_admin"))])
 
 
 # Dependencies that will be injected by FastAPI

@@ -44,9 +44,10 @@ from api.exceptions import (
 )
 from api.repositories import CredentialRepository
 from api.services.audit_log import record_audit_log
+from api.dependencies.auth import require_role
 
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_role("platform_admin"))])
 
 
 # Dependencies that will be injected by FastAPI

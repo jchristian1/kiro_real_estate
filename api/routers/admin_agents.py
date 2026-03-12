@@ -43,9 +43,10 @@ from api.repositories.template_repository import TemplateRepository
 from api.repositories.watcher_repository import AgentPreferencesRepository
 from api.services.audit_log import record_audit_log
 from api.config import load_config
+from api.dependencies.auth import require_role
 
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_role("platform_admin"))])
 
 
 # Dependencies that will be injected by FastAPI

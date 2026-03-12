@@ -20,8 +20,9 @@ from api.main import get_db
 from api.repositories import LeadRepository, LeadEventRepository
 from api.repositories.watcher_repository import AgentPreferencesRepository
 from gmail_lead_sync.agent_models import AgentUser
+from api.dependencies.auth import require_role
 
-router = APIRouter(prefix="/agent", tags=["Agent Dashboard"])
+router = APIRouter(prefix="/agent", tags=["Agent Dashboard"], dependencies=[Depends(require_role("agent"))])
 
 # ---------------------------------------------------------------------------
 # Pydantic response models

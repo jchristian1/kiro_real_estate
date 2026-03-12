@@ -30,9 +30,10 @@ from api.repositories.buyer_leads_repository import (
     MessageTemplateRepository,
     BuyerLeadsQueryRepository,
 )
+from api.dependencies.auth import require_role
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_role("platform_admin"))])
 
 
 # ---------------------------------------------------------------------------
