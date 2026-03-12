@@ -150,7 +150,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Scoped to authenticated agent's tenant
     - _Requirements: 8.7_
 
-  - [~] 10.4 Verify property tests for state machine cover idempotency and event log ordering
+  - [x] 10.4 Verify property tests for state machine cover idempotency and event log ordering
     - **Property 5: Invalid transitions rejected** — `tests/property/test_prop_status_transitions.py` (already exists)
     - **Property 6: Valid transitions produce exactly one event row** — `tests/property/test_prop_status_transitions.py` (already exists)
     - **Property 7: State machine and watcher idempotency**
