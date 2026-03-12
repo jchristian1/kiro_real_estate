@@ -194,7 +194,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - File: `tests/property/test_prop_watcher_backoff.py`
     - Strategy: `st.integers(min_value=1, max_value=5)` for failure count; assert delay equals `min(5 * 2^(k-1), 300)`
 
-  - [~] 12.7 Write property test for polling loop exception survival
+  - [x] 12.7 Write property test for polling loop exception survival
     - **Property 10: Watcher polling loop survives unhandled exceptions**
     - **Validates: Requirements 10.7**
     - File: `tests/property/test_prop_watcher_resilience.py`
