@@ -38,7 +38,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - _Requirements: 4.5_
 
 - [~] 3. Makefile and Docker Compose one-command startup
-  - [~] 3.1 Create root-level `Makefile` with targets: `up`, `down`, `migrate`, `test`, `lint`, `typecheck`, `build`, `generate-secrets`
+  - [x] 3.1 Create root-level `Makefile` with targets: `up`, `down`, `migrate`, `test`, `lint`, `typecheck`, `build`, `generate-secrets`
     - `up`: `docker compose up --build -d`
     - `down`: `docker compose down`
     - `migrate`: `alembic upgrade head`
