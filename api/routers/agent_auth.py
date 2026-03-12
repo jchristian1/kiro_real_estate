@@ -313,18 +313,20 @@ async def me(
     """
     session = _get_session(db, agent_session)
     if session is None:
-        return Response(
-            content='{"error": "INVALID_CREDENTIALS"}',
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            media_type="application/json",
+        from api.exceptions import AuthenticationException
+        from api.models.error_models import ErrorCode
+        raise AuthenticationException(
+            message="Invalid or expired session",
+            code=ErrorCode.AUTH_SESSION_EXPIRED,
         )
 
     agent_user = db.query(AgentUser).filter(AgentUser.id == session.agent_user_id).first()
     if agent_user is None:
-        return Response(
-            content='{"error": "INVALID_CREDENTIALS"}',
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            media_type="application/json",
+        from api.exceptions import AuthenticationException
+        from api.models.error_models import ErrorCode
+        raise AuthenticationException(
+            message="Invalid or expired session",
+            code=ErrorCode.AUTH_SESSION_EXPIRED,
         )
 
     return MeResponse(

@@ -80,7 +80,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - All handlers return `ErrorResponse` JSON
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-  - [~] 5.3 Write property test for unified error schema
+  - [x] 5.3 Write property test for unified error schema
     - **Property 3: Unified error schema on all error responses**
     - **Validates: Requirements 5.1, 5.2, 5.3, 5.4, 5.5**
     - File: `tests/property/test_prop_error_schema.py`

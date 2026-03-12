@@ -377,11 +377,21 @@ def get_lead_detail(
 
     lead: Optional[Lead] = db.query(Lead).filter(Lead.id == lead_id).first()
     if lead is None:
-        raise HTTPException(status_code=404, detail="Lead not found")
+        from api.exceptions import NotFoundException
+        from api.models.error_models import ErrorCode
+        raise NotFoundException(
+            message="Lead not found",
+            code=ErrorCode.NOT_FOUND_LEAD,
+        )
 
     # Tenant isolation — 403 for cross-agent access (Requirement 18.2)
     if lead.agent_user_id != agent.id:
-        raise HTTPException(status_code=403, detail="LEAD_NOT_OWNED")
+        from api.exceptions import AuthorizationException
+        from api.models.error_models import ErrorCode
+        raise AuthorizationException(
+            message="Access to this lead is not permitted",
+            code=ErrorCode.AUTH_FORBIDDEN,
+        )
 
     # Aging annotation
     prefs: Optional[AgentPreferences] = (
@@ -524,24 +534,38 @@ def update_lead_status(
     """
     lead: Optional[Lead] = db.query(Lead).filter(Lead.id == lead_id).first()
     if lead is None:
-        raise HTTPException(status_code=404, detail="Lead not found")
+        from api.exceptions import NotFoundException
+        from api.models.error_models import ErrorCode
+        raise NotFoundException(
+            message="Lead not found",
+            code=ErrorCode.NOT_FOUND_LEAD,
+        )
 
     if lead.agent_user_id != agent.id:
-        raise HTTPException(status_code=403, detail="LEAD_NOT_OWNED")
+        from api.exceptions import AuthorizationException
+        from api.models.error_models import ErrorCode
+        raise AuthorizationException(
+            message="Access to this lead is not permitted",
+            code=ErrorCode.AUTH_FORBIDDEN,
+        )
 
     new_status = body.status.upper()
     if new_status not in STATUS_TO_STATE:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Unknown status '{body.status}'. Valid: CONTACTED, APPOINTMENT_SET, LOST, CLOSED",
+        from api.exceptions import ValidationException
+        from api.models.error_models import ErrorCode
+        raise ValidationException(
+            message=f"Unknown status '{body.status}'. Valid: CONTACTED, APPOINTMENT_SET, LOST, CLOSED",
+            code=ErrorCode.VALIDATION_INVALID_VALUE,
         )
 
     current = lead.agent_current_state
     allowed = VALID_TRANSITIONS.get(current, [])
     if new_status not in allowed:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Transition from '{current}' to '{new_status}' is not allowed",
+        from api.exceptions import ValidationException
+        from api.models.error_models import ErrorCode
+        raise ValidationException(
+            message=f"Transition from '{current}' to '{new_status}' is not allowed",
+            code=ErrorCode.VALIDATION_INVALID_VALUE,
         )
 
     now = datetime.utcnow()
@@ -603,10 +627,20 @@ def add_lead_note(
     """
     lead: Optional[Lead] = db.query(Lead).filter(Lead.id == lead_id).first()
     if lead is None:
-        raise HTTPException(status_code=404, detail="Lead not found")
+        from api.exceptions import NotFoundException
+        from api.models.error_models import ErrorCode
+        raise NotFoundException(
+            message="Lead not found",
+            code=ErrorCode.NOT_FOUND_LEAD,
+        )
 
     if lead.agent_user_id != agent.id:
-        raise HTTPException(status_code=403, detail="LEAD_NOT_OWNED")
+        from api.exceptions import AuthorizationException
+        from api.models.error_models import ErrorCode
+        raise AuthorizationException(
+            message="Access to this lead is not permitted",
+            code=ErrorCode.AUTH_FORBIDDEN,
+        )
 
     now = datetime.utcnow()
     event = LeadEvent(

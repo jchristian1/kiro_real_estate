@@ -199,17 +199,21 @@ class TestProperty21UnauthenticatedRejection:
         Property 21: Unauthenticated Requests Rejected
         **Validates: Requirements 2.4**
 
-        The 401 response for a missing cookie must include the UNAUTHORIZED error.
+        The 401 response for a missing cookie must include the unified error schema.
         """
         resp = client.get(PROTECTED_URL)
-        assert resp.json()["detail"]["error"] == "UNAUTHORIZED"
+        body = resp.json()
+        # Unified error schema: {"error": str, "message": str, "code": str, "details": list|null}
+        assert "error" in body
+        assert "message" in body
+        assert "code" in body
 
     def test_expired_session_error_body(self, client, db_session):
         """
         Property 21: Unauthenticated Requests Rejected
         **Validates: Requirements 2.4**
 
-        The 401 response for an expired session must include the UNAUTHORIZED error.
+        The 401 response for an expired session must include the unified error schema.
         """
         user = _create_agent(db_session)
         expired_session = _create_expired_session(db_session, user.id)
@@ -217,4 +221,8 @@ class TestProperty21UnauthenticatedRejection:
             PROTECTED_URL,
             cookies={AGENT_SESSION_COOKIE_NAME: expired_session.id},
         )
-        assert resp.json()["detail"]["error"] == "UNAUTHORIZED"
+        body = resp.json()
+        # Unified error schema: {"error": str, "message": str, "code": str, "details": list|null}
+        assert "error" in body
+        assert "message" in body
+        assert "code" in body

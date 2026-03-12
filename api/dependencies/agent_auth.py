@@ -17,19 +17,16 @@ Requirements: 2.4
 from datetime import datetime
 from typing import Optional
 
-from fastapi import Cookie, Depends, HTTPException, status
+from fastapi import Cookie, Depends
 from sqlalchemy.orm import Session
 
+from api.exceptions import AuthenticationException
+from api.models.error_models import ErrorCode
 from api.main import get_db
 from gmail_lead_sync.agent_models import AgentSession, AgentUser
 
 # Must match the cookie name used in agent_auth.py
 AGENT_SESSION_COOKIE_NAME = "agent_session"
-
-_UNAUTHORIZED = HTTPException(
-    status_code=status.HTTP_401_UNAUTHORIZED,
-    detail={"error": "UNAUTHORIZED"},
-)
 
 
 def get_current_agent(
@@ -41,15 +38,18 @@ def get_current_agent(
     """
     Validate the `agent_session` cookie and return the authenticated AgentUser.
 
-    - Raises HTTP 401 if the cookie is missing.
-    - Raises HTTP 401 if the session does not exist in the DB.
-    - Raises HTTP 401 if the session has expired (`expires_at <= NOW()`).
+    - Raises HTTP 401 (AuthenticationException) if the cookie is missing.
+    - Raises HTTP 401 (AuthenticationException) if the session does not exist in the DB.
+    - Raises HTTP 401 (AuthenticationException) if the session has expired.
     - Returns the `AgentUser` associated with the valid session.
 
     Requirements: 2.4
     """
     if not agent_session:
-        raise _UNAUTHORIZED
+        raise AuthenticationException(
+            message="Authentication required",
+            code=ErrorCode.AUTH_NOT_AUTHENTICATED,
+        )
 
     now = datetime.utcnow()
     session = (
@@ -62,7 +62,10 @@ def get_current_agent(
     )
 
     if session is None:
-        raise _UNAUTHORIZED
+        raise AuthenticationException(
+            message="Invalid or expired session",
+            code=ErrorCode.AUTH_SESSION_EXPIRED,
+        )
 
     agent_user = (
         db.query(AgentUser)
@@ -71,6 +74,9 @@ def get_current_agent(
     )
 
     if agent_user is None:
-        raise _UNAUTHORIZED
+        raise AuthenticationException(
+            message="Invalid or expired session",
+            code=ErrorCode.AUTH_SESSION_EXPIRED,
+        )
 
     return agent_user

@@ -138,7 +138,11 @@ class TestMissingCookie:
 
     def test_no_cookie_error_body(self, client):
         resp = client.get(PROTECTED_URL)
-        assert resp.json()["detail"]["error"] == "UNAUTHORIZED"
+        body = resp.json()
+        # Unified error schema: {"error": str, "message": str, "code": str, "details": list|null}
+        assert "error" in body
+        assert "message" in body
+        assert "code" in body
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +159,11 @@ class TestInvalidToken:
 
     def test_random_token_error_body(self, client):
         resp = client.get(PROTECTED_URL, cookies={AGENT_SESSION_COOKIE_NAME: "a" * 128})
-        assert resp.json()["detail"]["error"] == "UNAUTHORIZED"
+        body = resp.json()
+        # Unified error schema: {"error": str, "message": str, "code": str, "details": list|null}
+        assert "error" in body
+        assert "message" in body
+        assert "code" in body
 
     def test_empty_string_token_returns_401(self, client):
         resp = client.get(PROTECTED_URL, cookies={AGENT_SESSION_COOKIE_NAME: ""})
@@ -186,7 +194,11 @@ class TestExpiredSession:
             PROTECTED_URL,
             cookies={AGENT_SESSION_COOKIE_NAME: session.id},
         )
-        assert resp.json()["detail"]["error"] == "UNAUTHORIZED"
+        body = resp.json()
+        # Unified error schema: {"error": str, "message": str, "code": str, "details": list|null}
+        assert "error" in body
+        assert "message" in body
+        assert "code" in body
 
 
 # ---------------------------------------------------------------------------
