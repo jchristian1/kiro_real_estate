@@ -227,6 +227,27 @@ app.add_middleware(
 )
 
 
+# Security headers middleware
+# Requirements: 11.5
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """
+    Middleware to add security headers to all HTTP responses.
+
+    Sets:
+    - X-Content-Type-Options: nosniff
+    - X-Frame-Options: DENY
+    - Referrer-Policy: strict-origin-when-cross-origin
+
+    Requirements: 11.5
+    """
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+
 # Request logging middleware
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
