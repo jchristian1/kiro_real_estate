@@ -301,7 +301,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 16.6 Remove unused component files, hook files, and utility files identified during the restructure
     - _Requirements: 9.6, 15.6_
 
-  - [~] 16.7 Run `make build` and fix any TypeScript/import errors until the build succeeds with zero errors
+  - [x] 16.7 Run `make build` and fix any TypeScript/import errors until the build succeeds with zero errors
     - _Requirements: 9.5, 3.6_
 
 - [ ] 17. Lint, typecheck, and build clean pass
