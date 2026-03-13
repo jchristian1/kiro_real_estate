@@ -304,7 +304,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 16.7 Run `make build` and fix any TypeScript/import errors until the build succeeds with zero errors
     - _Requirements: 9.5, 3.6_
 
-- [-] 17. Lint, typecheck, and build clean pass
+- [x] 17. Lint, typecheck, and build clean pass
   - [x] 17.1 Run `make lint`; fix all `ruff` violations in Python source and all `eslint` violations in TypeScript/TSX
     - _Requirements: 3.1, 3.4_
 
