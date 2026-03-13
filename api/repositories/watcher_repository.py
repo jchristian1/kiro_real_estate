@@ -127,6 +127,14 @@ class AgentPreferencesRepository:
             self._db.flush()
         return prefs
 
+    def get_config_by_agent_id(self, agent_id: int) -> Optional[AgentPreferences]:
+        """Return preferences for *agent_id*, or None if not found."""
+        return (
+            self._db.query(AgentPreferences)
+            .filter(AgentPreferences.agent_user_id == agent_id)
+            .first()
+        )
+
     def save(self, prefs: AgentPreferences) -> AgentPreferences:
         """Commit pending changes to *prefs* and return the refreshed record."""
         self._db.commit()

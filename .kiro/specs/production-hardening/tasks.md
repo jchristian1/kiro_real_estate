@@ -206,88 +206,88 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - File: `tests/property/test_prop_watcher_heartbeat.py`
     - Strategy: mock watcher polling cycles; assert `last_heartbeat` in health response is within `SYNC_INTERVAL_SECONDS + 30` seconds
 
-- [~] 13. Checkpoint — core backend passes tests
+- [x] 13. Checkpoint — core backend passes tests
   - Ensure all tests pass, ask the user if questions arise.
 
-- [~] 14. Security hardening
-  - [~] 14.1 Add security headers middleware to `api/main.py`
+- [ ] 14. Security hardening
+  - [ ] 14.1 Add security headers middleware to `api/main.py`
     - Set `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin` on every response
     - _Requirements: 11.5_
 
-  - [~] 14.2 Add `slowapi` rate limiting to `POST /api/v1/auth/login` and `POST /api/v1/agent/auth/login`
+  - [ ] 14.2 Add `slowapi` rate limiting to `POST /api/v1/auth/login` and `POST /api/v1/agent/auth/login`
     - Limit: 10 requests/minute per IP; return HTTP 429 with `ErrorResponse` on excess
     - _Requirements: 11.6_
 
-  - [~] 14.3 Create `api/utils/sanitization.py` with `sanitize_string(value: str) -> str` using `bleach.clean(value, tags=[], strip=True)`
+  - [ ] 14.3 Create `api/utils/sanitization.py` with `sanitize_string(value: str) -> str` using `bleach.clean(value, tags=[], strip=True)`
     - Apply as Pydantic validator on `lead.name`, `lead.email`, `lead.notes` fields
     - _Requirements: 11.4_
 
-  - [~] 14.4 Ensure `api/utils/regex_tester.py` enforces `REGEX_TIMEOUT_MS` using `signal.alarm` (Unix) or thread-based timeout; reject and return error if pattern exceeds timeout
+  - [ ] 14.4 Ensure `api/utils/regex_tester.py` enforces `REGEX_TIMEOUT_MS` using `signal.alarm` (Unix) or thread-based timeout; reject and return error if pattern exceeds timeout
     - _Requirements: 11.7_
 
-  - [~] 14.5 Add auth failure logging in authentication handlers: log `WARNING` with `username_attempted` and `source_ip`; never log the attempted password
+  - [ ] 14.5 Add auth failure logging in authentication handlers: log `WARNING` with `username_attempted` and `source_ip`; never log the attempted password
     - _Requirements: 11.8_
 
-  - [~] 14.6 Set `secure=True`, `httponly=True`, `samesite="strict"` on all session cookies when `ENVIRONMENT=production`
+  - [ ] 14.6 Set `secure=True`, `httponly=True`, `samesite="strict"` on all session cookies when `ENVIRONMENT=production`
     - _Requirements: 4.6_
 
-  - [~] 14.7 Write property test for security headers
+  - [ ] 14.7 Write property test for security headers
     - **Property 16: Security headers present on all responses**
     - **Validates: Requirements 11.5**
     - File: `tests/property/test_prop_security_headers.py`
     - Strategy: random endpoint paths; assert all three headers present on every response
 
-  - [~] 14.8 Write property test for rate limiting
+  - [ ] 14.8 Write property test for rate limiting
     - **Property 17: Rate limiting on login endpoints**
     - **Validates: Requirements 11.6**
     - File: `tests/property/test_prop_rate_limiting.py`
     - Strategy: send > 10 requests within window; assert 11th+ returns HTTP 429
 
-  - [~] 14.9 Write property test for XSS sanitization
+  - [ ] 14.9 Write property test for XSS sanitization
     - **Property 15: XSS sanitization strips HTML from string inputs**
     - **Validates: Requirements 11.4**
     - File: `tests/property/test_prop_xss_sanitization.py`
     - Strategy: random strings with HTML tags; assert stored value equals `bleach.clean(input, tags=[], strip=True)`
 
-  - [~] 14.10 Write property test for regex timeout enforcement
+  - [ ] 14.10 Write property test for regex timeout enforcement
     - **Property 18: Regex timeout enforcement**
     - **Validates: Requirements 11.7**
     - File: `tests/property/test_prop_regex_timeout.py`
     - Strategy: catastrophic backtracking patterns; assert validation fails within timeout
 
-  - [~] 14.11 Write property test for RBAC
+  - [ ] 14.11 Write property test for RBAC
     - **Property 13: RBAC — agent sessions cannot access admin endpoints**
     - **Property 14: RBAC — admin sessions cannot act as agents**
     - **Validates: Requirements 11.2, 11.3**
     - File: `tests/property/test_prop_rbac.py`
     - Strategy: random admin/agent endpoint paths with wrong-role tokens; assert HTTP 403
 
-  - [~] 14.12 Write property test for auth failure logging
+  - [ ] 14.12 Write property test for auth failure logging
     - **Property 19: Auth failure logs contain username and IP but not password**
     - **Validates: Requirements 11.8**
     - File: `tests/property/test_prop_auth_logging.py`
     - Strategy: random username/password pairs; assert log entry contains username + IP, does not contain password
 
-  - [~] 14.13 Write property test for PII absent from INFO-level logs
+  - [ ] 14.13 Write property test for PII absent from INFO-level logs
     - **Property 20: PII absent from INFO-level logs**
     - **Validates: Requirements 4.7**
     - File: `tests/property/test_prop_pii_logging.py`
     - Strategy: random lead PII values; assert no INFO+ log entry contains those literal strings
 
-- [~] 15. Checkpoint — security tests pass
+- [ ] 15. Checkpoint — security tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [~] 16. Frontend restructure
-  - [~] 16.1 Create directory structure: `frontend/src/apps/agent/`, `frontend/src/apps/platform-admin/`, `frontend/src/shared/`
+- [ ] 16. Frontend restructure
+  - [ ] 16.1 Create directory structure: `frontend/src/apps/agent/`, `frontend/src/apps/platform-admin/`, `frontend/src/shared/`
     - _Requirements: 9.1_
 
-  - [~] 16.2 Move `frontend/src/agent/` → `frontend/src/apps/agent/`; update all import paths
+  - [ ] 16.2 Move `frontend/src/agent/` → `frontend/src/apps/agent/`; update all import paths
     - _Requirements: 9.2_
 
-  - [~] 16.3 Move platform-admin-specific files from `frontend/src/pages/`, `frontend/src/components/`, `frontend/src/contexts/AuthContext.*` → `frontend/src/apps/platform-admin/`; update all import paths
+  - [ ] 16.3 Move platform-admin-specific files from `frontend/src/pages/`, `frontend/src/components/`, `frontend/src/contexts/AuthContext.*` → `frontend/src/apps/platform-admin/`; update all import paths
     - _Requirements: 9.3_
 
-  - [~] 16.4 Move shared files to `frontend/src/shared/`:
+  - [ ] 16.4 Move shared files to `frontend/src/shared/`:
     - `src/contexts/ThemeContext.*` and `src/contexts/ToastContext.*` → `src/shared/contexts/`
     - `src/utils/api.ts` → `src/shared/api/client.ts`
     - `src/utils/theme.ts` → `src/shared/utils/theme.ts`
@@ -295,54 +295,54 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Update all import paths
     - _Requirements: 9.4_
 
-  - [~] 16.5 Update `frontend/src/main.tsx` to mount platform-admin at `/` and agent app at `/agent/*`
+  - [ ] 16.5 Update `frontend/src/main.tsx` to mount platform-admin at `/` and agent app at `/agent/*`
     - _Requirements: 9.7_
 
-  - [~] 16.6 Remove unused component files, hook files, and utility files identified during the restructure
+  - [ ] 16.6 Remove unused component files, hook files, and utility files identified during the restructure
     - _Requirements: 9.6, 15.6_
 
-  - [~] 16.7 Run `make build` and fix any TypeScript/import errors until the build succeeds with zero errors
+  - [ ] 16.7 Run `make build` and fix any TypeScript/import errors until the build succeeds with zero errors
     - _Requirements: 9.5, 3.6_
 
-- [~] 17. Lint, typecheck, and build clean pass
-  - [~] 17.1 Run `make lint`; fix all `ruff` violations in Python source and all `eslint` violations in TypeScript/TSX
+- [ ] 17. Lint, typecheck, and build clean pass
+  - [ ] 17.1 Run `make lint`; fix all `ruff` violations in Python source and all `eslint` violations in TypeScript/TSX
     - _Requirements: 3.1, 3.4_
 
-  - [~] 17.2 Run `make typecheck`; fix all `mypy` errors in `api/` and `gmail_lead_sync/` and all `tsc --noEmit` errors in `frontend/`
+  - [ ] 17.2 Run `make typecheck`; fix all `mypy` errors in `api/` and `gmail_lead_sync/` and all `tsc --noEmit` errors in `frontend/`
     - _Requirements: 3.2, 3.5_
 
-  - [~] 17.3 Remove all unused imports, unused variables, and unreachable code paths flagged by the linter
+  - [ ] 17.3 Remove all unused imports, unused variables, and unreachable code paths flagged by the linter
     - _Requirements: 15.5_
 
-- [~] 18. Documentation
-  - [~] 18.1 Create or update root-level `README.md` with: project overview, prerequisites (Python version, Node version, Docker), quick-start using `make up`, environment variable reference, CI badge, links to `docs/`
+- [ ] 18. Documentation
+  - [ ] 18.1 Create or update root-level `README.md` with: project overview, prerequisites (Python version, Node version, Docker), quick-start using `make up`, environment variable reference, CI badge, links to `docs/`
     - _Requirements: 12.1, 14.5_
 
-  - [~] 18.2 Create `docs/ARCHITECTURE.md` describing backend layer structure, frontend app structure, database schema overview, and watcher/worker flow
+  - [ ] 18.2 Create `docs/ARCHITECTURE.md` describing backend layer structure, frontend app structure, database schema overview, and watcher/worker flow
     - _Requirements: 12.2_
 
-  - [~] 18.3 Create `CONTRIBUTING.md` describing how to run tests, add a new API endpoint, add a new frontend page, and the branching/PR process
+  - [ ] 18.3 Create `CONTRIBUTING.md` describing how to run tests, add a new API endpoint, add a new frontend page, and the branching/PR process
     - _Requirements: 12.3_
 
-  - [~] 18.4 Create `SECURITY.md` describing secrets management, credential encryption, session security, and vulnerability reporting
+  - [ ] 18.4 Create `SECURITY.md` describing secrets management, credential encryption, session security, and vulnerability reporting
     - _Requirements: 12.4_
 
-  - [~] 18.5 Create `docs/TESTING_GAPS.md` listing untested modules and rationale for each gap
+  - [ ] 18.5 Create `docs/TESTING_GAPS.md` listing untested modules and rationale for each gap
     - _Requirements: 12.7_
 
-  - [~] 18.6 Create `scripts/validate_clean_clone.sh` that clones to a temp dir, copies `.env.example` → `.env` with generated secrets, runs `docker compose up -d`, polls the health endpoint until healthy or 120s timeout, and reports pass/fail
+  - [ ] 18.6 Create `scripts/validate_clean_clone.sh` that clones to a temp dir, copies `.env.example` → `.env` with generated secrets, runs `docker compose up -d`, polls the health endpoint until healthy or 120s timeout, and reports pass/fail
     - _Requirements: 13.1, 13.2, 13.4_
 
-  - [~] 18.7 Create `docs/CLEAN_CLONE_VALIDATION.md` documenting the validation result, date, environment, and known issues
+  - [ ] 18.7 Create `docs/CLEAN_CLONE_VALIDATION.md` documenting the validation result, date, environment, and known issues
     - _Requirements: 13.3_
 
-- [~] 19. CI/CD baseline
+- [ ] 19. CI/CD baseline
   - Create `.github/workflows/ci.yml` triggered on push and pull_request to main
   - Steps: `actions/checkout@v4`, `actions/setup-python@v5` (with pip cache keyed on `requirements-dev.txt`), `actions/setup-node@v4` (with npm cache keyed on `package-lock.json`), `pip install -r requirements-dev.txt`, `cd frontend && npm ci`, `make lint`, `make typecheck`, `make test`
   - Fail pipeline if any step exits non-zero
   - _Requirements: 14.1, 14.2, 14.3_
 
-- [~] 20. Final checkpoint — all tests pass, build clean
+- [ ] 20. Final checkpoint — all tests pass, build clean
   - Ensure `make lint`, `make typecheck`, `make build`, and `make test` all exit zero.
   - Ensure `make up` reaches healthy state and `GET /api/v1/health` returns HTTP 200 with `status: "healthy"`.
   - Ask the user if questions arise.

@@ -25,7 +25,7 @@ from api.dependencies.agent_auth import get_current_agent
 from api.main import get_db
 from api.repositories import LeadRepository
 from api.repositories.lead_repository import LeadEventWriteRepository
-from api.repositories.watcher_repository import AgentPreferencesRepository
+from api.repositories.watcher_repository import AgentPreferencesRepository, WatcherRepository
 from gmail_lead_sync.agent_models import AgentUser
 from api.dependencies.auth import require_role
 
@@ -123,7 +123,7 @@ def get_leads(
     """
     now = datetime.utcnow()
 
-    prefs_repo = AgentPreferencesRepository(db)
+    prefs_repo = WatcherRepository(db)
     lead_repo = LeadRepository(db)
 
     prefs = prefs_repo.get_config_by_agent_id(agent.id)
@@ -361,7 +361,7 @@ def get_lead_detail(
 
     lead_repo = LeadRepository(db)
     event_write_repo = LeadEventWriteRepository(db)
-    prefs_repo = AgentPreferencesRepository(db)
+    prefs_repo = WatcherRepository(db)
 
     lead = lead_repo.get_by_agent_id_str(lead_id)
     if lead is None:
@@ -541,7 +541,9 @@ def update_lead_status(
         )
 
     current = lead.agent_current_state
-    allowed = VALID_TRANSITIONS.get(current, [])
+    # Normalize 'NEW' to None — both represent the initial state
+    current_for_transition = None if current == "NEW" else current
+    allowed = VALID_TRANSITIONS.get(current_for_transition, VALID_TRANSITIONS.get(current, []))
     if new_status not in allowed:
         from api.exceptions import ValidationException
         from api.models.error_models import ErrorCode
@@ -554,7 +556,7 @@ def update_lead_status(
 
     # Insert STATUS_CHANGED event (Requirement 20.3)
     payload: Dict[str, Any] = {
-        "from_state": current,
+        "from_state": current_for_transition,
         "to_state": new_status,
     }
     if body.note:
@@ -679,7 +681,7 @@ def get_lead_events(
     # Fetch state transitions (already scoped to tenant in repository)
     transitions = lead_repo.get_lead_state_transitions(lead_id, agent.id)
 
-    # Build response
+    # Build response from LeadStateTransition records
     events: List[LeadStateTransitionResponse] = []
     for t in transitions:
         metadata_dict: Optional[Dict[str, Any]] = None
@@ -700,6 +702,39 @@ def get_lead_events(
                 metadata=metadata_dict,
             )
         )
+
+    # Also include STATUS_CHANGED LeadEvent records (from agent-app state machine)
+    if not events:
+        from gmail_lead_sync.agent_models import LeadEvent
+        lead_events = (
+            db.query(LeadEvent)
+            .filter(
+                LeadEvent.lead_id == lead_id,
+                LeadEvent.event_type == "STATUS_CHANGED",
+            )
+            .order_by(LeadEvent.created_at.asc())
+            .all()
+        )
+        for ev in lead_events:
+            payload_dict: Optional[Dict[str, Any]] = None
+            if ev.payload:
+                try:
+                    payload_dict = json.loads(ev.payload)
+                except (json.JSONDecodeError, TypeError):
+                    payload_dict = {}
+            from_state = payload_dict.get("from_state") if payload_dict else None
+            to_state = payload_dict.get("to_state") if payload_dict else None
+            events.append(
+                LeadStateTransitionResponse(
+                    id=ev.id,
+                    from_state=from_state,
+                    to_state=to_state,
+                    occurred_at=ev.created_at,
+                    actor_type="agent",
+                    actor_id=ev.agent_user_id,
+                    metadata=payload_dict,
+                )
+            )
 
     return LeadEventsResponse(
         lead_id=lead_id,

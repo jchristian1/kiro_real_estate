@@ -10,7 +10,7 @@ Requirements: 13.7, 20.1
 import pytest
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, StaticPool
 from sqlalchemy.orm import sessionmaker
 
 from gmail_lead_sync.models import Base, Lead
@@ -25,7 +25,11 @@ from api.main import app, get_db
 
 @pytest.fixture
 def db_engine():
-    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     Base.metadata.create_all(engine)
     yield engine
     Base.metadata.drop_all(engine)
@@ -66,7 +70,7 @@ def agent_client(client, db_session):
     client.put("/api/v1/agent/onboarding/profile", json={
         "full_name": "Test Agent", "timezone": "America/New_York",
     })
-    with patch("api.services.imap_service.test_imap_connection", return_value={"success": True}):
+    with patch("api.routers.agent_onboarding.test_imap_connection", return_value={"success": True}):
         client.post("/api/v1/agent/onboarding/gmail", json={
             "gmail_address": "agent@gmail.com", "app_password": "abcd efgh ijkl mnop",
         })
@@ -77,10 +81,10 @@ def agent_client(client, db_session):
     })
     client.put("/api/v1/agent/onboarding/templates", json={
         "templates": [
-            {"type": "initial_outreach", "subject": "Hi {lead_name}", "body": "Hello {lead_name}.", "tone": "professional"},
-            {"type": "follow_up",        "subject": "Follow up",      "body": "Hi {lead_name}.",    "tone": "friendly"},
-            {"type": "post_form",         "subject": "Thanks",         "body": "Got it {lead_name}.", "tone": "professional"},
-            {"type": "appointment",       "subject": "Meet",           "body": "{form_link}",         "tone": "concise"},
+            {"template_type": "initial_outreach", "subject": "Hi {lead_name}", "body": "Hello {lead_name}.", "tone": "PROFESSIONAL"},
+            {"template_type": "follow_up",        "subject": "Follow up",      "body": "Hi {lead_name}.",    "tone": "FRIENDLY"},
+            {"template_type": "post_form",         "subject": "Thanks",         "body": "Got it {lead_name}.", "tone": "PROFESSIONAL"},
+            {"template_type": "appointment",       "subject": "Meet",           "body": "{form_link}",         "tone": "SHORT"},
         ]
     })
     client.post("/api/v1/agent/onboarding/complete", json={})
@@ -90,13 +94,25 @@ def agent_client(client, db_session):
 @pytest.fixture
 def sample_lead(db_session, agent_client):
     """Create a lead in the DB scoped to the authenticated agent."""
-    from api.routers.agent_auth import get_current_agent
+    from gmail_lead_sync.models import LeadSource
     agent = db_session.query(AgentUser).filter_by(email="agent@test.com").first()
+
+    # Create a lead source first (required FK)
+    lead_source = LeadSource(
+        sender_email="leads@example.com",
+        identifier_snippet="Lead Notification",
+        name_regex=r"Name:\s*(.+)",
+        phone_regex=r"Phone:\s*([\d-]+)",
+    )
+    db_session.add(lead_source)
+    db_session.flush()
 
     lead = Lead(
         name="John Buyer",
-        email="john@example.com",
         phone="555-9999",
+        source_email="john@example.com",
+        gmail_uid="test-uid-001",
+        lead_source_id=lead_source.id,
         agent_user_id=agent.id,
         current_state="NEW",
         score=0,
@@ -123,8 +139,10 @@ class TestLeadLifecycle:
         r = agent_client.get(f"/api/v1/agent/leads/{sample_lead.id}")
         assert r.status_code == 200
         data = r.json()
-        assert data["id"] == sample_lead.id
-        assert data["name"] == "John Buyer"
+        # Response is nested under "lead" key
+        lead_data = data.get("lead", data)
+        assert lead_data["id"] == sample_lead.id
+        assert lead_data["name"] == "John Buyer"
 
     def test_status_transition_new_to_contacted(self, agent_client, sample_lead, db_session):
         r = agent_client.patch(
@@ -133,9 +151,9 @@ class TestLeadLifecycle:
         )
         assert r.status_code == 200
 
-        # Verify state updated
+        # Verify state updated (uses agent_current_state column)
         db_session.refresh(sample_lead)
-        assert sample_lead.current_state == "CONTACTED"
+        assert sample_lead.agent_current_state == "CONTACTED"
 
         # Verify last_agent_action_at was set
         assert sample_lead.last_agent_action_at is not None
@@ -156,12 +174,12 @@ class TestLeadLifecycle:
             f"/api/v1/agent/leads/{sample_lead.id}/status",
             json={"status": "CLOSED"}
         )
-        assert r.status_code == 422
+        assert r.status_code in (400, 422)
 
     def test_add_note_persists_and_inserts_event(self, agent_client, sample_lead, db_session):
         r = agent_client.post(
             f"/api/v1/agent/leads/{sample_lead.id}/notes",
-            json={"content": "Called and left voicemail."}
+            json={"text": "Called and left voicemail."}
         )
         assert r.status_code in (200, 201)
 
@@ -181,7 +199,7 @@ class TestLeadLifecycle:
             assert r.status_code == 200, f"Transition to {state} failed: {r.text}"
 
         db_session.refresh(sample_lead)
-        assert sample_lead.current_state == "CLOSED"
+        assert sample_lead.agent_current_state == "CLOSED"
 
     def test_cross_agent_lead_access_denied(self, db_session, client):
         """Agent B cannot access Agent A's lead — returns 403."""

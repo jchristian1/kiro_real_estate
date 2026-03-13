@@ -64,7 +64,7 @@ class HealthResponse(BaseModel):
 # Dependencies (imported lazily to avoid circular imports)
 # ---------------------------------------------------------------------------
 
-def _get_db():
+def get_db():
     from api.main import SessionLocal
     db = SessionLocal()
     try:
@@ -73,9 +73,14 @@ def _get_db():
         db.close()
 
 
-def _get_registry():
+def get_watcher_registry():
     from api.main import watcher_registry
     return watcher_registry
+
+
+# Keep private aliases for backward compatibility
+_get_db = get_db
+_get_registry = get_watcher_registry
 
 
 # ---------------------------------------------------------------------------
@@ -84,8 +89,8 @@ def _get_registry():
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check(
-    db: Session = Depends(_get_db),
-    registry=Depends(_get_registry),
+    db: Session = Depends(get_db),
+    registry=Depends(get_watcher_registry),
 ):
     """
     Public health check — no authentication required.

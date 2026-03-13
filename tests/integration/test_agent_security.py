@@ -15,7 +15,7 @@ import logging
 import pytest
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, StaticPool
 from sqlalchemy.orm import sessionmaker
 
 from gmail_lead_sync.models import Base, Lead
@@ -27,7 +27,11 @@ from api.main import app, get_db
 
 @pytest.fixture
 def db_engine():
-    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     Base.metadata.create_all(engine)
     yield engine
     Base.metadata.drop_all(engine)
@@ -64,7 +68,7 @@ def _complete_onboarding(client):
     client.put("/api/v1/agent/onboarding/profile", json={
         "full_name": "Sec Agent", "timezone": "America/New_York",
     })
-    with patch("api.services.imap_service.test_imap_connection", return_value={"success": True}):
+    with patch("api.routers.agent_onboarding.test_imap_connection", return_value={"success": True}):
         client.post("/api/v1/agent/onboarding/gmail", json={
             "gmail_address": "sec@gmail.com", "app_password": "abcd efgh ijkl mnop",
         })
@@ -95,7 +99,7 @@ class TestCredentialNeverExposed:
         client.put("/api/v1/agent/onboarding/profile", json={
             "full_name": "Sec Agent", "timezone": "America/New_York",
         })
-        with patch("api.services.imap_service.test_imap_connection", return_value={"success": True}):
+        with patch("api.routers.agent_onboarding.test_imap_connection", return_value={"success": True}):
             r = client.post("/api/v1/agent/onboarding/gmail", json={
                 "gmail_address": "sec@gmail.com",
                 "app_password": self.APP_PASSWORD,
@@ -119,7 +123,7 @@ class TestCredentialNeverExposed:
         client.put("/api/v1/agent/onboarding/profile", json={
             "full_name": "Sec Agent", "timezone": "America/New_York",
         })
-        with patch("api.services.imap_service.test_imap_connection",
+        with patch("api.routers.agent_onboarding.test_imap_connection",
                    side_effect=Exception(f"IMAP error with {self.APP_PASSWORD}")):
             r = client.post("/api/v1/agent/onboarding/gmail", json={
                 "gmail_address": "sec@gmail.com",
@@ -134,7 +138,7 @@ class TestCredentialNeverExposed:
             "full_name": "Sec Agent", "timezone": "America/New_York",
         })
         with caplog.at_level(logging.DEBUG):
-            with patch("api.services.imap_service.test_imap_connection", return_value={"success": True}):
+            with patch("api.routers.agent_onboarding.test_imap_connection", return_value={"success": True}):
                 client.post("/api/v1/agent/onboarding/gmail", json={
                     "gmail_address": "sec@gmail.com",
                     "app_password": self.APP_PASSWORD,
@@ -154,7 +158,7 @@ class TestImapRateLimiting:
         })
 
         # First 5 attempts fail with INVALID_PASSWORD (not rate limited yet)
-        with patch("api.services.imap_service.test_imap_connection",
+        with patch("api.routers.agent_onboarding.test_imap_connection",
                    side_effect=Exception("INVALID_PASSWORD")):
             for i in range(5):
                 r = client.post("/api/v1/agent/onboarding/gmail", json={
@@ -178,7 +182,7 @@ class TestImapRateLimiting:
         client.put("/api/v1/agent/onboarding/profile", json={
             "full_name": "Sec Agent", "timezone": "America/New_York",
         })
-        with patch("api.services.imap_service.test_imap_connection",
+        with patch("api.routers.agent_onboarding.test_imap_connection",
                    side_effect=Exception("INVALID_PASSWORD")):
             for i in range(5):
                 client.post("/api/v1/agent/onboarding/gmail", json={

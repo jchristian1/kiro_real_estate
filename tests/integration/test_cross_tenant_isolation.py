@@ -19,7 +19,7 @@ Requirements: 6.6
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, StaticPool
 from sqlalchemy.orm import sessionmaker
 from unittest.mock import patch
 
@@ -32,7 +32,11 @@ from api.main import app, get_db
 
 @pytest.fixture
 def db_engine():
-    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     # Import all models to ensure tables are created
     from gmail_lead_sync import models as _models
     from gmail_lead_sync import agent_models as _agent_models
@@ -82,7 +86,7 @@ def _complete_profile(client, full_name: str):
 
 def _connect_gmail(client, gmail_address: str, app_password: str):
     """Connect Gmail credentials."""
-    with patch("api.services.imap_service.test_imap_connection", return_value={"success": True}):
+    with patch("api.routers.agent_onboarding.test_imap_connection", return_value={"success": True}):
         r = client.post("/api/v1/agent/onboarding/gmail", json={
             "gmail_address": gmail_address,
             "app_password": app_password,

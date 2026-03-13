@@ -10,7 +10,7 @@ Tests the complete authentication flow with a real database:
 
 import pytest
 from datetime import datetime, timedelta
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, StaticPool
 from sqlalchemy.orm import sessionmaker
 
 from gmail_lead_sync.models import Base
@@ -27,7 +27,11 @@ from api.auth import (
 @pytest.fixture
 def db_session():
     """Create an in-memory database for testing."""
-    engine = create_engine('sqlite:///:memory:')
+    engine = create_engine(
+        'sqlite:///:memory:',
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     session = Session()

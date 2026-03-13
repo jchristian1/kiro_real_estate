@@ -151,6 +151,24 @@ class LeadRepository:
         return lead
 
 
+    def update_agent_state(
+        self,
+        lead_id: int,
+        tenant_id: int,
+        new_state: str,
+        last_action_at=None,
+    ):
+        """Update the agent_current_state for a lead scoped to tenant."""
+        lead = self.get_by_id(lead_id, tenant_id)
+        if lead is None:
+            return None
+        lead.agent_current_state = new_state
+        if last_action_at is not None:
+            lead.last_agent_action_at = last_action_at
+        self._db.commit()
+        self._db.refresh(lead)
+        return lead
+
     def list_with_filters(
         self,
         *,
@@ -230,6 +248,34 @@ class LeadRepository:
             .order_by(LeadStateTransition.occurred_at.asc())
             .all()
         )
+
+    def list_for_tenant_with_filters(
+        self,
+        tenant_id: int,
+        *,
+        bucket: Optional[str] = None,
+        status: Optional[str] = None,
+        search: Optional[str] = None,
+    ) -> list[Lead]:
+        """Return all leads for *tenant_id* with optional bucket/status/search filters.
+
+        Returns all matching leads (no pagination) for Python-side sorting.
+        """
+        query = self._db.query(Lead).filter(Lead.agent_user_id == tenant_id)
+
+        if bucket and bucket.upper() != "ALL":
+            query = query.filter(Lead.score_bucket == bucket.upper())
+        if status and status.upper() != "ALL":
+            query = query.filter(Lead.agent_current_state == status.upper())
+        if search and search.strip():
+            term = f"%{search.strip()}%"
+            query = query.filter(
+                Lead.name.ilike(term)
+                | Lead.property_address.ilike(term)
+                | Lead.lead_source_name.ilike(term)
+            )
+
+        return query.all()
 
 
 # ---------------------------------------------------------------------------

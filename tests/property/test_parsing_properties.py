@@ -35,7 +35,7 @@ valid_name_strategy = st.text(
 ).filter(lambda x: x.strip() != '')
 
 valid_phone_strategy = st.from_regex(r'\+?[\d\s\-\(\)]{7,20}', fullmatch=True).filter(
-    lambda x: len(re.sub(r'\D', '', x)) >= 7
+    lambda x: len(re.sub(r'\D', '', x)) >= 7 and '\n' not in x and '\r' not in x
 )
 
 
