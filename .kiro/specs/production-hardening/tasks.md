@@ -231,44 +231,44 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 14.6 Set `secure=True`, `httponly=True`, `samesite="strict"` on all session cookies when `ENVIRONMENT=production`
     - _Requirements: 4.6_
 
-  - [ ] 14.7 Write property test for security headers
+  - [x] 14.7 Write property test for security headers
     - **Property 16: Security headers present on all responses**
     - **Validates: Requirements 11.5**
     - File: `tests/property/test_prop_security_headers.py`
     - Strategy: random endpoint paths; assert all three headers present on every response
 
-  - [ ] 14.8 Write property test for rate limiting
+  - [-] 14.8 Write property test for rate limiting
     - **Property 17: Rate limiting on login endpoints**
     - **Validates: Requirements 11.6**
     - File: `tests/property/test_prop_rate_limiting.py`
     - Strategy: send > 10 requests within window; assert 11th+ returns HTTP 429
 
-  - [ ] 14.9 Write property test for XSS sanitization
+  - [-] 14.9 Write property test for XSS sanitization
     - **Property 15: XSS sanitization strips HTML from string inputs**
     - **Validates: Requirements 11.4**
     - File: `tests/property/test_prop_xss_sanitization.py`
     - Strategy: random strings with HTML tags; assert stored value equals `bleach.clean(input, tags=[], strip=True)`
 
-  - [ ] 14.10 Write property test for regex timeout enforcement
+  - [-] 14.10 Write property test for regex timeout enforcement
     - **Property 18: Regex timeout enforcement**
     - **Validates: Requirements 11.7**
     - File: `tests/property/test_prop_regex_timeout.py`
     - Strategy: catastrophic backtracking patterns; assert validation fails within timeout
 
-  - [ ] 14.11 Write property test for RBAC
+  - [-] 14.11 Write property test for RBAC
     - **Property 13: RBAC — agent sessions cannot access admin endpoints**
     - **Property 14: RBAC — admin sessions cannot act as agents**
     - **Validates: Requirements 11.2, 11.3**
     - File: `tests/property/test_prop_rbac.py`
     - Strategy: random admin/agent endpoint paths with wrong-role tokens; assert HTTP 403
 
-  - [ ] 14.12 Write property test for auth failure logging
+  - [-] 14.12 Write property test for auth failure logging
     - **Property 19: Auth failure logs contain username and IP but not password**
     - **Validates: Requirements 11.8**
     - File: `tests/property/test_prop_auth_logging.py`
     - Strategy: random username/password pairs; assert log entry contains username + IP, does not contain password
 
-  - [ ] 14.13 Write property test for PII absent from INFO-level logs
+  - [-] 14.13 Write property test for PII absent from INFO-level logs
     - **Property 20: PII absent from INFO-level logs**
     - **Validates: Requirements 4.7**
     - File: `tests/property/test_prop_pii_logging.py`
