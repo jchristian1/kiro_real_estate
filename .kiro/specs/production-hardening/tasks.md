@@ -330,7 +330,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 18.5 Create `docs/TESTING_GAPS.md` listing untested modules and rationale for each gap
     - _Requirements: 12.7_
 
-  - [~] 18.6 Create `scripts/validate_clean_clone.sh` that clones to a temp dir, copies `.env.example` → `.env` with generated secrets, runs `docker compose up -d`, polls the health endpoint until healthy or 120s timeout, and reports pass/fail
+  - [x] 18.6 Create `scripts/validate_clean_clone.sh` that clones to a temp dir, copies `.env.example` → `.env` with generated secrets, runs `docker compose up -d`, polls the health endpoint until healthy or 120s timeout, and reports pass/fail
     - _Requirements: 13.1, 13.2, 13.4_
 
   - [~] 18.7 Create `docs/CLEAN_CLONE_VALIDATION.md` documenting the validation result, date, environment, and known issues
