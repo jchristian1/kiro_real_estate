@@ -342,7 +342,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - Fail pipeline if any step exits non-zero
   - _Requirements: 14.1, 14.2, 14.3_
 
-- [-] 20. Final checkpoint — all tests pass, build clean
+- [x] 20. Final checkpoint — all tests pass, build clean
   - Ensure `make lint`, `make typecheck`, `make build`, and `make test` all exit zero.
   - Ensure `make up` reaches healthy state and `GET /api/v1/health` returns HTTP 200 with `status: "healthy"`.
   - Ask the user if questions arise.
