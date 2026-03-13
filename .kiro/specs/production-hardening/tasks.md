@@ -255,7 +255,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - File: `tests/property/test_prop_regex_timeout.py`
     - Strategy: catastrophic backtracking patterns; assert validation fails within timeout
 
-  - [-] 14.11 Write property test for RBAC
+  - [x] 14.11 Write property test for RBAC
     - **Property 13: RBAC — agent sessions cannot access admin endpoints**
     - **Property 14: RBAC — admin sessions cannot act as agents**
     - **Validates: Requirements 11.2, 11.3**
