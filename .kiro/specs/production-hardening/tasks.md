@@ -262,7 +262,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - File: `tests/property/test_prop_rbac.py`
     - Strategy: random admin/agent endpoint paths with wrong-role tokens; assert HTTP 403
 
-  - [-] 14.12 Write property test for auth failure logging
+  - [x] 14.12 Write property test for auth failure logging
     - **Property 19: Auth failure logs contain username and IP but not password**
     - **Validates: Requirements 11.8**
     - File: `tests/property/test_prop_auth_logging.py`
