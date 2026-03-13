@@ -318,7 +318,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 18.1 Create or update root-level `README.md` with: project overview, prerequisites (Python version, Node version, Docker), quick-start using `make up`, environment variable reference, CI badge, links to `docs/`
     - _Requirements: 12.1, 14.5_
 
-  - [~] 18.2 Create `docs/ARCHITECTURE.md` describing backend layer structure, frontend app structure, database schema overview, and watcher/worker flow
+  - [x] 18.2 Create `docs/ARCHITECTURE.md` describing backend layer structure, frontend app structure, database schema overview, and watcher/worker flow
     - _Requirements: 12.2_
 
   - [~] 18.3 Create `CONTRIBUTING.md` describing how to run tests, add a new API endpoint, add a new frontend page, and the branching/PR process
