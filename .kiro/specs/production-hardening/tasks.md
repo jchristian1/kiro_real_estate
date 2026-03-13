@@ -249,7 +249,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - File: `tests/property/test_prop_xss_sanitization.py`
     - Strategy: random strings with HTML tags; assert stored value equals `bleach.clean(input, tags=[], strip=True)`
 
-  - [-] 14.10 Write property test for regex timeout enforcement
+  - [x] 14.10 Write property test for regex timeout enforcement
     - **Property 18: Regex timeout enforcement**
     - **Validates: Requirements 11.7**
     - File: `tests/property/test_prop_regex_timeout.py`
