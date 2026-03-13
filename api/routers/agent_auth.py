@@ -16,12 +16,13 @@ from typing import Optional
 import os
 
 import bcrypt
-from fastapi import APIRouter, Cookie, Depends, Response, status
+from fastapi import APIRouter, Cookie, Depends, Request, Response, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.orm import Session
 
 from api.main import get_db
 from api.repositories import AgentRepository, AgentSessionRepository
+from api.utils.rate_limiter import limiter
 from gmail_lead_sync.agent_models import AgentUser, AgentSession
 
 # Session cookie configuration (mirrors design.md spec)
@@ -195,9 +196,12 @@ def _get_session(db: Session, token: Optional[str]) -> Optional[AgentSession]:
     response_model=LoginResponse,
     responses={
         401: {"model": ErrorResponse, "description": "Invalid credentials"},
+        429: {"description": "Rate limit exceeded"},
     },
 )
+@limiter.limit("10/minute")
 async def login(
+    request: Request,
     body: LoginRequest,
     response: Response,
     db: Session = Depends(get_db),
@@ -205,10 +209,9 @@ async def login(
     """
     Verify email + password, create a new session, and set the session cookie.
 
-    - Returns 401 with INVALID_CREDENTIALS on bad email or wrong password.
-    - On success: creates AgentSession, sets `agent_session` cookie.
+    Rate limited to 10 requests/minute per IP.
 
-    Requirements: 2.1, 2.2, 2.6
+    Requirements: 2.1, 2.2, 2.6, 11.6
     """
     # Look up agent by email
     agent_repo = AgentRepository(db)

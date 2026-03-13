@@ -214,7 +214,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Set `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin` on every response
     - _Requirements: 11.5_
 
-  - [ ] 14.2 Add `slowapi` rate limiting to `POST /api/v1/auth/login` and `POST /api/v1/agent/auth/login`
+  - [x] 14.2 Add `slowapi` rate limiting to `POST /api/v1/auth/login` and `POST /api/v1/agent/auth/login`
     - Limit: 10 requests/minute per IP; return HTTP 429 with `ErrorResponse` on excess
     - _Requirements: 11.6_
 

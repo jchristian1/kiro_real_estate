@@ -551,34 +551,39 @@ async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content=error_response.model_dump())
 
 
-# Register slowapi RateLimitExceeded handler if slowapi is installed
-try:
-    from slowapi.errors import RateLimitExceeded
+# Rate limiting setup using slowapi
+# Requirements: 11.6
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from api.utils.rate_limiter import limiter
 
-    @app.exception_handler(RateLimitExceeded)
-    async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
-        """
-        Handler for slowapi rate limit exceeded errors (HTTP 429).
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
 
-        Requirements: 5.1
-        """
-        logger.warning(
-            "Rate limit exceeded",
-            extra={
-                "method": request.method,
-                "path": request.url.path,
-                "client_host": request.client.host if request.client else None,
-            },
-        )
-        error_response = create_error_response(
-            error="Too Many Requests",
-            message="Rate limit exceeded. Please slow down and try again later.",
-            code="RATE_LIMIT_EXCEEDED",
-        )
-        return JSONResponse(status_code=429, content=error_response.model_dump())
 
-except ImportError:
-    pass  # slowapi not installed; handler registered when package is added
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+    """
+    Handler for slowapi rate limit exceeded errors (HTTP 429).
+
+    Requirements: 5.1, 11.6
+    """
+    logger.warning(
+        "Rate limit exceeded",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "client_host": request.client.host if request.client else None,
+        },
+    )
+    error_response = create_error_response(
+        error="Too Many Requests",
+        message="Rate limit exceeded. Please slow down and try again later.",
+        code="RATE_LIMIT_EXCEEDED",
+    )
+    return JSONResponse(status_code=429, content=error_response.model_dump())
 
 
 # Health check endpoint is now in api/routes/health.py

@@ -26,6 +26,7 @@ from api.dependencies.db import get_db
 from api.models.web_ui_models import User
 from api.models.error_models import ErrorCode
 from api.exceptions import AuthenticationException
+from api.utils.rate_limiter import limiter
 
 
 router = APIRouter()
@@ -60,45 +61,35 @@ class LogoutResponse(BaseModel):
 
 
 @router.post("/auth/login", response_model=LoginResponse, status_code=status.HTTP_200_OK)
+@limiter.limit("10/minute")
 async def login(
-    request: LoginRequest,
+    request: Request,
+    request_body: LoginRequest,
     response: Response,
     db: Session = Depends(get_db)
 ):
     """
     Authenticate user and create session.
-    
-    Validates username and password, creates a session token,
-    and sets it in an HTTP-only secure cookie.
-    
-    Args:
-        request: Login credentials (username, password)
-        response: FastAPI response object for setting cookie
-        db: Database session
-    
-    Returns:
-        LoginResponse with user information
-    
-    Raises:
-        AuthenticationException: 401 if credentials are invalid
-    
-    Requirements: 6.2, 6.3, 6.5
+
+    Rate limited to 10 requests/minute per IP.
+
+    Requirements: 6.2, 6.3, 6.5, 11.6
     """
     # Authenticate user
-    user = authenticate_user(db, request.username, request.password)
-    
+    user = authenticate_user(db, request_body.username, request_body.password)
+
     if not user:
         raise AuthenticationException(
             message="Invalid username or password",
             code=ErrorCode.AUTH_INVALID_CREDENTIALS
         )
-    
+
     # Create session
     session = create_session(db, user.id)
-    
+
     # Set session cookie
     set_session_cookie(response, session.id)
-    
+
     # Return user info (exclude password hash)
     return LoginResponse(
         user=UserResponse(
