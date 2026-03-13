@@ -78,7 +78,6 @@ def upgrade() -> None:
     op.drop_table('scoring_configs')
     op.drop_index(op.f('ix_lead_events_lead_id_created_at'), table_name='lead_events')
     op.drop_table('lead_events')
-    op.create_foreign_key(None, 'credentials', 'companies', ['company_id'], ['id'])
     op.drop_column('leads', 'current_state_updated_at')
     op.drop_column('leads', 'company_id')
     op.drop_column('leads', 'property_address')
@@ -109,7 +108,6 @@ def downgrade() -> None:
     op.add_column('leads', sa.Column('property_address', sa.VARCHAR(length=500), nullable=True))
     op.add_column('leads', sa.Column('company_id', sa.INTEGER(), nullable=True))
     op.add_column('leads', sa.Column('current_state_updated_at', sa.DATETIME(), nullable=True))
-    op.drop_constraint(None, 'credentials', type_='foreignkey')
     op.create_table('lead_events',
     sa.Column('id', sa.INTEGER(), nullable=False),
     sa.Column('lead_id', sa.INTEGER(), nullable=False),
