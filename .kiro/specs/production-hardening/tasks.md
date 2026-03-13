@@ -277,7 +277,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
 - [x] 15. Checkpoint — security tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [-] 16. Frontend restructure
+- [x] 16. Frontend restructure
   - [x] 16.1 Create directory structure: `frontend/src/apps/agent/`, `frontend/src/apps/platform-admin/`, `frontend/src/shared/`
     - _Requirements: 9.1_
 
@@ -287,7 +287,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 16.3 Move platform-admin-specific files from `frontend/src/pages/`, `frontend/src/components/`, `frontend/src/contexts/AuthContext.*` → `frontend/src/apps/platform-admin/`; update all import paths
     - _Requirements: 9.3_
 
-  - [~] 16.4 Move shared files to `frontend/src/shared/`:
+  - [x] 16.4 Move shared files to `frontend/src/shared/`:
     - `src/contexts/ThemeContext.*` and `src/contexts/ToastContext.*` → `src/shared/contexts/`
     - `src/utils/api.ts` → `src/shared/api/client.ts`
     - `src/utils/theme.ts` → `src/shared/utils/theme.ts`
