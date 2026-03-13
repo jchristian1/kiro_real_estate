@@ -218,7 +218,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Limit: 10 requests/minute per IP; return HTTP 429 with `ErrorResponse` on excess
     - _Requirements: 11.6_
 
-  - [ ] 14.3 Create `api/utils/sanitization.py` with `sanitize_string(value: str) -> str` using `bleach.clean(value, tags=[], strip=True)`
+  - [x] 14.3 Create `api/utils/sanitization.py` with `sanitize_string(value: str) -> str` using `bleach.clean(value, tags=[], strip=True)`
     - Apply as Pydantic validator on `lead.name`, `lead.email`, `lead.notes` fields
     - _Requirements: 11.4_
 

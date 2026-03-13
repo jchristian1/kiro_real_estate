@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from api.dependencies.agent_auth import get_current_agent
@@ -28,6 +28,7 @@ from api.repositories.lead_repository import LeadEventWriteRepository
 from api.repositories.watcher_repository import AgentPreferencesRepository, WatcherRepository
 from gmail_lead_sync.agent_models import AgentUser
 from api.dependencies.auth import require_role
+from api.utils.sanitization import sanitize_string
 
 router = APIRouter(prefix="/agent", tags=["Agent Leads"], dependencies=[Depends(require_role("agent"))])
 
@@ -306,6 +307,14 @@ class StatusUpdateResponse(BaseModel):
 
 class NoteRequest(BaseModel):
     text: str
+
+    @field_validator("text", mode="before")
+    @classmethod
+    def sanitize_html(cls, v: str) -> str:
+        """Strip HTML tags from note text to prevent stored XSS. Requirements: 11.4"""
+        if isinstance(v, str):
+            return sanitize_string(v)
+        return v
 
 
 class NoteResponse(BaseModel):

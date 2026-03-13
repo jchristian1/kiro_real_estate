@@ -11,10 +11,11 @@ Requirements: 6.1, 7.1, 7.2
 from typing import Optional
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from gmail_lead_sync.models import Lead
+from api.utils.sanitization import sanitize_string
 
 
 # ---------------------------------------------------------------------------
@@ -32,6 +33,14 @@ class LeadCreate(BaseModel):
     gmail_uid: str
     agent_id: Optional[str] = None
 
+    @field_validator("name", "source_email", mode="before")
+    @classmethod
+    def sanitize_html(cls, v: str) -> str:
+        """Strip HTML tags to prevent stored XSS. Requirements: 11.4"""
+        if isinstance(v, str):
+            return sanitize_string(v)
+        return v
+
 
 class LeadUpdate(BaseModel):
     """Fields that may be updated on an existing lead."""
@@ -41,6 +50,14 @@ class LeadUpdate(BaseModel):
     response_sent: Optional[bool] = None
     response_status: Optional[str] = None
     agent_id: Optional[str] = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def sanitize_html(cls, v: str) -> str:
+        """Strip HTML tags to prevent stored XSS. Requirements: 11.4"""
+        if v is not None and isinstance(v, str):
+            return sanitize_string(v)
+        return v
 
 
 # ---------------------------------------------------------------------------
