@@ -43,6 +43,15 @@ from api.dependencies.auth import require_role
 router = APIRouter(dependencies=[Depends(require_role("platform_admin"))])
 
 
+def _get_regex_timeout_ms() -> int:
+    """Read REGEX_TIMEOUT_MS from config, defaulting to 1000ms. Requirements: 11.7"""
+    import os
+    try:
+        return int(os.getenv("REGEX_TIMEOUT_MS", "1000"))
+    except (ValueError, TypeError):
+        return 1000
+
+
 def get_db():
     from api.main import SessionLocal
     db = SessionLocal()
@@ -257,17 +266,17 @@ def test_regex(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Test a regex pattern against sample text. Requirements: 2.3, 2.4, 14.1-14.4"""
+    """Test a regex pattern against sample text. Requirements: 2.3, 2.4, 11.7, 14.1-14.4"""
     try:
         matched, groups, match_text = test_regex_pattern(
             pattern=test_data.pattern,
             text=test_data.sample_text,
-            timeout_ms=1000,
+            timeout_ms=_get_regex_timeout_ms(),
         )
         return RegexTestResponse(matched=matched, groups=groups, match_text=match_text)
     except RegexTimeoutError:
         raise ValidationException(
-            message="Regex execution timeout (1000ms exceeded)",
+            message=f"Regex execution timeout ({_get_regex_timeout_ms()}ms exceeded)",
             code=ErrorCode.VALIDATION_ERROR,
         )
     except ValueError as e:

@@ -222,7 +222,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Apply as Pydantic validator on `lead.name`, `lead.email`, `lead.notes` fields
     - _Requirements: 11.4_
 
-  - [ ] 14.4 Ensure `api/utils/regex_tester.py` enforces `REGEX_TIMEOUT_MS` using `signal.alarm` (Unix) or thread-based timeout; reject and return error if pattern exceeds timeout
+  - [x] 14.4 Ensure `api/utils/regex_tester.py` enforces `REGEX_TIMEOUT_MS` using `signal.alarm` (Unix) or thread-based timeout; reject and return error if pattern exceeds timeout
     - _Requirements: 11.7_
 
   - [ ] 14.5 Add auth failure logging in authentication handlers: log `WARNING` with `username_attempted` and `source_ip`; never log the attempted password

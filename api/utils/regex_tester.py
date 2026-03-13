@@ -148,25 +148,27 @@ def test_regex_windows(pattern: str, text: str, timeout_ms: int = 1000) -> Tuple
 def test_regex_pattern(pattern: str, text: str, timeout_ms: int = 1000) -> Tuple[bool, List[str], Optional[str]]:
     """
     Test regex pattern against text with timeout protection.
-    
+
     Automatically selects the appropriate timeout mechanism based on the
-    operating system (signal.alarm for Unix, threading.Timer for Windows).
-    
+    operating system: ``signal.alarm`` on Unix (more precise, sub-second
+    granularity via a 1-second minimum), thread-based on Windows.
+
     Args:
         pattern: Regex pattern string
         text: Text to test against
-        timeout_ms: Timeout in milliseconds (default: 1000)
-        
+        timeout_ms: Timeout in milliseconds (default: 1000, reads from
+            ``REGEX_TIMEOUT_MS`` env var when called from the router)
+
     Returns:
         Tuple of (matched, groups, match_text)
         - matched: Whether the pattern matched
         - groups: List of captured groups
         - match_text: The matched text (None if no match)
-        
+
     Raises:
         RegexTimeoutError: If regex execution exceeds timeout
         re.error: If regex pattern is invalid
-        
+
     Requirements:
         - 2.3: Test regex patterns against sample text
         - 2.4: Enforce timeout of 1000 milliseconds
@@ -174,17 +176,17 @@ def test_regex_pattern(pattern: str, text: str, timeout_ms: int = 1000) -> Tuple
         - 14.2: Return match results and captured groups
         - 14.3: Enforce timeout of 1000 milliseconds
         - 14.4: Return timeout error if execution exceeds timeout
+        - 11.7: Enforce REGEX_TIMEOUT_MS configurable timeout
     """
     # Validate pattern first (will raise re.error if invalid)
     try:
         re.compile(pattern)
     except re.error as e:
         raise ValueError(f"Invalid regex pattern: {str(e)}")
-    
-    # Select appropriate timeout mechanism based on OS
-    system = platform.system()
-    
-    # Always use threading-based approach for better compatibility
-    # signal.alarm() only works in the main thread, which causes issues in tests
-    # and async contexts
+
+    # Use signal.alarm on Unix (main thread only); fall back to thread-based
+    # on Windows or when running in a non-main thread (e.g. async workers).
+    import threading
+    if platform.system() != "Windows" and threading.current_thread() is threading.main_thread():
+        return test_regex_unix(pattern, text, timeout_ms)
     return test_regex_windows(pattern, text, timeout_ms)
