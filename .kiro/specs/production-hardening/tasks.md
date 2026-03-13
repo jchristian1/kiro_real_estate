@@ -314,7 +314,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 17.3 Remove all unused imports, unused variables, and unreachable code paths flagged by the linter
     - _Requirements: 15.5_
 
-- [-] 18. Documentation
+- [x] 18. Documentation
   - [x] 18.1 Create or update root-level `README.md` with: project overview, prerequisites (Python version, Node version, Docker), quick-start using `make up`, environment variable reference, CI badge, links to `docs/`
     - _Requirements: 12.1, 14.5_
 
