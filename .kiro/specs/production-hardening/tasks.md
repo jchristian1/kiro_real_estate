@@ -298,7 +298,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 16.5 Update `frontend/src/main.tsx` to mount platform-admin at `/` and agent app at `/agent/*`
     - _Requirements: 9.7_
 
-  - [~] 16.6 Remove unused component files, hook files, and utility files identified during the restructure
+  - [x] 16.6 Remove unused component files, hook files, and utility files identified during the restructure
     - _Requirements: 9.6, 15.6_
 
   - [~] 16.7 Run `make build` and fix any TypeScript/import errors until the build succeeds with zero errors
