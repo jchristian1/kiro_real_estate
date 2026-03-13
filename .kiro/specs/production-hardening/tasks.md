@@ -228,7 +228,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 14.5 Add auth failure logging in authentication handlers: log `WARNING` with `username_attempted` and `source_ip`; never log the attempted password
     - _Requirements: 11.8_
 
-  - [ ] 14.6 Set `secure=True`, `httponly=True`, `samesite="strict"` on all session cookies when `ENVIRONMENT=production`
+  - [x] 14.6 Set `secure=True`, `httponly=True`, `samesite="strict"` on all session cookies when `ENVIRONMENT=production`
     - _Requirements: 4.6_
 
   - [ ] 14.7 Write property test for security headers

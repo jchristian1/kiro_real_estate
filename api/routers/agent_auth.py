@@ -33,9 +33,6 @@ AGENT_SESSION_COOKIE_NAME = "agent_session"
 AGENT_SESSION_EXPIRY_DAYS = 30
 AGENT_SESSION_TOKEN_BYTES = 64  # 64-byte cryptographically secure token
 
-# Only set secure=True in production (HTTPS); in development/test use False
-_IS_PRODUCTION = os.getenv("ENVIRONMENT", "development") == "production"
-
 router = APIRouter(prefix="/agent/auth", tags=["Agent Auth"])
 
 
@@ -110,13 +107,20 @@ def _create_agent_session(db: Session, agent_user_id: int) -> AgentSession:
 
 
 def _set_agent_session_cookie(response: Response, token: str) -> None:
-    """Set the agent session cookie per design spec."""
+    """Set the agent session cookie per design spec.
+
+    In production (ENVIRONMENT=production): secure=True, samesite="strict".
+    In development: secure=False, samesite="lax".
+
+    Requirements: 4.6
+    """
+    is_production = os.getenv("ENVIRONMENT", "development") == "production"
     response.set_cookie(
         key=AGENT_SESSION_COOKIE_NAME,
         value=token,
         httponly=True,
-        secure=_IS_PRODUCTION,
-        samesite="lax",
+        secure=is_production,
+        samesite="strict" if is_production else "lax",
         max_age=AGENT_SESSION_EXPIRY_DAYS * 24 * 3600,
     )
 
@@ -276,11 +280,12 @@ async def logout(
         session_repo = AgentSessionRepository(db)
         session_repo.delete_session(agent_session)
 
+    is_production = os.getenv("ENVIRONMENT", "development") == "production"
     response.delete_cookie(
         key=AGENT_SESSION_COOKIE_NAME,
         httponly=True,
-        secure=_IS_PRODUCTION,
-        samesite="lax",
+        secure=is_production,
+        samesite="strict" if is_production else "lax",
     )
     return {"ok": True}
 
