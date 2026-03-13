@@ -314,26 +314,26 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 17.3 Remove all unused imports, unused variables, and unreachable code paths flagged by the linter
     - _Requirements: 15.5_
 
-- [ ] 18. Documentation
-  - [ ] 18.1 Create or update root-level `README.md` with: project overview, prerequisites (Python version, Node version, Docker), quick-start using `make up`, environment variable reference, CI badge, links to `docs/`
+- [-] 18. Documentation
+  - [x] 18.1 Create or update root-level `README.md` with: project overview, prerequisites (Python version, Node version, Docker), quick-start using `make up`, environment variable reference, CI badge, links to `docs/`
     - _Requirements: 12.1, 14.5_
 
-  - [ ] 18.2 Create `docs/ARCHITECTURE.md` describing backend layer structure, frontend app structure, database schema overview, and watcher/worker flow
+  - [~] 18.2 Create `docs/ARCHITECTURE.md` describing backend layer structure, frontend app structure, database schema overview, and watcher/worker flow
     - _Requirements: 12.2_
 
-  - [ ] 18.3 Create `CONTRIBUTING.md` describing how to run tests, add a new API endpoint, add a new frontend page, and the branching/PR process
+  - [~] 18.3 Create `CONTRIBUTING.md` describing how to run tests, add a new API endpoint, add a new frontend page, and the branching/PR process
     - _Requirements: 12.3_
 
-  - [ ] 18.4 Create `SECURITY.md` describing secrets management, credential encryption, session security, and vulnerability reporting
+  - [~] 18.4 Create `SECURITY.md` describing secrets management, credential encryption, session security, and vulnerability reporting
     - _Requirements: 12.4_
 
-  - [ ] 18.5 Create `docs/TESTING_GAPS.md` listing untested modules and rationale for each gap
+  - [~] 18.5 Create `docs/TESTING_GAPS.md` listing untested modules and rationale for each gap
     - _Requirements: 12.7_
 
-  - [ ] 18.6 Create `scripts/validate_clean_clone.sh` that clones to a temp dir, copies `.env.example` → `.env` with generated secrets, runs `docker compose up -d`, polls the health endpoint until healthy or 120s timeout, and reports pass/fail
+  - [~] 18.6 Create `scripts/validate_clean_clone.sh` that clones to a temp dir, copies `.env.example` → `.env` with generated secrets, runs `docker compose up -d`, polls the health endpoint until healthy or 120s timeout, and reports pass/fail
     - _Requirements: 13.1, 13.2, 13.4_
 
-  - [ ] 18.7 Create `docs/CLEAN_CLONE_VALIDATION.md` documenting the validation result, date, environment, and known issues
+  - [~] 18.7 Create `docs/CLEAN_CLONE_VALIDATION.md` documenting the validation result, date, environment, and known issues
     - _Requirements: 13.3_
 
 - [ ] 19. CI/CD baseline
