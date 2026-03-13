@@ -274,7 +274,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - File: `tests/property/test_prop_pii_logging.py`
     - Strategy: random lead PII values; assert no INFO+ log entry contains those literal strings
 
-- [ ] 15. Checkpoint — security tests pass
+- [x] 15. Checkpoint — security tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 16. Frontend restructure
