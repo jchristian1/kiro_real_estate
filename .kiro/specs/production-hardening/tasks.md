@@ -284,7 +284,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 16.2 Move `frontend/src/agent/` → `frontend/src/apps/agent/`; update all import paths
     - _Requirements: 9.2_
 
-  - [~] 16.3 Move platform-admin-specific files from `frontend/src/pages/`, `frontend/src/components/`, `frontend/src/contexts/AuthContext.*` → `frontend/src/apps/platform-admin/`; update all import paths
+  - [x] 16.3 Move platform-admin-specific files from `frontend/src/pages/`, `frontend/src/components/`, `frontend/src/contexts/AuthContext.*` → `frontend/src/apps/platform-admin/`; update all import paths
     - _Requirements: 9.3_
 
   - [~] 16.4 Move shared files to `frontend/src/shared/`:
