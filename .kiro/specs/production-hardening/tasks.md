@@ -321,7 +321,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 18.2 Create `docs/ARCHITECTURE.md` describing backend layer structure, frontend app structure, database schema overview, and watcher/worker flow
     - _Requirements: 12.2_
 
-  - [~] 18.3 Create `CONTRIBUTING.md` describing how to run tests, add a new API endpoint, add a new frontend page, and the branching/PR process
+  - [x] 18.3 Create `CONTRIBUTING.md` describing how to run tests, add a new API endpoint, add a new frontend page, and the branching/PR process
     - _Requirements: 12.3_
 
   - [~] 18.4 Create `SECURITY.md` describing secrets management, credential encryption, session security, and vulnerability reporting
