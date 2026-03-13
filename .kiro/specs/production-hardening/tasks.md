@@ -243,7 +243,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - File: `tests/property/test_prop_rate_limiting.py`
     - Strategy: send > 10 requests within window; assert 11th+ returns HTTP 429
 
-  - [-] 14.9 Write property test for XSS sanitization
+  - [x] 14.9 Write property test for XSS sanitization
     - **Property 15: XSS sanitization strips HTML from string inputs**
     - **Validates: Requirements 11.4**
     - File: `tests/property/test_prop_xss_sanitization.py`
