@@ -268,7 +268,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - File: `tests/property/test_prop_auth_logging.py`
     - Strategy: random username/password pairs; assert log entry contains username + IP, does not contain password
 
-  - [-] 14.13 Write property test for PII absent from INFO-level logs
+  - [x] 14.13 Write property test for PII absent from INFO-level logs
     - **Property 20: PII absent from INFO-level logs**
     - **Validates: Requirements 4.7**
     - File: `tests/property/test_prop_pii_logging.py`
