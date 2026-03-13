@@ -336,7 +336,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 18.7 Create `docs/CLEAN_CLONE_VALIDATION.md` documenting the validation result, date, environment, and known issues
     - _Requirements: 13.3_
 
-- [ ] 19. CI/CD baseline
+- [x] 19. CI/CD baseline
   - Create `.github/workflows/ci.yml` triggered on push and pull_request to main
   - Steps: `actions/checkout@v4`, `actions/setup-python@v5` (with pip cache keyed on `requirements-dev.txt`), `actions/setup-node@v4` (with npm cache keyed on `package-lock.json`), `pip install -r requirements-dev.txt`, `cd frontend && npm ci`, `make lint`, `make typecheck`, `make test`
   - Fail pipeline if any step exits non-zero
