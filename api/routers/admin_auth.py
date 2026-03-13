@@ -12,6 +12,7 @@ All endpoints use HTTP-only secure cookies for session management.
 from fastapi import APIRouter, Depends, Response, Request, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
+import logging
 
 from api.auth import (
     authenticate_user,
@@ -27,6 +28,8 @@ from api.models.web_ui_models import User
 from api.models.error_models import ErrorCode
 from api.exceptions import AuthenticationException
 from api.utils.rate_limiter import limiter
+
+logger = logging.getLogger("api.auth")
 
 
 router = APIRouter()
@@ -79,6 +82,16 @@ async def login(
     user = authenticate_user(db, request_body.username, request_body.password)
 
     if not user:
+        # Log auth failure — username and IP only, never the password (Req 11.8)
+        source_ip = request.client.host if request.client else "unknown"
+        logger.warning(
+            "Authentication failure",
+            extra={
+                "username_attempted": request_body.username,
+                "source_ip": source_ip,
+                "endpoint": "/api/v1/auth/login",
+            },
+        )
         raise AuthenticationException(
             message="Invalid username or password",
             code=ErrorCode.AUTH_INVALID_CREDENTIALS

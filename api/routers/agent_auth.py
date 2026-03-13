@@ -13,6 +13,7 @@ Requirements: 1.1, 1.2, 1.3, 1.5, 2.1, 2.2, 2.3, 2.5, 2.6
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
+import logging
 import os
 
 import bcrypt
@@ -24,6 +25,8 @@ from api.main import get_db
 from api.repositories import AgentRepository, AgentSessionRepository
 from api.utils.rate_limiter import limiter
 from gmail_lead_sync.agent_models import AgentUser, AgentSession
+
+logger = logging.getLogger("api.auth")
 
 # Session cookie configuration (mirrors design.md spec)
 AGENT_SESSION_COOKIE_NAME = "agent_session"
@@ -221,6 +224,16 @@ async def login(
     if agent_user is None or not bcrypt.checkpw(
         body.password.encode("utf-8"), agent_user.password_hash.encode("utf-8")
     ):
+        # Log auth failure — email and IP only, never the password (Req 11.8)
+        source_ip = request.client.host if request.client else "unknown"
+        logger.warning(
+            "Authentication failure",
+            extra={
+                "username_attempted": body.email,
+                "source_ip": source_ip,
+                "endpoint": "/api/v1/agent/auth/login",
+            },
+        )
         return Response(
             content='{"error": "INVALID_CREDENTIALS"}',
             status_code=status.HTTP_401_UNAUTHORIZED,
