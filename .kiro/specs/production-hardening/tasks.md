@@ -281,7 +281,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 16.1 Create directory structure: `frontend/src/apps/agent/`, `frontend/src/apps/platform-admin/`, `frontend/src/shared/`
     - _Requirements: 9.1_
 
-  - [~] 16.2 Move `frontend/src/agent/` → `frontend/src/apps/agent/`; update all import paths
+  - [-] 16.2 Move `frontend/src/agent/` → `frontend/src/apps/agent/`; update all import paths
     - _Requirements: 9.2_
 
   - [~] 16.3 Move platform-admin-specific files from `frontend/src/pages/`, `frontend/src/components/`, `frontend/src/contexts/AuthContext.*` → `frontend/src/apps/platform-admin/`; update all import paths
