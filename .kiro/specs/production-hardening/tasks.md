@@ -209,7 +209,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
 - [x] 13. Checkpoint — core backend passes tests
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 14. Security hardening
+- [x] 14. Security hardening
   - [x] 14.1 Add security headers middleware to `api/main.py`
     - Set `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin` on every response
     - _Requirements: 11.5_
