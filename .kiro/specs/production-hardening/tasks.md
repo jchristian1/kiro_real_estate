@@ -277,17 +277,17 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
 - [x] 15. Checkpoint — security tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 16. Frontend restructure
-  - [ ] 16.1 Create directory structure: `frontend/src/apps/agent/`, `frontend/src/apps/platform-admin/`, `frontend/src/shared/`
+- [-] 16. Frontend restructure
+  - [x] 16.1 Create directory structure: `frontend/src/apps/agent/`, `frontend/src/apps/platform-admin/`, `frontend/src/shared/`
     - _Requirements: 9.1_
 
-  - [ ] 16.2 Move `frontend/src/agent/` → `frontend/src/apps/agent/`; update all import paths
+  - [~] 16.2 Move `frontend/src/agent/` → `frontend/src/apps/agent/`; update all import paths
     - _Requirements: 9.2_
 
-  - [ ] 16.3 Move platform-admin-specific files from `frontend/src/pages/`, `frontend/src/components/`, `frontend/src/contexts/AuthContext.*` → `frontend/src/apps/platform-admin/`; update all import paths
+  - [~] 16.3 Move platform-admin-specific files from `frontend/src/pages/`, `frontend/src/components/`, `frontend/src/contexts/AuthContext.*` → `frontend/src/apps/platform-admin/`; update all import paths
     - _Requirements: 9.3_
 
-  - [ ] 16.4 Move shared files to `frontend/src/shared/`:
+  - [~] 16.4 Move shared files to `frontend/src/shared/`:
     - `src/contexts/ThemeContext.*` and `src/contexts/ToastContext.*` → `src/shared/contexts/`
     - `src/utils/api.ts` → `src/shared/api/client.ts`
     - `src/utils/theme.ts` → `src/shared/utils/theme.ts`
@@ -295,13 +295,13 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - Update all import paths
     - _Requirements: 9.4_
 
-  - [ ] 16.5 Update `frontend/src/main.tsx` to mount platform-admin at `/` and agent app at `/agent/*`
+  - [~] 16.5 Update `frontend/src/main.tsx` to mount platform-admin at `/` and agent app at `/agent/*`
     - _Requirements: 9.7_
 
-  - [ ] 16.6 Remove unused component files, hook files, and utility files identified during the restructure
+  - [~] 16.6 Remove unused component files, hook files, and utility files identified during the restructure
     - _Requirements: 9.6, 15.6_
 
-  - [ ] 16.7 Run `make build` and fix any TypeScript/import errors until the build succeeds with zero errors
+  - [~] 16.7 Run `make build` and fix any TypeScript/import errors until the build succeeds with zero errors
     - _Requirements: 9.5, 3.6_
 
 - [ ] 17. Lint, typecheck, and build clean pass
