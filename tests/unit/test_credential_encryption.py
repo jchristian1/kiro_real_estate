@@ -9,7 +9,6 @@ Tests cover:
 """
 
 import base64
-import os
 import secrets
 
 import pytest

@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from api.main import get_db
 from api.repositories import AgentRepository, AgentSessionRepository
 from api.utils.rate_limiter import limiter
-from gmail_lead_sync.agent_models import AgentUser, AgentSession
+from gmail_lead_sync.agent_models import AgentSession
 
 logger = logging.getLogger("api.auth")
 

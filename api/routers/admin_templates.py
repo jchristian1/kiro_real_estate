@@ -10,7 +10,6 @@ Endpoints:
 - POST /api/v1/templates/preview - Preview template with sample data
 """
 
-from typing import Optional
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 

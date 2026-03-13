@@ -12,7 +12,6 @@ Requirements:
 
 import re
 from typing import Optional
-from pydantic import validator
 
 
 # Maximum length limits for various fields

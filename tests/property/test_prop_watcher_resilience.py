@@ -14,11 +14,9 @@ the next polling cycle without the watcher task terminating.
 import asyncio
 import logging
 import uuid
-from datetime import datetime
 from typing import List, Type
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 

@@ -11,20 +11,18 @@ Tests cover:
 """
 
 import pytest
-from datetime import datetime
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from gmail_lead_sync.models import Base, Credentials
 from gmail_lead_sync.credentials import EncryptedDBCredentialsStore
-from api.models.web_ui_models import User, Session as SessionModel
-from api.models import web_ui_models  # Import to register models with Base
-from api.main import app, get_db
+from api.models.web_ui_models import User
+from api.main import app
 from api.auth import hash_password, create_session
-from api.services.watcher_registry import WatcherRegistry, WatcherStatus
+from api.services.watcher_registry import WatcherRegistry
 
 
 # Test database setup
@@ -44,7 +42,6 @@ TEST_ENCRYPTION_KEY = "msZUufDiUiwjj5KmOrO8bSWktWtpzng4N7D3iqHS4Yg="
 def db_engine():
     """Create a shared database engine for testing."""
     # Import all models to ensure they're registered with Base
-    from api.models import web_ui_models  # noqa: F401
     
     # Create all tables
     Base.metadata.create_all(test_engine)

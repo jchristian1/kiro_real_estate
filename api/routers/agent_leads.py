@@ -17,7 +17,7 @@ import math
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
@@ -25,7 +25,7 @@ from api.dependencies.agent_auth import get_current_agent
 from api.main import get_db
 from api.repositories import LeadRepository
 from api.repositories.lead_repository import LeadEventWriteRepository
-from api.repositories.watcher_repository import AgentPreferencesRepository, WatcherRepository
+from api.repositories.watcher_repository import WatcherRepository
 from gmail_lead_sync.agent_models import AgentUser
 from api.dependencies.auth import require_role
 from api.utils.sanitization import sanitize_string

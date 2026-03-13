@@ -587,7 +587,6 @@ class BuyerLeadsQueryRepository:
             FormSubmission,
             LeadInteraction,
         )
-        from api.services.lead_state_machine import LeadState
         from gmail_lead_sync.preapproval.models_preapproval import LeadStateTransition
 
         transitions = (
@@ -670,7 +669,6 @@ class BuyerLeadsQueryRepository:
     ) -> list[dict]:
         """Return merged audit entries (state transitions + interactions) for *tenant_id*."""
         from gmail_lead_sync.preapproval.models_preapproval import LeadInteraction, LeadStateTransition
-        from api.services.lead_state_machine import LeadState
 
         entries: list[dict] = []
 

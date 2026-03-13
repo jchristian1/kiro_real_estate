@@ -18,6 +18,7 @@ import { AuthProvider, useAuth, User } from './AuthContext';
 
 // Mock axios
 vi.mock('axios');
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockedAxios = axios as any;
 
 // Helper to create wrapper with AuthProvider

@@ -10,7 +10,6 @@ in subject or body.
 **Validates: Requirements 14.5, 14.6, 14.7**
 """
 
-import re
 
 from hypothesis import given, settings, strategies as st
 

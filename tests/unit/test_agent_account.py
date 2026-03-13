@@ -122,7 +122,6 @@ def _create_agent(
 
 def _create_credentials(gmail_address: str, app_password_encrypted: str) -> int:
     """Create a Credentials record and return its id."""
-    from api.services.credential_encryption import encrypt_app_password
     db = TestingSessionLocal()
     creds = Credentials(
         agent_id="test",
@@ -575,7 +574,7 @@ def test_put_preferences_creates_prefs_if_not_exists():
     agent_id, token = _create_agent()
 
     db = TestingSessionLocal()
-    prefs_before = db.query(AgentPreferences).filter(AgentPreferences.agent_user_id == agent_id).first()
+    db.query(AgentPreferences).filter(AgentPreferences.agent_user_id == agent_id).first()
     db.close()
 
     resp = client.put(

@@ -8,7 +8,6 @@ import os
 import pytest
 import logging
 from unittest.mock import patch, MagicMock
-from io import StringIO
 
 from api.config import Config, load_config
 

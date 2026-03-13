@@ -232,7 +232,7 @@ def connect_gmail(
 # Sources endpoint
 # ---------------------------------------------------------------------------
 
-import json as _json
+import json as _json  # noqa: E402
 
 
 class LeadSourceItem(BaseModel):
@@ -325,7 +325,7 @@ def update_sources(
 # Automation endpoint
 # ---------------------------------------------------------------------------
 
-import datetime as _dt
+import datetime as _dt  # noqa: E402
 
 
 class AutomationRequest(BaseModel):
@@ -380,7 +380,6 @@ def update_automation(
 
     Requirements: 7.1
     """
-    from gmail_lead_sync.agent_models import AgentPreferences, BuyerAutomationConfig
     from api.repositories.template_repository import AutomationConfigRepository, AutomationConfigUpdate
 
     # Step 1: Upsert BuyerAutomationConfig via repository
@@ -433,8 +432,8 @@ def update_automation(
 # Templates endpoint
 # ---------------------------------------------------------------------------
 
-import re as _re
-from typing import List
+import re as _re  # noqa: E402
+from typing import List  # noqa: E402
 
 
 _SUPPORTED_PLACEHOLDERS = {
@@ -494,7 +493,6 @@ def update_templates(
 
     Requirements: 8.4, 8.5
     """
-    from gmail_lead_sync.agent_models import AgentTemplate
     from api.repositories.template_repository import TemplateRepository, TemplateCreate, TemplateUpdate
 
     # Step 1 & 2: Validate placeholders across all templates before any DB writes
@@ -549,7 +547,7 @@ def update_templates(
 # Onboarding test simulation endpoint
 # ---------------------------------------------------------------------------
 
-from typing import Any, Dict
+from typing import Any, Dict  # noqa: E402
 
 
 # Default templates used when the agent has no custom template saved

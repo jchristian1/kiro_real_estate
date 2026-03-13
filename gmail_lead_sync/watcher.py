@@ -15,13 +15,12 @@ import time
 import socket
 import email
 import hashlib
-from email.header import decode_header
-from typing import Optional, Tuple, List
+from typing import Optional, List
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from gmail_lead_sync.credentials import CredentialsStore
-from gmail_lead_sync.models import Lead, ProcessingLog, ProcessedMessage
+from gmail_lead_sync.models import ProcessedMessage
 from gmail_lead_sync.parser import LeadParser
 from gmail_lead_sync.responder import AutoResponder
 from gmail_lead_sync.rate_limiter import RateLimiter
@@ -151,7 +150,7 @@ class IMAPConnection:
             if self.client:
                 try:
                     self.client.logout()
-                except:
+                except Exception:
                     pass
                 self.client = None
             
@@ -189,7 +188,7 @@ class IMAPConnection:
             # Send NOOP to check if connection is alive
             status, _ = self.client.noop()
             return status == 'OK'
-        except:
+        except Exception:
             self._connected = False
             return False
     
@@ -223,7 +222,7 @@ class IMAPConnection:
             try:
                 self.client.logout()
                 logger.info("IMAP connection closed")
-            except:
+            except Exception:
                 pass
             finally:
                 self.client = None
@@ -282,8 +281,8 @@ class IMAPConnection:
             # Send DONE to exit IDLE
             self.client.send(b'DONE\r\n')
             
-            # Read response
-            response = self.client.readline()
+            # Read response (discard)
+            self.client.readline()
             logger.info("IDLE mode disabled")
             return True
             
@@ -866,7 +865,7 @@ class GmailWatcher:
                 logger.info(f"Failed to extract lead from email {gmail_uid}")
                 self.mark_as_processed(message_id, None)
                 
-        except IntegrityError as e:
+        except IntegrityError:
             # Duplicate UID - email was processed by another process
             logger.info(f"Email {gmail_uid} already processed (IntegrityError), skipping")
             self.db_session.rollback()

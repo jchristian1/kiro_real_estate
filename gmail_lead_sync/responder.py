@@ -11,7 +11,6 @@ import time
 import logging
 from typing import Dict, Optional
 from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from sqlalchemy.orm import Session
 
 from gmail_lead_sync.models import Template, Lead, LeadSource

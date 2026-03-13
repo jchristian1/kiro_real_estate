@@ -98,6 +98,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
 /**
  * Custom hook to use toast notifications
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const useToast = (): ToastContextState => {
   const context = useContext(ToastContext);
   

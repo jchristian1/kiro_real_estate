@@ -11,7 +11,6 @@ an appropriate error and SHALL NOT allow the pattern to be saved.
 **Validates: Requirements 11.7**
 """
 
-import platform
 import time
 
 import pytest
@@ -150,11 +149,10 @@ class TestProperty18RegexTimeoutEnforcement:
         timeout_ms = 1000  # 1 second
 
         start = time.monotonic()
-        timed_out = False
         try:
             run_regex_pattern(pattern, text, timeout_ms=timeout_ms)
         except RegexTimeoutError:
-            timed_out = True
+            pass
         elapsed = time.monotonic() - start
 
         # Either it timed out, or it completed quickly (some engines are fast)

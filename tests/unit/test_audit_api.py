@@ -9,15 +9,14 @@ Tests the audit log REST API including:
 
 import pytest
 from datetime import datetime, timedelta
-from fastapi import Depends, Request
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from gmail_lead_sync.models import Base
-from api.models.web_ui_models import User, Session as SessionModel, AuditLog
-from api.main import app, get_db
+from api.models.web_ui_models import User, AuditLog
+from api.main import app
 from api.auth import create_session, hash_password
 
 

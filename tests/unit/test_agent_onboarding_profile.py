@@ -13,7 +13,7 @@ from sqlalchemy.pool import StaticPool
 from api.main import app, get_db
 from gmail_lead_sync.models import Base, Company
 import gmail_lead_sync.agent_models  # noqa: F401 — registers agent tables
-from gmail_lead_sync.agent_models import AgentUser, AgentSession
+from gmail_lead_sync.agent_models import AgentUser
 from api.routers.agent_auth import (
     AGENT_SESSION_COOKIE_NAME,
     _hash_password,

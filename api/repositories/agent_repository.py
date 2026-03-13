@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from gmail_lead_sync.agent_models import AgentUser
+from gmail_lead_sync.agent_models import AgentSession
 from datetime import datetime
 
 

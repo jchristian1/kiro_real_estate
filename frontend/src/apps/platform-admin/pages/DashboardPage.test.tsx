@@ -19,6 +19,7 @@ import { DashboardPage, HealthData, WatcherStatus } from './DashboardPage';
 
 // Mock axios
 vi.mock('axios');
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockedAxios = axios as any;
 
 // Mock child components to isolate DashboardPage testing
@@ -319,11 +320,11 @@ describe('DashboardPage', () => {
       });
 
       // Verify both endpoints were called
-      const healthCalls = mockedAxios.get.mock.calls.filter((call: any) =>
-        call[0].includes('/health')
+      const healthCalls = mockedAxios.get.mock.calls.filter((call: unknown[]) =>
+        (call[0] as string).includes('/health')
       );
-      const watcherCalls = mockedAxios.get.mock.calls.filter((call: any) =>
-        call[0].includes('/watchers/status')
+      const watcherCalls = mockedAxios.get.mock.calls.filter((call: unknown[]) =>
+        (call[0] as string).includes('/watchers/status')
       );
 
       expect(healthCalls.length).toBeGreaterThan(0);

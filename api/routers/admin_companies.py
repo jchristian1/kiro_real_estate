@@ -7,7 +7,7 @@ from api.models.company_models import (
     CompanyResponse, CompanyListResponse
 )
 from api.models.error_models import ErrorCode
-from api.exceptions import NotFoundException, ValidationException
+from api.exceptions import NotFoundException
 from api.services.audit_log import record_audit_log
 from api.repositories.company_repository import CompanyRepository, CompanyCreate, CompanyUpdate
 from api.dependencies.auth import require_role

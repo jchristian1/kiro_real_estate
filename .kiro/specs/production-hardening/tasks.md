@@ -304,14 +304,14 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
   - [x] 16.7 Run `make build` and fix any TypeScript/import errors until the build succeeds with zero errors
     - _Requirements: 9.5, 3.6_
 
-- [ ] 17. Lint, typecheck, and build clean pass
-  - [ ] 17.1 Run `make lint`; fix all `ruff` violations in Python source and all `eslint` violations in TypeScript/TSX
+- [-] 17. Lint, typecheck, and build clean pass
+  - [x] 17.1 Run `make lint`; fix all `ruff` violations in Python source and all `eslint` violations in TypeScript/TSX
     - _Requirements: 3.1, 3.4_
 
-  - [ ] 17.2 Run `make typecheck`; fix all `mypy` errors in `api/` and `gmail_lead_sync/` and all `tsc --noEmit` errors in `frontend/`
+  - [~] 17.2 Run `make typecheck`; fix all `mypy` errors in `api/` and `gmail_lead_sync/` and all `tsc --noEmit` errors in `frontend/`
     - _Requirements: 3.2, 3.5_
 
-  - [ ] 17.3 Remove all unused imports, unused variables, and unreachable code paths flagged by the linter
+  - [~] 17.3 Remove all unused imports, unused variables, and unreachable code paths flagged by the linter
     - _Requirements: 15.5_
 
 - [ ] 18. Documentation

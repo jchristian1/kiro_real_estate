@@ -14,7 +14,6 @@ import re
 import signal
 import platform
 from typing import Optional, Tuple, List
-from threading import Timer
 
 
 class RegexTimeoutError(Exception):

@@ -8,16 +8,12 @@ Requirements: 1.1, 3.5, 9.1, 9.4
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, StaticPool
 from sqlalchemy.orm import sessionmaker
 
 from gmail_lead_sync.models import Base
-from gmail_lead_sync.agent_models import (
-    AgentUser, AgentSession, AgentPreferences,
-    BuyerAutomationConfig, AgentTemplate,
-)
 from api.main import app, get_db
 
 

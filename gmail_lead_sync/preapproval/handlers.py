@@ -140,7 +140,7 @@ def _resolve_agent_template(
             .filter(
                 AgentTemplate.agent_user_id == agent.id,
                 AgentTemplate.template_type == template_type,
-                AgentTemplate.is_active == True,
+                AgentTemplate.is_active.is_(True),
             )
             .first()
         )

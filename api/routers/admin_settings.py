@@ -6,7 +6,7 @@ Endpoints:
 - PUT /api/v1/settings - Update settings (partial updates supported)
 """
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from api.models.web_ui_models import User

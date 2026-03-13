@@ -14,7 +14,6 @@ Tests cover:
 
 from unittest.mock import MagicMock
 
-import pytest
 
 from api.services.template_renderer import render_template, render_template_str
 

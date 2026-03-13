@@ -26,6 +26,7 @@ import { SettingsPage } from '../apps/platform-admin/pages/SettingsPage';
 
 // Mock axios
 vi.mock('axios');
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockedAxios = axios as any;
 
 describe('Authentication Flow Integration Tests', () => {

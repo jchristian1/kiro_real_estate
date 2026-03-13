@@ -64,6 +64,7 @@ export const AgentAuthProvider: React.FC<{ children: ReactNode }> = ({ children 
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAgentAuth = (): AgentAuthState => {
   const ctx = useContext(AgentAuthContext);
   if (!ctx) throw new Error('useAgentAuth must be used within AgentAuthProvider');

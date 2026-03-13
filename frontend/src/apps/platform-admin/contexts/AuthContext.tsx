@@ -56,12 +56,10 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [_error, setErrorState] = useState<string | null>(null);
   const errorRef = useRef<string | null>(null);
 
   const setError = (msg: string | null) => {
     errorRef.current = msg;
-    setErrorState(msg);
   };
 
   /**
@@ -81,7 +79,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const response = await axios.get<User>(`${API_BASE_URL}/auth/me`);
         setUser(response.data);
         setError(null);
-      } catch (err) {
+      } catch {
         // No valid session - user needs to login
         setUser(null);
       } finally {
@@ -176,6 +174,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
  * @returns Authentication context state and functions
  * @throws Error if used outside AuthProvider
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = (): AuthContextState => {
   const context = useContext(AuthContext);
   
@@ -192,6 +191,7 @@ export const useAuth = (): AuthContextState => {
  * Redirects to login page on 401 Unauthorized responses.
  * Should be set up in the main app component.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const setupAuthInterceptor = (onUnauthorized: () => void) => {
   axios.interceptors.response.use(
     (response) => response,

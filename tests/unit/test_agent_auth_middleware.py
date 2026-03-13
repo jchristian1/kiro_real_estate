@@ -53,7 +53,7 @@ app.dependency_overrides[get_db] = override_get_db
 # Minimal protected route wired into the test app
 # ---------------------------------------------------------------------------
 
-from fastapi import APIRouter
+from fastapi import APIRouter  # noqa: E402
 
 _test_router = APIRouter()
 

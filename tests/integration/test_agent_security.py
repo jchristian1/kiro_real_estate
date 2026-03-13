@@ -10,16 +10,15 @@ Verifies:
 Requirements: 5.7, 5.8, 14.7, 18.2, 19.4
 """
 
-import json
 import logging
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, StaticPool
 from sqlalchemy.orm import sessionmaker
 
 from gmail_lead_sync.models import Base, Lead
-from gmail_lead_sync.agent_models import AgentUser, AgentSession, AgentPreferences, BuyerAutomationConfig, AgentTemplate
+from gmail_lead_sync.agent_models import AgentUser
 from api.main import app, get_db
 
 

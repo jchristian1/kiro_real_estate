@@ -19,7 +19,6 @@ Endpoints:
 - DELETE /api/v1/agents/{agent_id} - Delete agent
 """
 
-from typing import Optional
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
@@ -227,7 +226,6 @@ async def list_agents(
     Requirements: 6.1, 6.2 - Enforce tenant isolation
     """
     from api.main import watcher_registry
-    from gmail_lead_sync.agent_models import AgentUser
 
     cred_repo = CredentialRepository(db)
     agent_repo = AgentRepository(db)

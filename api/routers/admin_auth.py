@@ -24,7 +24,6 @@ from api.auth import (
     get_current_user
 )
 from api.dependencies.db import get_db
-from api.models.web_ui_models import User
 from api.models.error_models import ErrorCode
 from api.exceptions import AuthenticationException
 from api.utils.rate_limiter import limiter

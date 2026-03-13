@@ -17,7 +17,6 @@ from enum import Enum
 from typing import Dict, Optional
 from dataclasses import dataclass
 
-from sqlalchemy.orm import Session
 
 from gmail_lead_sync.watcher import GmailWatcher
 from gmail_lead_sync.credentials import EncryptedDBCredentialsStore

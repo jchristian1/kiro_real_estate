@@ -9,7 +9,6 @@ Endpoints:
 - DELETE /api/v1/lead-sources/{id} - Delete lead source
 """
 
-from typing import Optional
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 

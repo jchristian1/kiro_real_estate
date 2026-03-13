@@ -19,7 +19,7 @@ from sqlalchemy.pool import StaticPool
 
 from gmail_lead_sync.models import Base
 from gmail_lead_sync.credentials import EncryptedDBCredentialsStore
-from api.models.web_ui_models import User, Session as SessionModel
+from api.models.web_ui_models import User
 from api.models import web_ui_models  # noqa: F401 - registers models with Base
 from api.main import app, get_db
 from api.auth import hash_password, create_session

@@ -14,7 +14,6 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request, status
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 

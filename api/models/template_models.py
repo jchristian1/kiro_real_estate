@@ -17,7 +17,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, validator
 import re
 
-from api.utils.validation import sanitize_string, MAX_TEXT_FIELD_LENGTH, MAX_BODY_LENGTH
+from api.utils.validation import sanitize_string, MAX_BODY_LENGTH
 
 
 # Supported template placeholders

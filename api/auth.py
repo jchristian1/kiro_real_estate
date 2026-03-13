@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import bcrypt
-from fastapi import Depends, status, Response, Request
+from fastapi import Response, Request
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 

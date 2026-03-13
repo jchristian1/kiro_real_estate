@@ -23,8 +23,8 @@ from sqlalchemy import create_engine, StaticPool
 from sqlalchemy.orm import sessionmaker
 from unittest.mock import patch
 
-from gmail_lead_sync.models import Base, Lead, Credentials
-from gmail_lead_sync.agent_models import AgentUser, AgentSession, AgentPreferences, AgentTemplate, BuyerAutomationConfig
+from gmail_lead_sync.models import Base, Lead
+from gmail_lead_sync.agent_models import AgentUser
 from api.main import app, get_db
 
 
@@ -38,8 +38,6 @@ def db_engine():
         poolclass=StaticPool,
     )
     # Import all models to ensure tables are created
-    from gmail_lead_sync import models as _models
-    from gmail_lead_sync import agent_models as _agent_models
     Base.metadata.create_all(engine)
     yield engine
     Base.metadata.drop_all(engine)

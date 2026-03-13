@@ -8,15 +8,14 @@ Requirements: 13.7, 20.1
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, StaticPool
 from sqlalchemy.orm import sessionmaker
 
 from gmail_lead_sync.models import Base, Lead
 from gmail_lead_sync.agent_models import (
-    AgentUser, AgentSession, AgentPreferences,
-    BuyerAutomationConfig, AgentTemplate, LeadEvent,
+    AgentUser, LeadEvent,
 )
 from api.main import app, get_db
 
@@ -132,7 +131,7 @@ class TestLeadLifecycle:
         r = agent_client.get("/api/v1/agent/leads")
         assert r.status_code == 200
         leads = r.json()["leads"]
-        ids = [l["id"] for l in leads]
+        ids = [lead["id"] for lead in leads]
         assert sample_lead.id in ids
 
     def test_lead_detail_accessible(self, agent_client, sample_lead):

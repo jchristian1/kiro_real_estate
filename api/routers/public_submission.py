@@ -110,7 +110,8 @@ async def get_buyer_qualification_form(
     Return the form questions for a given invitation token.
     No authentication required.
     """
-    import hashlib, json as _json
+    import hashlib
+    import json as _json
     from datetime import datetime as _dt
 
     token_hash = hashlib.sha256(token.encode()).hexdigest()

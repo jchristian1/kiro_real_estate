@@ -227,7 +227,7 @@ class TestLeadsUrgencySort:
 
         resp = client.get("/api/v1/agent/leads", headers=_auth_headers(token))
         leads = resp.json()["leads"]
-        buckets = [l["score_bucket"] for l in leads]
+        buckets = [lead["score_bucket"] for lead in leads]
         # All HOT leads must appear before any WARM lead
         last_hot = max((i for i, b in enumerate(buckets) if b == "HOT"), default=-1)
         first_warm = min((i for i, b in enumerate(buckets) if b == "WARM"), default=999)
@@ -261,7 +261,7 @@ class TestLeadsBucketFilter:
 
         resp = client.get("/api/v1/agent/leads?bucket=WARM", headers=_auth_headers(token))
         leads = resp.json()["leads"]
-        assert all(l["score_bucket"] == "WARM" for l in leads)
+        assert all(lead["score_bucket"] == "WARM" for lead in leads)
 
     def test_no_bucket_filter_returns_all(self):
         db = TestingSessionLocal()

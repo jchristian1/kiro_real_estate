@@ -10,7 +10,6 @@ encrypt then decrypt returns the original value exactly.
 """
 
 import base64
-import os
 import secrets
 
 import pytest

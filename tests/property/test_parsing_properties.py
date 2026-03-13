@@ -7,13 +7,11 @@ These tests use Hypothesis to verify universal properties that should hold
 across all inputs for the parser component.
 """
 
-import pytest
 from hypothesis import given, strategies as st, assume
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from gmail_lead_sync.models import Base, Lead, LeadSource, ProcessingLog
 from gmail_lead_sync.parser import LeadParser
-from gmail_lead_sync.validation import LeadData
 import re
 
 

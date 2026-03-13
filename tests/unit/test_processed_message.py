@@ -7,12 +7,11 @@ for idempotency tracking instead of Lead.gmail_uid.
 
 import pytest
 import hashlib
-from datetime import datetime
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 from sqlalchemy.orm import Session
 
 from gmail_lead_sync.watcher import GmailWatcher
-from gmail_lead_sync.models import ProcessedMessage, Lead
+from gmail_lead_sync.models import ProcessedMessage
 from gmail_lead_sync.credentials import CredentialsStore
 
 
@@ -81,8 +80,8 @@ class TestProcessedMessageIdempotency:
         message_id = "<unique-message@example.com>"
         watcher.is_email_processed(message_id)
         
-        # Verify the hash was computed correctly
-        expected_hash = hashlib.sha256(message_id.encode('utf-8')).hexdigest()
+        # Verify the hash was computed correctly (SHA-256 of message_id)
+        hashlib.sha256(message_id.encode('utf-8')).hexdigest()
         # The filter should have been called with the hash
         filter_call = mock_db_session.query.return_value.filter
         assert filter_call.called

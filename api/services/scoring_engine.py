@@ -37,7 +37,6 @@ def _get_submission_answers(db: Session, lead_id: int) -> Optional[dict]:
     try:
         from gmail_lead_sync.preapproval.models_preapproval import (
             FormSubmission,
-            SubmissionAnswer,
         )
     except ImportError:
         return None

@@ -14,7 +14,7 @@ response body SHALL be a valid JSON object matching the schema
 import secrets
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import bcrypt
 import pytest

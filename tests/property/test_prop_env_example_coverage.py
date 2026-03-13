@@ -13,7 +13,6 @@ variable name SHALL appear in the root-level ``.env.example`` file.
 """
 
 import ast
-import os
 import re
 from pathlib import Path
 
@@ -161,7 +160,7 @@ class TestProperty2EnvExampleCoversAllConfigVariables:
         """
         missing = [v for v in _CONFIG_VARS if v not in _ENV_EXAMPLE_VARS]
         assert not missing, (
-            f"The following variables are used in load_config() but missing from "
-            f".env.example:\n"
+            "The following variables are used in load_config() but missing from "
+            ".env.example:\n"
             + "\n".join(f"  - {v}" for v in missing)
         )

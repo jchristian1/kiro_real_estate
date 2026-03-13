@@ -34,7 +34,7 @@ from api.repositories.template_repository import (
 )
 from api.repositories.watcher_repository import AgentPreferencesRepository
 from api.services.template_renderer import render_template_str
-from gmail_lead_sync.agent_models import AgentPreferences, AgentTemplate, AgentUser, BuyerAutomationConfig
+from gmail_lead_sync.agent_models import AgentPreferences, AgentTemplate, AgentUser
 from api.dependencies.auth import require_role
 
 router = APIRouter(prefix="/agent", tags=["Agent Settings"], dependencies=[Depends(require_role("agent"))])
@@ -658,7 +658,7 @@ def update_automation(
 # Sources settings endpoint
 # ---------------------------------------------------------------------------
 
-import json as _json
+import json as _json  # noqa: E402
 
 
 class SourcePrefsResponse(BaseModel):

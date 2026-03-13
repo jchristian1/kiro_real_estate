@@ -24,32 +24,54 @@ import sys
 import logging
 import json
 from datetime import datetime
-from typing import Optional
 
 from fastapi import FastAPI, Request, Response, Depends
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
-from dotenv import load_dotenv
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
-from gmail_lead_sync.models import Base
-from api.models.web_ui_models import User, Session as SessionModel
-from api.models.error_models import ErrorResponse, ErrorCode, create_error_response
+from api.models.web_ui_models import User
+from api.models.error_models import ErrorCode, create_error_response
 from api.config import load_config, Config
 from api.exceptions import (
     APIException,
     AuthenticationException,
     AuthorizationException,
-    ValidationException,
     NotFoundException,
     ConflictException,
     TimeoutException,
-    InternalServerException
 )
+from slowapi.errors import RateLimitExceeded  # noqa: E402 (must be after app deps)
+from slowapi.middleware import SlowAPIMiddleware  # noqa: E402
+from api.utils.rate_limiter import limiter  # noqa: E402
+from gmail_lead_sync.credentials import EncryptedDBCredentialsStore  # noqa: E402
+from api.services.watcher_registry import WatcherRegistry  # noqa: E402
+from api.routers.admin_auth import router as admin_auth_router  # noqa: E402
+from api.routers.admin_agents import router as admin_agents_router  # noqa: E402
+from api.routers.admin_audit import router as admin_audit_router  # noqa: E402
+from api.routers.admin_leads import router as admin_leads_router  # noqa: E402
+from api.routers.admin_lead_sources import router as admin_lead_sources_router  # noqa: E402
+from api.routers.admin_watchers import router as admin_watchers_router  # noqa: E402
+from api.routers.admin_templates import router as admin_templates_router  # noqa: E402
+from api.routers.admin_settings import router as admin_settings_router  # noqa: E402
+from api.routers.admin_companies import router as admin_companies_router  # noqa: E402
+from api.routers.admin_buyer_leads import router as admin_buyer_leads_router  # noqa: E402
+from api.routers.public_submission import router as public_submission_router  # noqa: E402
+from api.routers.public_health import router as public_health_router  # noqa: E402
+from api.routers import (  # noqa: E402
+    agent_auth,
+    agent_onboarding,
+    agent_dashboard,
+    agent_leads,
+    agent_settings,
+    agent_account,
+    agent_reports,
+)
+from api.auth import get_current_user  # noqa: E402
 
 
 # Load and validate configuration
@@ -553,12 +575,6 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Rate limiting setup using slowapi
 # Requirements: 11.6
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
-from api.utils.rate_limiter import limiter
-
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 
@@ -638,9 +654,6 @@ async def root():
 
 
 # Initialize WatcherRegistry
-from gmail_lead_sync.credentials import EncryptedDBCredentialsStore
-from api.services.watcher_registry import WatcherRegistry
-
 # Create global WatcherRegistry instance
 credentials_store = EncryptedDBCredentialsStore(SessionLocal(), encryption_key=config.encryption_key)
 watcher_registry = WatcherRegistry(
@@ -649,21 +662,6 @@ watcher_registry = WatcherRegistry(
 )
 
 # Mount API routes — all imports now from api/routers/ only
-from api.routers.admin_auth import router as admin_auth_router
-from api.routers.admin_agents import router as admin_agents_router
-from api.routers.admin_audit import router as admin_audit_router
-from api.routers.admin_leads import router as admin_leads_router
-from api.routers.admin_lead_sources import router as admin_lead_sources_router
-from api.routers.admin_watchers import router as admin_watchers_router
-from api.routers.admin_templates import router as admin_templates_router
-from api.routers.admin_settings import router as admin_settings_router
-from api.routers.admin_companies import router as admin_companies_router
-from api.routers.admin_buyer_leads import router as admin_buyer_leads_router
-from api.routers.public_submission import router as public_submission_router
-from api.routers.public_health import router as public_health_router
-from api.routers import agent_auth, agent_onboarding, agent_dashboard, agent_leads, agent_settings, agent_account, agent_reports
-from api.auth import get_current_user
-
 # Create wrapper for get_current_user that works with FastAPI dependency injection
 def get_current_user_wrapper(request: Request, db: Session = Depends(get_db)) -> User:
     """Wrapper for get_current_user that uses FastAPI dependency injection."""
@@ -774,8 +772,8 @@ async def startup_event():
         db = SessionLocal()
         try:
             completed_agents = db.query(_AgentUser).filter(
-                _AgentUser.onboarding_completed == True,
-                _AgentUser.credentials_id != None,
+                _AgentUser.onboarding_completed.is_(True),
+                _AgentUser.credentials_id.isnot(None),
             ).all()
             for au in completed_agents:
                 agent_id_str = str(au.id)

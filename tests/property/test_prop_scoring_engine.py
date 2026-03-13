@@ -14,7 +14,6 @@ from unittest.mock import MagicMock, patch
 from hypothesis import given, settings, strategies as st
 
 from api.services.scoring_engine import (
-    _wants_tour,
     score_lead,
 )
 

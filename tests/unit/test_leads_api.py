@@ -22,10 +22,9 @@ from datetime import datetime, timedelta
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from unittest.mock import Mock
 
 from gmail_lead_sync.models import Base, Lead, LeadSource, Template
-from api.models.web_ui_models import User, Session as SessionModel
+from api.models.web_ui_models import User
 from api.main import app
 from api.routers.admin_leads import get_db, get_current_user
 
