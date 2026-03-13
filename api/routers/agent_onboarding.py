@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field, SecretStr
 from sqlalchemy.orm import Session
 
 from api.dependencies.agent_auth import get_current_agent
-from api.main import get_db
+from api.dependencies.db import get_db
 from api.services.credential_encryption import encrypt_app_password
 from api.services.imap_service import (
     IMAPRateLimitError,
@@ -184,7 +184,14 @@ def connect_gmail(
         )
 
     # Step 2: Live IMAP test (Requirement 5.1)
-    result = test_imap_connection(body.gmail_address, body.app_password.get_secret_value())
+    try:
+        result = test_imap_connection(body.gmail_address, body.app_password.get_secret_value())
+    except Exception:
+        # Never leak exception messages (may contain credentials)
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={"error": "IMAP_CONNECTION_FAILED", "message": "Could not connect to IMAP server. Please check your credentials."},
+        )
 
     if not result["success"]:
         # Return 422 with structured error code (Requirements 5.3–5.6)

@@ -148,8 +148,15 @@ def _ensure_lead_source(db) -> int:
 
 
 def _create_lead(db, agent_user_id: int, from_state: Optional[str]) -> Lead:
-    """Create a lead in a specific state."""
+    """Create a lead in a specific state.
+
+    Note: agent_current_state has a column default of 'NEW', so passing None
+    will result in the DB storing 'NEW'. We always pass 'NEW' explicitly.
+    """
     source_id = _ensure_lead_source(db)
+    # Normalise: None and 'NEW' both represent the initial state; the column
+    # default is 'NEW', so store 'NEW' explicitly to match what the router reads.
+    initial_state = from_state if from_state is not None else "NEW"
     lead = Lead(
         name="Test Lead",
         phone="555-0000",
@@ -159,7 +166,7 @@ def _create_lead(db, agent_user_id: int, from_state: Optional[str]) -> Lead:
         agent_user_id=agent_user_id,
         score_bucket="HOT",
         score=85,
-        agent_current_state=from_state,
+        agent_current_state=initial_state,
         created_at=datetime.utcnow(),
     )
     db.add(lead)
@@ -173,18 +180,20 @@ def _create_lead(db, agent_user_id: int, from_state: Optional[str]) -> Lead:
 # ---------------------------------------------------------------------------
 
 # Each sequence is a list of (from_state, to_state) pairs that will be
-# executed in order to create multiple transitions
+# executed in order to create multiple transitions.
+# Note: leads are created with agent_current_state='NEW' (the column default),
+# so the first from_state is always 'NEW', not None.
 TRANSITION_SEQUENCES = [
     # Single transition
-    [(None, "CONTACTED")],
+    [("NEW", "CONTACTED")],
     # Two transitions
-    [(None, "CONTACTED"), ("CONTACTED", "APPOINTMENT_SET")],
+    [("NEW", "CONTACTED"), ("CONTACTED", "APPOINTMENT_SET")],
     # Three transitions
-    [(None, "CONTACTED"), ("CONTACTED", "APPOINTMENT_SET"), ("APPOINTMENT_SET", "CLOSED")],
+    [("NEW", "CONTACTED"), ("CONTACTED", "APPOINTMENT_SET"), ("APPOINTMENT_SET", "CLOSED")],
     # Four transitions
-    [(None, "CONTACTED"), ("CONTACTED", "APPOINTMENT_SET"), ("APPOINTMENT_SET", "CONTACTED"), ("CONTACTED", "CLOSED")],
+    [("NEW", "CONTACTED"), ("CONTACTED", "APPOINTMENT_SET"), ("APPOINTMENT_SET", "CONTACTED"), ("CONTACTED", "CLOSED")],
     # Alternative path
-    [(None, "APPOINTMENT_SET"), ("APPOINTMENT_SET", "CLOSED")],
+    [("NEW", "APPOINTMENT_SET"), ("APPOINTMENT_SET", "CLOSED")],
 ]
 
 

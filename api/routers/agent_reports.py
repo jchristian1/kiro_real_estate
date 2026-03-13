@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from api.dependencies.agent_auth import get_current_agent
-from api.main import get_db
+from api.dependencies.db import get_db
 from api.repositories import LeadRepository, LeadEventRepository
 from gmail_lead_sync.agent_models import AgentUser
 from api.dependencies.auth import require_role

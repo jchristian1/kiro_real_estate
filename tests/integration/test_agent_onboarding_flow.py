@@ -150,10 +150,10 @@ class TestFullOnboardingFlow:
         })
         r = client.put("/api/v1/agent/onboarding/templates", json={
             "templates": [
-                {"template_type": "initial_outreach", "subject": "Hi {lead_name}", "body": "Hello {lead_name}, I am {agent_name}.", "tone": "PROFESSIONAL"},
-                {"template_type": "follow_up",        "subject": "Following up",   "body": "Just checking in, {lead_name}.",          "tone": "FRIENDLY"},
-                {"template_type": "post_form",         "subject": "Thanks {lead_name}", "body": "Got your form, {lead_name}.",         "tone": "PROFESSIONAL"},
-                {"template_type": "appointment",       "subject": "Let's meet",    "body": "Book here: {form_link}",                  "tone": "SHORT"},
+                {"template_type": "INITIAL_INVITE", "subject": "Hi {lead_name}", "body": "Hello {lead_name}, I am {agent_name}.", "tone": "PROFESSIONAL"},
+                {"template_type": "POST_HOT",       "subject": "Following up",   "body": "Just checking in, {lead_name}.",        "tone": "FRIENDLY"},
+                {"template_type": "POST_WARM",      "subject": "Thanks {lead_name}", "body": "Got your form, {lead_name}.",        "tone": "PROFESSIONAL"},
+                {"template_type": "POST_NURTURE",   "subject": "Let's meet",    "body": "Book here: {form_link}",                  "tone": "SHORT"},
             ]
         })
         assert r.status_code == 200
@@ -175,10 +175,10 @@ class TestFullOnboardingFlow:
         })
         client.put("/api/v1/agent/onboarding/templates", json={
             "templates": [
-                {"template_type": "initial_outreach", "subject": "Hi {lead_name}", "body": "Hello {lead_name}.", "tone": "PROFESSIONAL"},
-                {"template_type": "follow_up",        "subject": "Follow up",      "body": "Hi {lead_name}.",    "tone": "FRIENDLY"},
-                {"template_type": "post_form",         "subject": "Thanks",         "body": "Got it {lead_name}.", "tone": "PROFESSIONAL"},
-                {"template_type": "appointment",       "subject": "Meet",           "body": "{form_link}",         "tone": "SHORT"},
+                {"template_type": "INITIAL_INVITE", "subject": "Hi {lead_name}", "body": "Hello {lead_name}.", "tone": "PROFESSIONAL"},
+                {"template_type": "POST_HOT",        "subject": "Follow up",      "body": "Hi {lead_name}.",    "tone": "FRIENDLY"},
+                {"template_type": "POST_WARM",         "subject": "Thanks",         "body": "Got it {lead_name}.", "tone": "PROFESSIONAL"},
+                {"template_type": "POST_NURTURE",       "subject": "Meet",           "body": "{form_link}",         "tone": "SHORT"},
             ]
         })
 
@@ -225,10 +225,10 @@ class TestFullOnboardingFlow:
         })
         client.put("/api/v1/agent/onboarding/templates", json={
             "templates": [
-                {"template_type": "initial_outreach", "subject": "Hi {lead_name}", "body": "Hello {lead_name}.", "tone": "PROFESSIONAL"},
-                {"template_type": "follow_up",        "subject": "Follow up",      "body": "Hi {lead_name}.",    "tone": "FRIENDLY"},
-                {"template_type": "post_form",         "subject": "Thanks",         "body": "Got it {lead_name}.", "tone": "PROFESSIONAL"},
-                {"template_type": "appointment",       "subject": "Meet",           "body": "{form_link}",         "tone": "SHORT"},
+                {"template_type": "INITIAL_INVITE", "subject": "Hi {lead_name}", "body": "Hello {lead_name}.", "tone": "PROFESSIONAL"},
+                {"template_type": "POST_HOT",        "subject": "Follow up",      "body": "Hi {lead_name}.",    "tone": "FRIENDLY"},
+                {"template_type": "POST_WARM",         "subject": "Thanks",         "body": "Got it {lead_name}.", "tone": "PROFESSIONAL"},
+                {"template_type": "POST_NURTURE",       "subject": "Meet",           "body": "{form_link}",         "tone": "SHORT"},
             ]
         })
         r = client.post("/api/v1/agent/onboarding/complete", json={})

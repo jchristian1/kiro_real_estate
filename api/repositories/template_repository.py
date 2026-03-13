@@ -229,6 +229,12 @@ class AutomationConfigRepository:
         """Return (prefs, config) for *agent_id*.
 
         Either value may be ``None`` if not yet created.
+
+        Lookup order:
+        1. Follow the FK ``prefs.buyer_automation_config_id`` if set.
+        2. Fall back to querying ``BuyerAutomationConfig.agent_user_id`` directly
+           so that configs created without going through ``upsert_for_agent``
+           (e.g. direct DB inserts in tests or migrations) are still found.
         """
         prefs: Optional[AgentPreferences] = (
             self._db.query(AgentPreferences)
@@ -238,6 +244,13 @@ class AutomationConfigRepository:
         config: Optional[BuyerAutomationConfig] = None
         if prefs and prefs.buyer_automation_config_id:
             config = self.get_by_id(prefs.buyer_automation_config_id)
+        if config is None:
+            # Fallback: find any config directly associated with this agent
+            config = (
+                self._db.query(BuyerAutomationConfig)
+                .filter(BuyerAutomationConfig.agent_user_id == agent_id)
+                .first()
+            )
         return prefs, config
 
     def upsert_for_agent(

@@ -201,14 +201,21 @@ def update_lead_source(
         lead_source_data.identifier_snippet is not None,
     ])
 
-    lead_source = ls_repo.update(lead_source_id, LeadSourceUpdate(
-        sender_email=lead_source_data.sender_email,
-        identifier_snippet=lead_source_data.identifier_snippet,
-        name_regex=lead_source_data.name_regex,
-        phone_regex=lead_source_data.phone_regex,
-        template_id=lead_source_data.template_id,
-        auto_respond_enabled=lead_source_data.auto_respond_enabled,
-    ))
+    update_kwargs = {}
+    if lead_source_data.sender_email is not None:
+        update_kwargs["sender_email"] = lead_source_data.sender_email
+    if lead_source_data.identifier_snippet is not None:
+        update_kwargs["identifier_snippet"] = lead_source_data.identifier_snippet
+    if lead_source_data.name_regex is not None:
+        update_kwargs["name_regex"] = lead_source_data.name_regex
+    if lead_source_data.phone_regex is not None:
+        update_kwargs["phone_regex"] = lead_source_data.phone_regex
+    if lead_source_data.template_id is not None:
+        update_kwargs["template_id"] = lead_source_data.template_id
+    if lead_source_data.auto_respond_enabled is not None:
+        update_kwargs["auto_respond_enabled"] = lead_source_data.auto_respond_enabled
+
+    lead_source = ls_repo.update(lead_source_id, LeadSourceUpdate(**update_kwargs))
 
     if regex_fields_updated:
         new_version = ver_repo.create(lead_source, current_user.id)

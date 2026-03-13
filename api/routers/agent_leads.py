@@ -22,7 +22,7 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from api.dependencies.agent_auth import get_current_agent
-from api.main import get_db
+from api.dependencies.db import get_db
 from api.repositories import LeadRepository
 from api.repositories.lead_repository import LeadEventWriteRepository
 from api.repositories.watcher_repository import WatcherRepository
@@ -552,6 +552,15 @@ def update_lead_status(
     current = lead.agent_current_state
     # Normalize 'NEW' to None — both represent the initial state
     current_for_transition = None if current == "NEW" else current
+
+    # Idempotency: if already in target state, return success without creating duplicate event
+    if current == new_status or current_for_transition == new_status:
+        return StatusUpdateResponse(
+            ok=True,
+            current_state=lead.agent_current_state,
+            updated_at=datetime.utcnow(),
+        )
+
     allowed = VALID_TRANSITIONS.get(current_for_transition, VALID_TRANSITIONS.get(current, []))
     if new_status not in allowed:
         from api.exceptions import ValidationException
@@ -565,7 +574,7 @@ def update_lead_status(
 
     # Insert STATUS_CHANGED event (Requirement 20.3)
     payload: Dict[str, Any] = {
-        "from_state": current_for_transition,
+        "from_state": current,  # preserve original state name (e.g. 'NEW', not None)
         "to_state": new_status,
     }
     if body.note:

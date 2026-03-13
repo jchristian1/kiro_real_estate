@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from api.dependencies.agent_auth import get_current_agent
-from api.main import get_db
+from api.dependencies.db import get_db
 from api.repositories.template_repository import (
     AutomationConfigRepository,
     AutomationConfigUpdate,
@@ -168,7 +168,7 @@ class PreviewResponse(BaseModel):
 
 # Legacy save request (kept for backward compat with onboarding step)
 class TemplateSaveRequest(BaseModel):
-    subject: str = Field(..., min_length=1, max_length=500)
+    subject: str = Field(..., min_length=1, max_length=500, pattern=r"^[^\r\n]+$")
     body: str = Field(..., min_length=1)
     tone: Optional[str] = Field(default=None, pattern=r"^(PROFESSIONAL|FRIENDLY|SHORT)$")
 
@@ -409,7 +409,7 @@ def preview_template(
 # ---------------------------------------------------------------------------
 
 
-@router.put("/templates/{template_type}", response_model=TemplateSaveResponse)
+@router.put("/templates/by-type/{template_type}", response_model=TemplateSaveResponse)
 def save_template_by_type(
     template_type: str,
     body: TemplateSaveRequest,

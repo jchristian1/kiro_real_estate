@@ -21,7 +21,7 @@ from fastapi import APIRouter, Cookie, Depends, Request, Response, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.orm import Session
 
-from api.main import get_db
+from api.dependencies.db import get_db
 from api.repositories import AgentRepository, AgentSessionRepository
 from api.utils.rate_limiter import limiter
 from gmail_lead_sync.agent_models import AgentSession

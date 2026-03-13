@@ -78,10 +78,10 @@ def _complete_onboarding(client):
     })
     client.put("/api/v1/agent/onboarding/templates", json={
         "templates": [
-            {"type": "initial_outreach", "subject": "Hi {lead_name}", "body": "Hello {lead_name}.", "tone": "professional"},
-            {"type": "follow_up",        "subject": "Follow up",      "body": "Hi {lead_name}.",    "tone": "friendly"},
-            {"type": "post_form",         "subject": "Thanks",         "body": "Got it {lead_name}.", "tone": "professional"},
-            {"type": "appointment",       "subject": "Meet",           "body": "{form_link}",         "tone": "concise"},
+            {"template_type": "INITIAL_INVITE", "subject": "Hi {lead_name}", "body": "Hello {lead_name}.", "tone": "PROFESSIONAL"},
+            {"template_type": "POST_HOT",       "subject": "Follow up",      "body": "Hi {lead_name}.",    "tone": "FRIENDLY"},
+            {"template_type": "POST_WARM",      "subject": "Thanks",         "body": "Got it {lead_name}.", "tone": "PROFESSIONAL"},
+            {"template_type": "POST_NURTURE",   "subject": "Meet",           "body": "{form_link}",         "tone": "SHORT"},
         ]
     })
     client.post("/api/v1/agent/onboarding/complete", json={})
@@ -201,14 +201,19 @@ class TestCrossAgentIsolation:
 
     def _setup_two_agents(self, client, db_session):
         """Create two agents, return (agent1_lead_id)."""
+        import secrets as _secrets
         # Agent 1
         _signup(client, "agent1@sec.com", "pass1111111")
         _complete_onboarding(client)
 
         agent1 = db_session.query(AgentUser).filter_by(email="agent1@sec.com").first()
         lead = Lead(
-            name="Agent1 Lead", email="lead1@example.com",
-            agent_user_id=agent1.id, current_state="NEW",
+            name="Agent1 Lead",
+            phone="555-0001",
+            source_email="leads@test.com",
+            lead_source_id=1,
+            gmail_uid=f"uid-{_secrets.token_hex(8)}",
+            agent_user_id=agent1.id,
         )
         db_session.add(lead)
         db_session.commit()
@@ -234,7 +239,7 @@ class TestCrossAgentIsolation:
 
     def test_cross_agent_lead_note_returns_403(self, client, db_session):
         lead_id = self._setup_two_agents(client, db_session)
-        r = client.post(f"/api/v1/agent/leads/{lead_id}/notes", json={"content": "Hacked"})
+        r = client.post(f"/api/v1/agent/leads/{lead_id}/notes", json={"text": "Hacked"})
         assert r.status_code == 403
 
     def test_leads_inbox_only_returns_own_leads(self, client, db_session):
@@ -257,10 +262,10 @@ class TestTemplateHeaderInjection:
         _signup(client)
         _complete_onboarding(client)
 
-        r = client.put("/api/v1/agent/templates/initial_outreach", json={
+        r = client.put("/api/v1/agent/templates/by-type/INITIAL_INVITE", json={
             "subject": "Hello\nBcc: attacker@evil.com",
             "body": "Normal body",
-            "tone": "professional",
+            "tone": "PROFESSIONAL",
         })
         assert r.status_code == 422
 
@@ -268,10 +273,10 @@ class TestTemplateHeaderInjection:
         _signup(client)
         _complete_onboarding(client)
 
-        r = client.put("/api/v1/agent/templates/initial_outreach", json={
+        r = client.put("/api/v1/agent/templates/by-type/INITIAL_INVITE", json={
             "subject": "Hello\rBcc: attacker@evil.com",
             "body": "Normal body",
-            "tone": "professional",
+            "tone": "PROFESSIONAL",
         })
         assert r.status_code == 422
 
@@ -279,9 +284,9 @@ class TestTemplateHeaderInjection:
         _signup(client)
         _complete_onboarding(client)
 
-        r = client.put("/api/v1/agent/templates/initial_outreach", json={
+        r = client.put("/api/v1/agent/templates/by-type/INITIAL_INVITE", json={
             "subject": "Hi {lead_name}, I saw your inquiry",
             "body": "Hello {lead_name}, I am {agent_name}.",
-            "tone": "professional",
+            "tone": "PROFESSIONAL",
         })
         assert r.status_code == 200

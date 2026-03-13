@@ -173,8 +173,6 @@ def _create_lead(db, agent_user_id: int, from_state: Optional[str]) -> Lead:
 # ---------------------------------------------------------------------------
 
 VALID_TRANSITIONS = [
-    (None, "CONTACTED"),
-    (None, "APPOINTMENT_SET"),
     ("NEW", "CONTACTED"),
     ("NEW", "APPOINTMENT_SET"),
     ("CONTACTED", "APPOINTMENT_SET"),
