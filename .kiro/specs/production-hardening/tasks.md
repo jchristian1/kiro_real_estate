@@ -237,7 +237,7 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
     - File: `tests/property/test_prop_security_headers.py`
     - Strategy: random endpoint paths; assert all three headers present on every response
 
-  - [-] 14.8 Write property test for rate limiting
+  - [x] 14.8 Write property test for rate limiting
     - **Property 17: Rate limiting on login endpoints**
     - **Validates: Requirements 11.6**
     - File: `tests/property/test_prop_rate_limiting.py`
