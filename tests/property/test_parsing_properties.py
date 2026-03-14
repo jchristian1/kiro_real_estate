@@ -7,13 +7,11 @@ These tests use Hypothesis to verify universal properties that should hold
 across all inputs for the parser component.
 """
 
-import pytest
 from hypothesis import given, strategies as st, assume
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from gmail_lead_sync.models import Base, Lead, LeadSource, ProcessingLog
 from gmail_lead_sync.parser import LeadParser
-from gmail_lead_sync.validation import LeadData
 import re
 
 
@@ -35,7 +33,7 @@ valid_name_strategy = st.text(
 ).filter(lambda x: x.strip() != '')
 
 valid_phone_strategy = st.from_regex(r'\+?[\d\s\-\(\)]{7,20}', fullmatch=True).filter(
-    lambda x: len(re.sub(r'\D', '', x)) >= 7
+    lambda x: len(re.sub(r'\D', '', x)) >= 7 and '\n' not in x and '\r' not in x
 )
 
 

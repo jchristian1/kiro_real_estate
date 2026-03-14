@@ -12,7 +12,7 @@ Tests cover:
 import pytest
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
 from api.models.error_models import (
     ErrorResponse,

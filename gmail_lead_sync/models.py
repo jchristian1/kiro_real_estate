@@ -9,7 +9,7 @@ This module defines the database schema including:
 - Credentials: Encrypted storage for Gmail credentials
 """
 
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Index
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Index, UniqueConstraint
 from sqlalchemy.orm import relationship, declarative_base
 from datetime import datetime
 
@@ -143,6 +143,31 @@ class Credentials(Base):
 
     # Relationships
     company = relationship("Company", back_populates="credentials")
+
+
+class ProcessedMessage(Base):
+    """
+    Tracking for processed email messages.
+    
+    Decouples watcher idempotency from lead creation by tracking which
+    email messages have been processed regardless of whether a lead was created.
+    Uses SHA-256 hash of the Message-ID email header for deduplication.
+    """
+    __tablename__ = 'processed_messages'
+    __table_args__ = (
+        UniqueConstraint('agent_id', 'message_id_hash', name='uq_processed_message'),
+        Index('idx_processed_messages_agent', 'agent_id'),
+        Index('idx_processed_messages_hash', 'message_id_hash'),
+    )
+    
+    id = Column(Integer, primary_key=True)
+    agent_id = Column(String(255), nullable=False)
+    message_id_hash = Column(String(64), nullable=False)  # SHA-256 hash
+    processed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    lead_id = Column(Integer, ForeignKey('leads.id'), nullable=True)
+    
+    # Relationships
+    lead = relationship("Lead")
 
 
 # Composite index for efficient ProcessingLog queries

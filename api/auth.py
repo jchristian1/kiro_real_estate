@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import bcrypt
-from fastapi import Depends, status, Response, Request
+from fastapi import Response, Request
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -251,35 +251,35 @@ def get_session_token_from_cookie(request: Request) -> Optional[str]:
 def set_session_cookie(response: Response, token: str) -> None:
     """
     Set session token in HTTP-only secure cookie.
-    
-    Args:
-        response: FastAPI response object
-        token: Session token to set
+
+    In production (ENVIRONMENT=production): secure=True, httponly=True, samesite="strict".
+    In development: secure=False, samesite="lax".
+
+    Requirements: 4.6
     """
     is_production = os.getenv("ENVIRONMENT", "development") == "production"
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
         value=token,
-        httponly=True,  # Prevents JavaScript access (XSS protection)
-        secure=is_production,  # HTTPS only in production
-        samesite="lax", # CSRF protection
-        max_age=SESSION_EXPIRY_HOURS * 3600  # Convert hours to seconds
+        httponly=True,
+        secure=is_production,
+        samesite="strict" if is_production else "lax",
+        max_age=SESSION_EXPIRY_HOURS * 3600
     )
 
 
 def clear_session_cookie(response: Response) -> None:
     """
     Clear session cookie from response.
-    
-    Args:
-        response: FastAPI response object
+
+    Requirements: 4.6
     """
     is_production = os.getenv("ENVIRONMENT", "development") == "production"
     response.delete_cookie(
         key=SESSION_COOKIE_NAME,
         httponly=True,
         secure=is_production,
-        samesite="lax"
+        samesite="strict" if is_production else "lax"
     )
 
 

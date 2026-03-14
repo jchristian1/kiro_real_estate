@@ -18,18 +18,17 @@ from sqlalchemy.orm import Session
 
 from gmail_lead_sync.models import Credentials, Lead
 from gmail_lead_sync.preapproval.invitation_service import FormInvitationService
+from api.services.lead_state_machine import LeadState, LeadStateMachine
 from gmail_lead_sync.preapproval.models_preapproval import (
     Channel,
     FormTemplate,
     FormVersion,
     IntentType,
     LeadInteraction,
-    LeadState,
     MessageTemplate,
     MessageTemplateKey,
     MessageTemplateVersion,
 )
-from gmail_lead_sync.preapproval.state_machine import LeadStateMachine
 from gmail_lead_sync.preapproval.template_engine import TemplateRenderEngine
 
 logger = logging.getLogger(__name__)
@@ -119,6 +118,55 @@ def _resolve_active_message_template(
         )
         .one_or_none()
     )
+
+
+def _resolve_agent_template(
+    db: Session,
+    tenant_id: int,
+    template_type: str,
+) -> tuple[str, str] | None:
+    """Return (subject, body) from the active AgentTemplate for this tenant+type, or None."""
+    try:
+        from gmail_lead_sync.agent_models import AgentUser, AgentTemplate
+        agent = (
+            db.query(AgentUser)
+            .filter(AgentUser.company_id == tenant_id)
+            .first()
+        )
+        if agent is None:
+            return None
+        row = (
+            db.query(AgentTemplate)
+            .filter(
+                AgentTemplate.agent_user_id == agent.id,
+                AgentTemplate.template_type == template_type,
+                AgentTemplate.is_active.is_(True),
+            )
+            .first()
+        )
+        if row is None:
+            return None
+        return row.subject, row.body
+    except Exception as exc:
+        logger.warning("Could not resolve AgentTemplate for tenant %d type %s: %s", tenant_id, template_type, exc)
+        return None
+
+
+def _render_agent_template(subject_tpl: str, body_tpl: str, context: dict) -> tuple[str, str]:
+    """Render an AgentTemplate subject+body using {placeholder} syntax."""
+    mapping = {
+        "{lead_name}": context.get("lead_name", ""),
+        "{agent_name}": context.get("agent_name", ""),
+        "{agent_phone}": context.get("agent_phone", ""),
+        "{agent_email}": context.get("agent_email", ""),
+        "{form_link}": context.get("form_link", ""),
+    }
+    subject = subject_tpl
+    body = body_tpl
+    for placeholder, value in mapping.items():
+        subject = subject.replace(placeholder, value)
+        body = body.replace(placeholder, value)
+    return subject, body
 
 
 def _get_tenant_email_credentials(db: Session, tenant_id: int) -> tuple[str, str] | None:
@@ -257,18 +305,32 @@ def on_buyer_lead_email_received(
     tenant_row = db.execute(_text("SELECT name FROM companies WHERE id = :tid"), {"tid": tenant_id}).fetchone()
     tenant_name = tenant_row[0] if tenant_row else ""
 
-    context: dict = {
-        "lead.first_name": first_name,
-        "lead.email": lead.source_email,
-        "form.link": _build_form_url(raw_token),
-        "tenant.name": tenant_name,
-        **parsed_metadata,
-    }
-
     # ------------------------------------------------------------------
-    # 6. Render template (Req 9.3)
+    # 6. Render template — prefer AgentTemplate, fall back to MessageTemplate
     # ------------------------------------------------------------------
-    rendered = _template_engine.render(msg_version, context)
+    agent_tpl = _resolve_agent_template(db, tenant_id, "INITIAL_INVITE")
+    if agent_tpl is not None:
+        # Resolve agent info for placeholders
+        from gmail_lead_sync.agent_models import AgentUser as _AgentUser
+        _agent = db.query(_AgentUser).filter(_AgentUser.company_id == tenant_id).first()
+        agent_context = {
+            "lead_name": lead.name or first_name,
+            "agent_name": _agent.full_name if _agent else tenant_name,
+            "agent_phone": _agent.phone if _agent else "",
+            "agent_email": _agent.email if _agent else "",
+            "form_link": _build_form_url(raw_token),
+        }
+        rendered_subject, rendered_body = _render_agent_template(agent_tpl[0], agent_tpl[1], agent_context)
+    else:
+        context: dict = {
+            "lead.first_name": first_name,
+            "lead.email": lead.source_email,
+            "form.link": _build_form_url(raw_token),
+            "tenant.name": tenant_name,
+            **parsed_metadata,
+        }
+        rendered_obj = _template_engine.render(msg_version, context)
+        rendered_subject, rendered_body = rendered_obj.subject, rendered_obj.body
 
     # ------------------------------------------------------------------
     # 6b. Send email via tenant SMTP credentials
@@ -285,8 +347,8 @@ def on_buyer_lead_email_received(
         from_email, app_password = creds
         _send_email(
             to_address=lead.source_email,
-            subject=rendered.subject,
-            body=rendered.body,
+            subject=rendered_subject,
+            body=rendered_body,
             from_address=from_email,
             app_password=app_password,
         )
@@ -295,6 +357,10 @@ def on_buyer_lead_email_received(
     # 7. Mark invitation sent; transition → FORM_INVITE_SENT (Req 9.3)
     # ------------------------------------------------------------------
     invitation.sent_at = datetime.utcnow()
+    # Update agent_current_state so agent-app inbox reflects the invite
+    _lead_invite: Lead = db.get(Lead, lead_id)
+    if _lead_invite is not None:
+        _lead_invite.agent_current_state = "INVITE_SENT"
     db.commit()
 
     _state_machine.transition(
@@ -304,6 +370,29 @@ def on_buyer_lead_email_received(
         intent_type=IntentType.BUY,
         to_state=LeadState.FORM_INVITE_SENT,
     )
+
+    # ------------------------------------------------------------------
+    # 7b. Insert INVITE_SENT lead event (Requirement 20.1)
+    # ------------------------------------------------------------------
+    try:
+        from gmail_lead_sync.lead_event_utils import insert_lead_event
+        insert_lead_event(
+            db=db,
+            lead_id=lead_id,
+            event_type="INVITE_SENT",
+            payload_dict={
+                "subject": rendered_subject,
+                "body": rendered_body,
+            },
+        )
+        db.commit()
+    except Exception as _exc:
+        logger.error(
+            "Failed to insert INVITE_SENT event for lead %d: %s",
+            lead_id,
+            _exc,
+            exc_info=True,
+        )
 
     # ------------------------------------------------------------------
     # 8. Record outbound LeadInteraction (Req 9.4)
@@ -316,7 +405,7 @@ def on_buyer_lead_email_received(
             channel=Channel.EMAIL.value,
             direction="outbound",
             occurred_at=datetime.utcnow(),
-            content_text=rendered.subject,  # subject only — Req 10.4 / 17.6
+            content_text=rendered_subject,  # subject only — Req 10.4 / 17.6
         )
     )
     db.commit()
@@ -511,6 +600,32 @@ def on_buyer_form_submitted(
     )
 
     # ------------------------------------------------------------------
+    # 5b. Insert FORM_SUBMITTED lead event (Requirement 20.1)
+    # ------------------------------------------------------------------
+    try:
+        from gmail_lead_sync.lead_event_utils import insert_lead_event
+        insert_lead_event(
+            db=db,
+            lead_id=invitation.lead_id,
+            event_type="FORM_SUBMITTED",
+            payload_dict={"answers": answers_payload},
+        )
+        db.flush()
+    except Exception as _exc:
+        logger.error(
+            "Failed to insert FORM_SUBMITTED event for lead %d: %s",
+            invitation.lead_id,
+            _exc,
+            exc_info=True,
+        )
+
+    # Update agent_current_state so agent-app inbox reflects form submission
+    _lead_form: Lead = db.get(Lead, invitation.lead_id)
+    if _lead_form is not None:
+        _lead_form.agent_current_state = "FORM_SUBMITTED"
+    db.flush()
+
+    # ------------------------------------------------------------------
     # 6. Resolve active ScoringVersion (Req 5.11)
     # ------------------------------------------------------------------
     scoring_version = _resolve_active_scoring_version(db, invitation.tenant_id, IntentType.BUY)
@@ -560,6 +675,19 @@ def on_buyer_form_submitted(
             explanation_text=score_result.explanation,
         )
     )
+
+    # ------------------------------------------------------------------
+    # 8b. Write score back to Lead row for agent-app visibility
+    # ------------------------------------------------------------------
+    _lead_for_score: Lead = db.get(Lead, invitation.lead_id)
+    if _lead_for_score is not None:
+        _lead_for_score.score = score_result.total
+        _lead_for_score.score_bucket = score_result.bucket.value
+        _lead_for_score.score_breakdown = _json.dumps({
+            "factors": breakdown_serializable,
+        })
+        _lead_for_score.agent_current_state = "SCORED"
+
     db.commit()
 
     # ------------------------------------------------------------------
@@ -574,44 +702,8 @@ def on_buyer_form_submitted(
     )
 
     # ------------------------------------------------------------------
-    # 10. Resolve active POST_SUBMISSION_EMAIL template (Req 7.9)
-    # ------------------------------------------------------------------
-    msg_version = _resolve_active_message_template(
-        db,
-        tenant_id=invitation.tenant_id,
-        intent_type=IntentType.BUY,
-        key=MessageTemplateKey.POST_SUBMISSION_EMAIL,
-    )
-    if msg_version is None:
-        logger.error(
-            "No active POST_SUBMISSION_EMAIL template for tenant %d (lead_id=%d); "
-            "skipping post-submission email.",
-            invitation.tenant_id,
-            invitation.lead_id,
-        )
-        db.add(
-            LeadInteraction(
-                tenant_id=invitation.tenant_id,
-                lead_id=invitation.lead_id,
-                intent_type=IntentType.BUY.value,
-                channel=Channel.EMAIL.value,
-                direction="outbound",
-                occurred_at=datetime.utcnow(),
-                content_text="[ERROR: no active POST_SUBMISSION_EMAIL template]",
-            )
-        )
-        db.commit()
-        return {
-            "submission_id": submission.id,
-            "score": {
-                "total": score_result.total,
-                "bucket": score_result.bucket.value,
-                "explanation": score_result.explanation,
-            },
-        }
-
-    # ------------------------------------------------------------------
-    # 11. Render template with bucket variant and send email (Req 10.2)
+    # 10. Resolve post-submission template — prefer AgentTemplate, fall back
+    #     to POST_SUBMISSION_EMAIL MessageTemplate (Req 7.9)
     # ------------------------------------------------------------------
     lead: Lead = db.get(Lead, invitation.lead_id)
     first_name = lead.name.split()[0] if lead.name else ""
@@ -620,21 +712,79 @@ def on_buyer_form_submitted(
     tenant_row = db.execute(_text("SELECT name FROM companies WHERE id = :tid"), {"tid": invitation.tenant_id}).fetchone()
     tenant_name = tenant_row[0] if tenant_row else ""
 
-    context: dict = {
-        "lead.first_name": first_name,
-        "lead.email": lead.source_email,
-        "score.total": str(score_result.total),
-        "score.bucket": score_result.bucket.value,
-        "score.explanation": score_result.explanation,
-        "tenant.name": tenant_name,
-        **{k: str(v) for k, v in request_metadata.items() if v is not None},
-    }
+    # Map score bucket to AgentTemplate type
+    _bucket_to_type = {"HOT": "POST_HOT", "WARM": "POST_WARM", "NURTURE": "POST_NURTURE"}
+    _agent_tpl_type = _bucket_to_type.get(score_result.bucket.value)
+    agent_tpl = _resolve_agent_template(db, invitation.tenant_id, _agent_tpl_type) if _agent_tpl_type else None
 
-    rendered = _template_engine.render(
-        msg_version,
-        context,
-        variant_key=score_result.bucket.value,  # Req 10.2
-    )
+    if agent_tpl is None:
+        # Fall back to MessageTemplate POST_SUBMISSION_EMAIL
+        msg_version = _resolve_active_message_template(
+            db,
+            tenant_id=invitation.tenant_id,
+            intent_type=IntentType.BUY,
+            key=MessageTemplateKey.POST_SUBMISSION_EMAIL,
+        )
+        if msg_version is None:
+            logger.error(
+                "No active POST_SUBMISSION_EMAIL template for tenant %d (lead_id=%d); "
+                "skipping post-submission email.",
+                invitation.tenant_id,
+                invitation.lead_id,
+            )
+            db.add(
+                LeadInteraction(
+                    tenant_id=invitation.tenant_id,
+                    lead_id=invitation.lead_id,
+                    intent_type=IntentType.BUY.value,
+                    channel=Channel.EMAIL.value,
+                    direction="outbound",
+                    occurred_at=datetime.utcnow(),
+                    content_text="[ERROR: no active POST_SUBMISSION_EMAIL template]",
+                )
+            )
+            db.commit()
+            return {
+                "submission_id": submission.id,
+                "score": {
+                    "total": score_result.total,
+                    "bucket": score_result.bucket.value,
+                    "explanation": score_result.explanation,
+                },
+            }
+    else:
+        msg_version = None  # not needed when using AgentTemplate
+
+    # ------------------------------------------------------------------
+    # 11. Render template with bucket variant and send email (Req 10.2)
+    # ------------------------------------------------------------------
+    if agent_tpl is not None:
+        from gmail_lead_sync.agent_models import AgentUser as _AgentUser
+        _agent = db.query(_AgentUser).filter(_AgentUser.company_id == invitation.tenant_id).first()
+        agent_context = {
+            "lead_name": lead.name or first_name,
+            "agent_name": _agent.full_name if _agent else tenant_name,
+            "agent_phone": _agent.phone if _agent else "",
+            "agent_email": _agent.email if _agent else "",
+            "form_link": "",
+        }
+        rendered_subject, rendered_body = _render_agent_template(agent_tpl[0], agent_tpl[1], agent_context)
+    else:
+        context: dict = {
+            "lead.first_name": first_name,
+            "lead.email": lead.source_email,
+            "score.total": str(score_result.total),
+            "score.bucket": score_result.bucket.value,
+            "score.explanation": score_result.explanation,
+            "tenant.name": tenant_name,
+            **{k: str(v) for k, v in request_metadata.items() if v is not None},
+        }
+        rendered_obj = _template_engine.render(
+            msg_version,
+            context,
+            variant_key=score_result.bucket.value,  # Req 10.2
+        )
+        rendered_subject, rendered_body = rendered_obj.subject, rendered_obj.body
 
     creds = _get_tenant_email_credentials(db, invitation.tenant_id)
     if creds is None:
@@ -648,8 +798,8 @@ def on_buyer_form_submitted(
         from_email, app_password = creds
         _send_email(
             to_address=lead.source_email,
-            subject=rendered.subject,
-            body=rendered.body,
+            subject=rendered_subject,
+            body=rendered_body,
             from_address=from_email,
             app_password=app_password,
         )
@@ -666,6 +816,29 @@ def on_buyer_form_submitted(
     )
 
     # ------------------------------------------------------------------
+    # 12b. Insert POST_EMAIL_SENT lead event (Requirement 20.1)
+    # ------------------------------------------------------------------
+    try:
+        from gmail_lead_sync.lead_event_utils import insert_lead_event
+        insert_lead_event(
+            db=db,
+            lead_id=invitation.lead_id,
+            event_type="POST_EMAIL_SENT",
+            payload_dict={
+                "subject": rendered_subject,
+                "body": rendered_body,
+            },
+        )
+        db.flush()
+    except Exception as _exc:
+        logger.error(
+            "Failed to insert POST_EMAIL_SENT event for lead %d: %s",
+            invitation.lead_id,
+            _exc,
+            exc_info=True,
+        )
+
+    # ------------------------------------------------------------------
     # 13. Record outbound LeadInteraction — subject only (Req 10.3, 10.4)
     # ------------------------------------------------------------------
     db.add(
@@ -676,7 +849,7 @@ def on_buyer_form_submitted(
             channel=Channel.EMAIL.value,
             direction="outbound",
             occurred_at=datetime.utcnow(),
-            content_text=rendered.subject,  # Req 10.4 / 17.6: subject only
+            content_text=rendered_subject,  # Req 10.4 / 17.6: subject only
         )
     )
     db.commit()

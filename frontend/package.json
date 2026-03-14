@@ -12,11 +12,13 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.2",
+    "@tanstack/react-query": "^5.90.21",
     "axios": "^1.6.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.48.2",
     "react-router-dom": "^6.20.0",
+    "typescript-eslint": "^8.57.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
@@ -29,9 +31,9 @@
     "@typescript-eslint/parser": "^6.14.0",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
-    "eslint": "^8.55.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.5",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.26",
     "happy-dom": "^20.8.3",
     "jsdom": "^28.1.0",
     "postcss": "^8.4.32",

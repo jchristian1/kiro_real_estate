@@ -24,31 +24,54 @@ import sys
 import logging
 import json
 from datetime import datetime
-from typing import Optional
 
 from fastapi import FastAPI, Request, Response, Depends
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
-from dotenv import load_dotenv
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
-from gmail_lead_sync.models import Base
-from api.models.web_ui_models import User, Session as SessionModel
-from api.models.error_models import ErrorResponse, ErrorCode, create_error_response
+from api.models.web_ui_models import User
+from api.models.error_models import ErrorCode, create_error_response
 from api.config import load_config, Config
 from api.exceptions import (
     APIException,
     AuthenticationException,
     AuthorizationException,
-    ValidationException,
     NotFoundException,
     ConflictException,
     TimeoutException,
-    InternalServerException
 )
+from slowapi.errors import RateLimitExceeded  # noqa: E402 (must be after app deps)
+from slowapi.middleware import SlowAPIMiddleware  # noqa: E402
+from api.utils.rate_limiter import limiter  # noqa: E402
+from gmail_lead_sync.credentials import EncryptedDBCredentialsStore  # noqa: E402
+from api.services.watcher_registry import WatcherRegistry  # noqa: E402
+from api.routers.admin_auth import router as admin_auth_router  # noqa: E402
+from api.routers.admin_agents import router as admin_agents_router  # noqa: E402
+from api.routers.admin_audit import router as admin_audit_router  # noqa: E402
+from api.routers.admin_leads import router as admin_leads_router  # noqa: E402
+from api.routers.admin_lead_sources import router as admin_lead_sources_router  # noqa: E402
+from api.routers.admin_watchers import router as admin_watchers_router  # noqa: E402
+from api.routers.admin_templates import router as admin_templates_router  # noqa: E402
+from api.routers.admin_settings import router as admin_settings_router  # noqa: E402
+from api.routers.admin_companies import router as admin_companies_router  # noqa: E402
+from api.routers.admin_buyer_leads import router as admin_buyer_leads_router  # noqa: E402
+from api.routers.public_submission import router as public_submission_router  # noqa: E402
+from api.routers.public_health import router as public_health_router  # noqa: E402
+from api.routers import (  # noqa: E402
+    agent_auth,
+    agent_onboarding,
+    agent_dashboard,
+    agent_leads,
+    agent_settings,
+    agent_account,
+    agent_reports,
+)
+from api.auth import get_current_user  # noqa: E402
 
 
 # Load and validate configuration
@@ -199,23 +222,10 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-# Database dependency
-def get_db() -> Session:
-    """
-    FastAPI dependency for database sessions.
-    
-    Yields a database session and ensures it's closed after use.
-    
-    Example:
-        @app.get("/api/v1/example")
-        def example(db: Session = Depends(get_db)):
-            return db.query(User).all()
-    """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Database dependency — import from canonical location so that
+# app.dependency_overrides[get_db] works regardless of which module
+# imported get_db (api.main or api.dependencies.db).
+from api.dependencies.db import get_db  # noqa: E402
 
 
 # Create FastAPI application
@@ -237,6 +247,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Security headers middleware
+# Requirements: 11.5
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """
+    Middleware to add security headers to all HTTP responses.
+
+    Sets:
+    - X-Content-Type-Options: nosniff
+    - X-Frame-Options: DENY
+    - Referrer-Policy: strict-origin-when-cross-origin
+
+    Requirements: 11.5
+    """
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 
 # Request logging middleware
@@ -302,22 +333,174 @@ async def log_requests(request: Request, call_next):
 
 
 # Custom exception handlers
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_error_handler(request: Request, exc: RequestValidationError):
+    """
+    Handler for Pydantic request validation errors (HTTP 422).
+
+    Extracts per-field error details from the Pydantic validation error and
+    returns them in the unified ErrorResponse schema.
+
+    Requirements: 5.1, 5.2
+    """
+    details = []
+    for error in exc.errors():
+        field = ".".join(str(loc) for loc in error.get("loc", [])) or None
+        details.append({
+            "field": field,
+            "message": error.get("msg", "Invalid value"),
+            "code": error.get("type", ErrorCode.VALIDATION_ERROR),
+        })
+
+    logger.warning(
+        "Request validation error",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "error_count": len(details),
+        },
+    )
+
+    error_response = create_error_response(
+        error="Validation Error",
+        message="Request validation failed",
+        code=ErrorCode.VALIDATION_ERROR,
+        details=details,
+    )
+    return JSONResponse(status_code=422, content=error_response.model_dump())
+
+
+@app.exception_handler(AuthenticationException)
+async def authentication_exception_handler(request: Request, exc: AuthenticationException):
+    """
+    Handler for authentication failures (HTTP 401).
+
+    Requirements: 5.1, 5.4
+    """
+    logger.warning(
+        f"Authentication error: {exc.message}",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "error_code": exc.code,
+        },
+    )
+    error_response = create_error_response(
+        error="Authentication Error",
+        message=exc.message,
+        code=exc.code,
+        details=exc.details,
+    )
+    return JSONResponse(status_code=401, content=error_response.model_dump())
+
+
+@app.exception_handler(AuthorizationException)
+async def authorization_exception_handler(request: Request, exc: AuthorizationException):
+    """
+    Handler for authorization failures (HTTP 403).
+
+    Requirements: 5.1, 5.5
+    """
+    logger.warning(
+        f"Authorization error: {exc.message}",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "error_code": exc.code,
+        },
+    )
+    error_response = create_error_response(
+        error="Authorization Error",
+        message=exc.message,
+        code=exc.code,
+        details=exc.details,
+    )
+    return JSONResponse(status_code=403, content=error_response.model_dump())
+
+
+@app.exception_handler(NotFoundException)
+async def not_found_exception_handler(request: Request, exc: NotFoundException):
+    """
+    Handler for resource not found errors (HTTP 404).
+
+    Requirements: 5.1, 5.3
+    """
+    logger.warning(
+        f"Not found: {exc.message}",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "error_code": exc.code,
+        },
+    )
+    error_response = create_error_response(
+        error="Not Found",
+        message=exc.message,
+        code=exc.code,
+        details=exc.details,
+    )
+    return JSONResponse(status_code=404, content=error_response.model_dump())
+
+
+@app.exception_handler(ConflictException)
+async def conflict_exception_handler(request: Request, exc: ConflictException):
+    """
+    Handler for resource conflict errors (HTTP 409).
+
+    Requirements: 5.1
+    """
+    logger.warning(
+        f"Conflict: {exc.message}",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "error_code": exc.code,
+        },
+    )
+    error_response = create_error_response(
+        error="Conflict",
+        message=exc.message,
+        code=exc.code,
+        details=exc.details,
+    )
+    return JSONResponse(status_code=409, content=error_response.model_dump())
+
+
+@app.exception_handler(TimeoutException)
+async def timeout_exception_handler(request: Request, exc: TimeoutException):
+    """
+    Handler for operation timeout errors (HTTP 408).
+
+    Requirements: 5.1
+    """
+    logger.warning(
+        f"Timeout: {exc.message}",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "error_code": exc.code,
+        },
+    )
+    error_response = create_error_response(
+        error="Request Timeout",
+        message=exc.message,
+        code=exc.code,
+        details=exc.details,
+    )
+    return JSONResponse(status_code=408, content=error_response.model_dump())
+
+
 @app.exception_handler(APIException)
 async def api_exception_handler(request: Request, exc: APIException):
     """
-    Handler for custom API exceptions.
-    
-    Converts APIException instances to structured error responses with
-    appropriate HTTP status codes.
-    
-    Args:
-        request: The incoming request
-        exc: The APIException instance
-    
-    Returns:
-        JSONResponse with structured error information
+    Fallback handler for any remaining APIException subclasses.
+
+    Converts APIException instances to structured error responses using
+    the exception's own status_code, message, code, and details.
+
+    Requirements: 5.1
     """
-    # Log the error with context
     logger.warning(
         f"API exception: {exc.message}",
         extra={
@@ -325,99 +508,98 @@ async def api_exception_handler(request: Request, exc: APIException):
             "path": request.url.path,
             "error_code": exc.code,
             "status_code": exc.status_code,
-            "exception_type": type(exc).__name__
-        }
+            "exception_type": type(exc).__name__,
+        },
     )
-    
-    # Create structured error response
     error_response = create_error_response(
         error=type(exc).__name__.replace("Exception", " Error"),
         message=exc.message,
         code=exc.code,
-        details=exc.details
+        details=exc.details,
     )
-    
     return JSONResponse(
         status_code=exc.status_code,
-        content=error_response.model_dump()
+        content=error_response.model_dump(),
     )
 
 
 @app.exception_handler(ValueError)
 async def value_error_handler(request: Request, exc: ValueError):
     """
-    Handler for ValueError exceptions.
-    
-    Converts ValueError to a validation error response.
-    
-    Args:
-        request: The incoming request
-        exc: The ValueError instance
-    
-    Returns:
-        JSONResponse with validation error information
+    Handler for ValueError exceptions (HTTP 400).
     """
     logger.warning(
         f"Value error: {str(exc)}",
         extra={
             "method": request.method,
             "path": request.url.path,
-            "exception_type": "ValueError"
-        }
+            "exception_type": "ValueError",
+        },
     )
-    
     error_response = create_error_response(
         error="Validation Error",
         message=str(exc),
-        code=ErrorCode.VALIDATION_ERROR
+        code=ErrorCode.VALIDATION_ERROR,
     )
-    
-    return JSONResponse(
-        status_code=400,
-        content=error_response.model_dump()
-    )
+    return JSONResponse(status_code=400, content=error_response.model_dump())
 
 
 # Global exception handler for unhandled errors
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """
-    Global exception handler for unhandled errors.
-    
-    Returns a generic error message to clients and logs the full exception
-    server-side for debugging. This ensures no sensitive information is
-    exposed in error responses.
-    
-    Args:
-        request: The incoming request
-        exc: The unhandled exception
-    
-    Returns:
-        JSONResponse with generic error message
+    Global catch-all handler for unhandled errors (HTTP 500).
+
+    Logs the full stack trace server-side and returns a generic message to
+    the client — never exposing internal details.
+
+    Requirements: 5.1
     """
-    # Log the full exception with stack trace
     logger.error(
-        f"Unhandled exception: {str(exc)}",
+        f"Unhandled exception: {type(exc).__name__}",
         exc_info=True,
         extra={
             "method": request.method,
             "path": request.url.path,
             "exception_type": type(exc).__name__,
-            "client_host": request.client.host if request.client else None
-        }
+            "client_host": request.client.host if request.client else None,
+        },
     )
-    
-    # Return generic error response (no sensitive information)
     error_response = create_error_response(
         error="Internal Server Error",
         message="An unexpected error occurred. Please contact support if the issue persists.",
-        code=ErrorCode.INTERNAL_SERVER_ERROR
+        code=ErrorCode.INTERNAL_SERVER_ERROR,
     )
-    
-    return JSONResponse(
-        status_code=500,
-        content=error_response.model_dump()
+    return JSONResponse(status_code=500, content=error_response.model_dump())
+
+
+# Rate limiting setup using slowapi
+# Requirements: 11.6
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+    """
+    Handler for slowapi rate limit exceeded errors (HTTP 429).
+
+    Requirements: 5.1, 11.6
+    """
+    logger.warning(
+        "Rate limit exceeded",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "client_host": request.client.host if request.client else None,
+        },
     )
+    error_response = create_error_response(
+        error="Too Many Requests",
+        message="Rate limit exceeded. Please slow down and try again later.",
+        code="RATE_LIMIT_EXCEEDED",
+    )
+    return JSONResponse(status_code=429, content=error_response.model_dump())
 
 
 # Health check endpoint is now in api/routes/health.py
@@ -472,9 +654,6 @@ async def root():
 
 
 # Initialize WatcherRegistry
-from gmail_lead_sync.credentials import EncryptedDBCredentialsStore
-from api.services.watcher_registry import WatcherRegistry
-
 # Create global WatcherRegistry instance
 credentials_store = EncryptedDBCredentialsStore(SessionLocal(), encryption_key=config.encryption_key)
 watcher_registry = WatcherRegistry(
@@ -482,32 +661,37 @@ watcher_registry = WatcherRegistry(
     credentials_store=credentials_store
 )
 
-# Mount API routes
-from api.routes import audit, agents, lead_sources, templates, watchers, leads, health, settings, auth, companies
-from api.routes.public_submission import router as public_submission_router
-from api.routes.buyer_leads import router as buyer_leads_router
-from api.auth import get_current_user
-
+# Mount API routes — all imports now from api/routers/ only
 # Create wrapper for get_current_user that works with FastAPI dependency injection
 def get_current_user_wrapper(request: Request, db: Session = Depends(get_db)) -> User:
     """Wrapper for get_current_user that uses FastAPI dependency injection."""
     return get_current_user(request, db)
 
 # Include routers
-# Public router — no auth middleware
+# Public routers — no auth middleware
 app.include_router(public_submission_router)
+app.include_router(public_health_router, prefix="/api/v1", tags=["Health"])
 
-app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
-app.include_router(health.router, prefix="/api/v1", tags=["Health"])
-app.include_router(audit.router, prefix="/api/v1", tags=["Audit Logs"])
-app.include_router(agents.router, prefix="/api/v1", tags=["Agents"])
-app.include_router(lead_sources.router, prefix="/api/v1", tags=["Lead Sources"])
-app.include_router(templates.router, prefix="/api/v1", tags=["Templates"])
-app.include_router(watchers.router, prefix="/api/v1", tags=["Watchers"])
-app.include_router(leads.router, prefix="/api/v1", tags=["Leads"])
-app.include_router(settings.router, prefix="/api/v1", tags=["Settings"])
-app.include_router(companies.router, prefix="/api/v1", tags=["Companies"])
-app.include_router(buyer_leads_router, prefix="/api/v1/buyer-leads", tags=["Buyer Leads"])
+# Platform-admin routers
+app.include_router(admin_auth_router, prefix="/api/v1", tags=["Authentication"])
+app.include_router(admin_audit_router, prefix="/api/v1", tags=["Audit Logs"])
+app.include_router(admin_agents_router, prefix="/api/v1", tags=["Agents"])
+app.include_router(admin_lead_sources_router, prefix="/api/v1", tags=["Lead Sources"])
+app.include_router(admin_templates_router, prefix="/api/v1", tags=["Templates"])
+app.include_router(admin_watchers_router, prefix="/api/v1", tags=["Watchers"])
+app.include_router(admin_leads_router, prefix="/api/v1", tags=["Leads"])
+app.include_router(admin_settings_router, prefix="/api/v1", tags=["Settings"])
+app.include_router(admin_companies_router, prefix="/api/v1", tags=["Companies"])
+app.include_router(admin_buyer_leads_router, prefix="/api/v1/buyer-leads", tags=["Buyer Leads"])
+
+# Agent-app routers
+app.include_router(agent_auth.router, prefix="/api/v1", tags=["Agent Auth"])
+app.include_router(agent_onboarding.router, prefix="/api/v1", tags=["Agent Onboarding"])
+app.include_router(agent_dashboard.router, prefix="/api/v1", tags=["Agent Dashboard"])
+app.include_router(agent_leads.router, prefix="/api/v1", tags=["Agent Leads"])
+app.include_router(agent_settings.router, prefix="/api/v1", tags=["Agent Settings"])
+app.include_router(agent_account.router, prefix="/api/v1", tags=["Agent Account"])
+app.include_router(agent_reports.router, prefix="/api/v1", tags=["Agent Reports"])
 
 
 # Static file serving for frontend (production mode)
@@ -581,6 +765,56 @@ async def startup_event():
     """
     logger.info("Starting Gmail Lead Sync API")
     config.log_config(logger)
+
+    # Run DB migrations on startup so a fresh clone works without manual steps
+    try:
+        from alembic.config import Config as AlembicConfig
+        from alembic import command as alembic_command
+        alembic_cfg = AlembicConfig("alembic.ini")
+        alembic_command.upgrade(alembic_cfg, "head")
+        logger.info("Database migrations applied (alembic upgrade head)")
+    except Exception as e:
+        logger.warning(f"Could not run alembic upgrade head on startup: {e}")
+
+    # Auto-start watchers for all agents that have credentials configured
+    try:
+        from api.models.web_ui_models import User as _User
+        from api.repositories.credential_repository import CredentialRepository
+        db = SessionLocal()
+        try:
+            cred_repo = CredentialRepository(db)
+
+            # Legacy: admin-panel agents in the users table
+            agents = db.query(_User).filter(_User.role == "agent").all()
+            for agent in agents:
+                agent_id_str = str(agent.id)
+                cred = cred_repo.get_by_agent_id(agent_id_str)
+                if cred is not None:
+                    started = await watcher_registry.start_watcher(agent_id_str)
+                    if started:
+                        logger.info(f"Auto-started watcher for legacy agent {agent_id_str} on startup")
+
+            # Agent-app users in the agent_users table
+            try:
+                from gmail_lead_sync.agent_models import AgentUser as _AgentUser, AgentPreferences as _AgentPrefs
+                agent_users = db.query(_AgentUser).all()
+                for au in agent_users:
+                    # Skip if watcher is disabled via preferences
+                    prefs = db.query(_AgentPrefs).filter(_AgentPrefs.agent_user_id == au.id).first()
+                    if prefs and not prefs.watcher_enabled:
+                        continue
+                    agent_id_str = str(au.id)
+                    cred = cred_repo.get_by_agent_id(agent_id_str)
+                    if cred is not None:
+                        started = await watcher_registry.start_watcher(agent_id_str)
+                        if started:
+                            logger.info(f"Auto-started watcher for agent-app user {agent_id_str} on startup")
+            except Exception as e:
+                logger.warning(f"Could not auto-start agent-app watchers: {e}")
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"Could not auto-start watchers on startup: {e}")
 
 
 # Shutdown event

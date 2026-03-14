@@ -16,16 +16,17 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
-import { AuthProvider } from '../contexts/AuthContext';
-import { ProtectedRoute } from '../components/ProtectedRoute';
-import { DashboardLayout } from '../components/DashboardLayout';
-import { LoginPage } from '../pages/LoginPage';
-import { DashboardPage } from '../pages/DashboardPage';
-import { AgentsPage } from '../pages/AgentsPage';
-import { SettingsPage } from '../pages/SettingsPage';
+import { AuthProvider } from '../apps/platform-admin/contexts/AuthContext';
+import { ProtectedRoute } from '../apps/platform-admin/components/ProtectedRoute';
+import { DashboardLayout } from '../apps/platform-admin/components/DashboardLayout';
+import { LoginPage } from '../apps/platform-admin/pages/LoginPage';
+import { DashboardPage } from '../apps/platform-admin/pages/DashboardPage';
+import { AgentsPage } from '../apps/platform-admin/pages/AgentsPage';
+import { SettingsPage } from '../apps/platform-admin/pages/SettingsPage';
 
 // Mock axios
 vi.mock('axios');
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockedAxios = axios as any;
 
 describe('Authentication Flow Integration Tests', () => {

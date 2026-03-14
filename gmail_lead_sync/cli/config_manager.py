@@ -481,7 +481,7 @@ def update_template(args: argparse.Namespace) -> None:
         
         # Validate the updated template
         try:
-            config = TemplateConfig(
+            TemplateConfig(
                 name=template.name,
                 subject=template.subject,
                 body=template.body

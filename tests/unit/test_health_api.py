@@ -11,16 +11,16 @@ Requirements: 8.1, 8.3, 8.4, 8.6
 """
 
 import pytest
-from datetime import datetime, timedelta
-from unittest.mock import Mock, AsyncMock, patch
+from datetime import datetime
+from unittest.mock import Mock, AsyncMock
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from gmail_lead_sync.models import Base
-from api.models.web_ui_models import User, AuditLog
+from api.models.web_ui_models import User
 from api.main import app
-from api.routes.health import get_db, get_watcher_registry
+from api.routers.public_health import get_db, get_watcher_registry
 
 
 # Test database setup

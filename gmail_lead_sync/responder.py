@@ -11,7 +11,6 @@ import time
 import logging
 from typing import Dict, Optional
 from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from sqlalchemy.orm import Session
 
 from gmail_lead_sync.models import Template, Lead, LeadSource
@@ -39,11 +38,16 @@ class TemplateRenderer:
         Returns:
             Tuple of (rendered_subject, rendered_body)
         """
+        import os
+        base_url = os.environ.get("PUBLIC_BASE_URL", "http://localhost:5173").rstrip("/")
+        form_link = agent_info.get('form_link', f"{base_url}/public/buyer-qualification")
+
         replacements = {
-            '{lead_name}': lead.name,
+            '{lead_name}': lead.name or '',
             '{agent_name}': agent_info.get('agent_name', ''),
             '{agent_phone}': agent_info.get('agent_phone', ''),
             '{agent_email}': agent_info.get('agent_email', ''),
+            '{form_link}': form_link,
         }
 
         rendered_subject = template.subject
@@ -116,16 +120,6 @@ class AutoResponder:
             logger.debug(f"Auto-response disabled for lead source {lead_source.id}")
             return False
         
-        # Check if template is configured
-        if not lead_source.template:
-            logger.warning(
-                f"Auto-response enabled but no template configured for "
-                f"lead source {lead_source.id}"
-            )
-            lead.response_status = 'no_template'
-            self.db_session.commit()
-            return False
-        
         try:
             # Get credentials for sending email
             email, app_password = self.credentials_store.get_credentials(self.agent_id)
@@ -137,15 +131,84 @@ class AutoResponder:
                 creds_record = self.db_session.query(Credentials).filter(
                     Credentials.agent_id == self.agent_id
                 ).first()
+
+                # Try to resolve a human name: prefer AgentUser.full_name,
+                # then Credentials.display_name, then the email address.
+                resolved_name = None
+                resolved_phone = ''
+                resolved_email = email
+
+                # If agent_id is numeric, look up AgentUser for full_name/phone
+                try:
+                    numeric_id = int(self.agent_id)
+                    from gmail_lead_sync.agent_models import AgentUser
+                    agent_user = self.db_session.query(AgentUser).filter(
+                        AgentUser.id == numeric_id
+                    ).first()
+                    if agent_user:
+                        resolved_name = agent_user.full_name or None
+                        resolved_phone = agent_user.phone or ''
+                        resolved_email = agent_user.email or email
+                except (ValueError, TypeError):
+                    pass  # agent_id is not numeric
+
+                if not resolved_name and creds_record and creds_record.display_name:
+                    resolved_name = creds_record.display_name
+                if not resolved_name:
+                    resolved_name = email  # last resort: use email address
+
+                if not resolved_phone and creds_record and creds_record.phone:
+                    resolved_phone = creds_record.phone
+
                 agent_info = {
-                    'agent_name': (creds_record.display_name if creds_record and creds_record.display_name else self.agent_id),
-                    'agent_phone': (creds_record.phone if creds_record and creds_record.phone else ''),
-                    'agent_email': email
+                    'agent_name': resolved_name,
+                    'agent_phone': resolved_phone,
+                    'agent_email': resolved_email,
                 }
-            
-            # Render template with lead and agent information
-            template = lead_source.template
-            rendered_subject, body = self.template_renderer.render_template(template, lead, agent_info)
+
+            # Prefer AgentTemplate (INITIAL_INVITE) over legacy lead_source.template
+            rendered_subject = None
+            body = None
+            try:
+                numeric_id = int(self.agent_id)
+                from gmail_lead_sync.agent_models import AgentTemplate
+                agent_tpl = self.db_session.query(AgentTemplate).filter(
+                    AgentTemplate.agent_user_id == numeric_id,
+                    AgentTemplate.template_type == 'INITIAL_INVITE',
+                    AgentTemplate.is_active.is_(True),
+                ).first()
+                if agent_tpl is not None:
+                    import os as _os
+                    base_url = _os.environ.get("PUBLIC_BASE_URL", "http://localhost:5173").rstrip("/")
+                    form_link = agent_info.get('form_link', f"{base_url}/public/buyer-qualification")
+                    mapping = {
+                        '{lead_name}': lead.name or '',
+                        '{agent_name}': agent_info.get('agent_name', ''),
+                        '{agent_phone}': agent_info.get('agent_phone', ''),
+                        '{agent_email}': agent_info.get('agent_email', ''),
+                        '{form_link}': form_link,
+                    }
+                    rendered_subject = agent_tpl.subject
+                    body = agent_tpl.body
+                    for placeholder, value in mapping.items():
+                        rendered_subject = rendered_subject.replace(placeholder, value)
+                        body = body.replace(placeholder, value)
+                    logger.info(f"Using AgentTemplate INITIAL_INVITE for agent {self.agent_id}")
+            except (ValueError, TypeError):
+                pass  # agent_id is not numeric
+
+            # Fall back to legacy lead_source.template
+            if rendered_subject is None:
+                if not lead_source.template:
+                    logger.warning(
+                        f"Auto-response enabled but no template configured for "
+                        f"lead source {lead_source.id}"
+                    )
+                    lead.response_status = 'no_template'
+                    self.db_session.commit()
+                    return False
+                template = lead_source.template
+                rendered_subject, body = self.template_renderer.render_template(template, lead, agent_info)
             
             # Send email via SMTP
             success = self.send_email(

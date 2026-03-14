@@ -5,7 +5,6 @@ Tests the rate limiting functionality for IMAP requests.
 """
 
 import time
-import pytest
 from gmail_lead_sync.rate_limiter import RateLimiter
 
 

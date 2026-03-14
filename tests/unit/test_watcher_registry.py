@@ -8,13 +8,12 @@ and status tracking.
 import asyncio
 import pytest
 from datetime import datetime
-from unittest.mock import Mock, MagicMock, patch, AsyncMock
+from unittest.mock import Mock, patch
 from contextlib import contextmanager
 
 from api.services.watcher_registry import (
     WatcherRegistry,
-    WatcherStatus,
-    WatcherInfo
+    WatcherStatus
 )
 
 
@@ -274,7 +273,7 @@ async def test_watcher_heartbeat_tracking(registry):
 async def test_watcher_sync_timestamp_tracking(registry):
     """Test that last sync timestamp is tracked."""
     with patch('api.services.watcher_registry.GmailWatcher') as mock_watcher_class:
-        with patch('gmail_lead_sync.models.LeadSource') as mock_lead_source_class:
+        with patch('gmail_lead_sync.models.LeadSource'):
             mock_watcher = Mock()
             mock_watcher.connect = Mock(return_value=True)
             mock_watcher.disconnect = Mock()

@@ -5,31 +5,29 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    entrypoint: ["/app/docker-entrypoint.sh"]
+    env_file: .env
     ports:
       - "8000:8000"
     volumes:
-      # Persist SQLite database
       - db_data:/data
-      # Mount built frontend static files
-      - frontend_dist:/app/static:ro
-    environment:
-      DATABASE_URL: sqlite:////data/gmail_lead_sync.db
-      STATIC_FILES_DIR: /app/static
-      API_HOST: 0.0.0.0
-      API_PORT: "8000"
-      LOG_LEVEL: INFO
-      # Required secrets - set these in .env or environment
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
-      SECRET_KEY: ${SECRET_KEY}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8000}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 15s
+
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    restart: unless-stopped
 
 volumes:
   db_data:
-  frontend_dist:

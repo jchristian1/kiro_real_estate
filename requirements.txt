@@ -9,3 +9,5 @@ pytest>=7.4.0
 pytest-cov>=4.1.0
 requests>=2.19.0
 flask>=3.0.0
+slowapi>=0.1.9
+bleach>=6.0.0
