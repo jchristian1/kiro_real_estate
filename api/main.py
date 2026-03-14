@@ -772,15 +772,35 @@ async def startup_event():
         from api.repositories.credential_repository import CredentialRepository
         db = SessionLocal()
         try:
-            agents = db.query(_User).filter(_User.role == "agent").all()
             cred_repo = CredentialRepository(db)
+
+            # Legacy: admin-panel agents in the users table
+            agents = db.query(_User).filter(_User.role == "agent").all()
             for agent in agents:
                 agent_id_str = str(agent.id)
                 cred = cred_repo.get_by_agent_id(agent_id_str)
                 if cred is not None:
                     started = await watcher_registry.start_watcher(agent_id_str)
                     if started:
-                        logger.info(f"Auto-started watcher for agent {agent_id_str} on startup")
+                        logger.info(f"Auto-started watcher for legacy agent {agent_id_str} on startup")
+
+            # Agent-app users in the agent_users table
+            try:
+                from gmail_lead_sync.agent_models import AgentUser as _AgentUser, AgentPreferences as _AgentPrefs
+                agent_users = db.query(_AgentUser).all()
+                for au in agent_users:
+                    # Skip if watcher is disabled via preferences
+                    prefs = db.query(_AgentPrefs).filter(_AgentPrefs.agent_user_id == au.id).first()
+                    if prefs and not prefs.watcher_enabled:
+                        continue
+                    agent_id_str = str(au.id)
+                    cred = cred_repo.get_by_agent_id(agent_id_str)
+                    if cred is not None:
+                        started = await watcher_registry.start_watcher(agent_id_str)
+                        if started:
+                            logger.info(f"Auto-started watcher for agent-app user {agent_id_str} on startup")
+            except Exception as e:
+                logger.warning(f"Could not auto-start agent-app watchers: {e}")
         finally:
             db.close()
     except Exception as e:
