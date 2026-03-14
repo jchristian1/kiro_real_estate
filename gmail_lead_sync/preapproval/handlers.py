@@ -702,44 +702,8 @@ def on_buyer_form_submitted(
     )
 
     # ------------------------------------------------------------------
-    # 10. Resolve active POST_SUBMISSION_EMAIL template (Req 7.9)
-    # ------------------------------------------------------------------
-    msg_version = _resolve_active_message_template(
-        db,
-        tenant_id=invitation.tenant_id,
-        intent_type=IntentType.BUY,
-        key=MessageTemplateKey.POST_SUBMISSION_EMAIL,
-    )
-    if msg_version is None:
-        logger.error(
-            "No active POST_SUBMISSION_EMAIL template for tenant %d (lead_id=%d); "
-            "skipping post-submission email.",
-            invitation.tenant_id,
-            invitation.lead_id,
-        )
-        db.add(
-            LeadInteraction(
-                tenant_id=invitation.tenant_id,
-                lead_id=invitation.lead_id,
-                intent_type=IntentType.BUY.value,
-                channel=Channel.EMAIL.value,
-                direction="outbound",
-                occurred_at=datetime.utcnow(),
-                content_text="[ERROR: no active POST_SUBMISSION_EMAIL template]",
-            )
-        )
-        db.commit()
-        return {
-            "submission_id": submission.id,
-            "score": {
-                "total": score_result.total,
-                "bucket": score_result.bucket.value,
-                "explanation": score_result.explanation,
-            },
-        }
-
-    # ------------------------------------------------------------------
-    # 11. Render template with bucket variant and send email (Req 10.2)
+    # 10. Resolve post-submission template — prefer AgentTemplate, fall back
+    #     to POST_SUBMISSION_EMAIL MessageTemplate (Req 7.9)
     # ------------------------------------------------------------------
     lead: Lead = db.get(Lead, invitation.lead_id)
     first_name = lead.name.split()[0] if lead.name else ""
@@ -753,6 +717,47 @@ def on_buyer_form_submitted(
     _agent_tpl_type = _bucket_to_type.get(score_result.bucket.value)
     agent_tpl = _resolve_agent_template(db, invitation.tenant_id, _agent_tpl_type) if _agent_tpl_type else None
 
+    if agent_tpl is None:
+        # Fall back to MessageTemplate POST_SUBMISSION_EMAIL
+        msg_version = _resolve_active_message_template(
+            db,
+            tenant_id=invitation.tenant_id,
+            intent_type=IntentType.BUY,
+            key=MessageTemplateKey.POST_SUBMISSION_EMAIL,
+        )
+        if msg_version is None:
+            logger.error(
+                "No active POST_SUBMISSION_EMAIL template for tenant %d (lead_id=%d); "
+                "skipping post-submission email.",
+                invitation.tenant_id,
+                invitation.lead_id,
+            )
+            db.add(
+                LeadInteraction(
+                    tenant_id=invitation.tenant_id,
+                    lead_id=invitation.lead_id,
+                    intent_type=IntentType.BUY.value,
+                    channel=Channel.EMAIL.value,
+                    direction="outbound",
+                    occurred_at=datetime.utcnow(),
+                    content_text="[ERROR: no active POST_SUBMISSION_EMAIL template]",
+                )
+            )
+            db.commit()
+            return {
+                "submission_id": submission.id,
+                "score": {
+                    "total": score_result.total,
+                    "bucket": score_result.bucket.value,
+                    "explanation": score_result.explanation,
+                },
+            }
+    else:
+        msg_version = None  # not needed when using AgentTemplate
+
+    # ------------------------------------------------------------------
+    # 11. Render template with bucket variant and send email (Req 10.2)
+    # ------------------------------------------------------------------
     if agent_tpl is not None:
         from gmail_lead_sync.agent_models import AgentUser as _AgentUser
         _agent = db.query(_AgentUser).filter(_AgentUser.company_id == invitation.tenant_id).first()
