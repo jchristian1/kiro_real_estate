@@ -766,6 +766,16 @@ async def startup_event():
     logger.info("Starting Gmail Lead Sync API")
     config.log_config(logger)
 
+    # Run DB migrations on startup so a fresh clone works without manual steps
+    try:
+        from alembic.config import Config as AlembicConfig
+        from alembic import command as alembic_command
+        alembic_cfg = AlembicConfig("alembic.ini")
+        alembic_command.upgrade(alembic_cfg, "head")
+        logger.info("Database migrations applied (alembic upgrade head)")
+    except Exception as e:
+        logger.warning(f"Could not run alembic upgrade head on startup: {e}")
+
     # Auto-start watchers for all agents that have credentials configured
     try:
         from api.models.web_ui_models import User as _User

@@ -20,15 +20,25 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    op.create_table('companies',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('name', sa.String(length=255), nullable=False),
-    sa.Column('phone', sa.String(length=50), nullable=True),
-    sa.Column('email', sa.String(length=255), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.add_column('credentials', sa.Column('company_id', sa.Integer(), nullable=True))
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing_tables = inspector.get_table_names()
+
+    if 'companies' not in existing_tables:
+        op.create_table(
+            'companies',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('name', sa.String(length=255), nullable=False),
+            sa.Column('phone', sa.String(length=50), nullable=True),
+            sa.Column('email', sa.String(length=255), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=False),
+            sa.PrimaryKeyConstraint('id'),
+        )
+
+    # Add company_id to credentials if not already present
+    existing_cols = [c['name'] for c in inspector.get_columns('credentials')]
+    if 'company_id' not in existing_cols:
+        op.add_column('credentials', sa.Column('company_id', sa.Integer(), nullable=True))
 
 
 def downgrade() -> None:
