@@ -766,20 +766,21 @@ async def startup_event():
     logger.info("Starting Gmail Lead Sync API")
     config.log_config(logger)
 
-    # Auto-start watchers for all agents that have completed onboarding
+    # Auto-start watchers for all agents that have credentials configured
     try:
-        from gmail_lead_sync.agent_models import AgentUser as _AgentUser
+        from api.models.web_ui_models import User as _User
+        from api.repositories.credential_repository import CredentialRepository
         db = SessionLocal()
         try:
-            completed_agents = db.query(_AgentUser).filter(
-                _AgentUser.onboarding_completed.is_(True),
-                _AgentUser.credentials_id.isnot(None),
-            ).all()
-            for au in completed_agents:
-                agent_id_str = str(au.id)
-                started = await watcher_registry.start_watcher(agent_id_str)
-                if started:
-                    logger.info(f"Auto-started watcher for agent {agent_id_str} on startup")
+            agents = db.query(_User).filter(_User.role == "agent").all()
+            cred_repo = CredentialRepository(db)
+            for agent in agents:
+                agent_id_str = str(agent.id)
+                cred = cred_repo.get_by_agent_id(agent_id_str)
+                if cred is not None:
+                    started = await watcher_registry.start_watcher(agent_id_str)
+                    if started:
+                        logger.info(f"Auto-started watcher for agent {agent_id_str} on startup")
         finally:
             db.close()
     except Exception as e:
