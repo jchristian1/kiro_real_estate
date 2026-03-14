@@ -765,25 +765,6 @@ class GmailWatcher:
                 # Mark as processed
                 self.mark_as_processed(message_id, lead.id)
                 
-                # Send automated response if configured
-                try:
-                    # Refresh lead_source relationship
-                    self.db_session.refresh(lead)
-                    lead_source = lead.lead_source
-                    
-                    if lead_source.auto_respond_enabled:
-                        logger.info(f"Sending automated response for lead {lead.id}")
-                        self.responder.send_acknowledgment(lead, lead_source)
-                    else:
-                        logger.debug(f"Auto-response disabled for lead source {lead_source.id}")
-                        
-                except Exception as e:
-                    # Log error but don't fail the entire processing
-                    logger.error(
-                        f"Error sending automated response for lead {lead.id}: {e}",
-                        exc_info=True
-                    )
-
                 # Trigger buyer lead preapproval pipeline if tenant is configured
                 try:
                     from gmail_lead_sync.models import Credentials, Company
@@ -850,11 +831,15 @@ class GmailWatcher:
                             logger.debug(
                                 f"No BUY form for tenant {tenant_id}, skipping preapproval"
                             )
+                            # Fall back to simple acknowledgment
+                            self._send_acknowledgment_if_enabled(lead)
                     else:
                         logger.debug(
                             f"Cannot resolve tenant for lead {lead.id} "
                             f"(agent_id={lead.agent_id}), skipping preapproval"
                         )
+                        # Fall back to simple acknowledgment
+                        self._send_acknowledgment_if_enabled(lead)
                 except Exception as e:
                     logger.error(
                         f"Error triggering preapproval pipeline for lead {lead.id}: {e}",
@@ -878,6 +863,19 @@ class GmailWatcher:
             )
             self.db_session.rollback()
     
+    def _send_acknowledgment_if_enabled(self, lead) -> None:
+        """Send acknowledgment email if auto-respond is enabled for the lead source."""
+        try:
+            self.db_session.refresh(lead)
+            lead_source = lead.lead_source
+            if lead_source and lead_source.auto_respond_enabled:
+                logger.info(f"Sending acknowledgment for lead {lead.id} (no preapproval pipeline)")
+                self.responder.send_acknowledgment(lead, lead_source)
+            else:
+                logger.debug(f"Auto-response disabled for lead source, skipping acknowledgment")
+        except Exception as e:
+            logger.error(f"Error sending acknowledgment for lead {lead.id}: {e}", exc_info=True)
+
     def start_monitoring(self) -> None:
         """
         Start IDLE mode monitoring for new emails.
