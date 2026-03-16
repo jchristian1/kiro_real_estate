@@ -40,6 +40,11 @@ def upgrade() -> None:
     if 'company_id' not in existing_cols:
         op.add_column('credentials', sa.Column('company_id', sa.Integer(), nullable=True))
 
+    # Add company_id to users if not already present
+    users_cols = [c['name'] for c in inspector.get_columns('users')]
+    if 'company_id' not in users_cols:
+        op.add_column('users', sa.Column('company_id', sa.Integer(), nullable=True))
+
 
 def downgrade() -> None:
     """Downgrade schema."""
