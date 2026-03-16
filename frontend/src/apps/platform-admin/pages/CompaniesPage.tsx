@@ -6,14 +6,16 @@ import { useT } from '../../../shared/hooks/useT';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 const PAGE_SIZE = 20;
 
-interface Company { id: number; name: string; phone: string | null; email: string | null; created_at: string; }
-interface FormState { name: string; phone: string; email: string; }
-const emptyForm: FormState = { name: '', phone: '', email: '' };
+interface Company { id: number; name: string; phone: string | null; email: string | null; active_form_version_id: number | null; created_at: string; }
+interface FormVersion { id: number; label: string; }
+interface FormState { name: string; phone: string; email: string; active_form_version_id: number | null; }
+const emptyForm: FormState = { name: '', phone: '', email: '', active_form_version_id: null };
 
 export const CompaniesPage: React.FC = () => {
   const { success, error: toastError } = useToast();
   const t = useT();
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [formVersions, setFormVersions] = useState<FormVersion[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Company | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -30,10 +32,15 @@ export const CompaniesPage: React.FC = () => {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchCompanies(); }, []);
+  useEffect(() => {
+    fetchCompanies();
+    axios.get<FormVersion[]>(`${API_BASE_URL}/buyer-leads/forms/versions/all`)
+      .then(r => setFormVersions(r.data))
+      .catch(() => {});
+  }, []);
 
   const openCreate = () => { setEditing(null); setForm(emptyForm); setFormError(null); setShowForm(true); };
-  const openEdit = (c: Company) => { setEditing(c); setForm({ name: c.name, phone: c.phone ?? '', email: c.email ?? '' }); setFormError(null); setShowForm(true); };
+  const openEdit = (c: Company) => { setEditing(c); setForm({ name: c.name, phone: c.phone ?? '', email: c.email ?? '', active_form_version_id: c.active_form_version_id }); setFormError(null); setShowForm(true); };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +97,19 @@ export const CompaniesPage: React.FC = () => {
                   onBlur={e => (e.target.style.borderColor = t.border)} />
               </div>
             ))}
+            <div style={{ marginBottom: 14 }}>
+              <label style={t.labelStyle}>Qualification Form</label>
+              <select
+                value={form.active_form_version_id ?? ''}
+                onChange={e => setForm(p => ({ ...p, active_form_version_id: e.target.value ? Number(e.target.value) : null }))}
+                style={inputStyle}
+              >
+                <option value="">— No form assigned —</option>
+                {formVersions.map(v => (
+                  <option key={v.id} value={v.id}>{v.label}</option>
+                ))}
+              </select>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
               <button type="button" onClick={() => setShowForm(false)} disabled={submitting} style={t.btnSecondary}>Cancel</button>
               <button type="submit" disabled={submitting} style={{ ...t.btnPrimary, opacity: submitting ? 0.6 : 1 }}>

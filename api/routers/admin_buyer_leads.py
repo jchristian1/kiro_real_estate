@@ -128,6 +128,33 @@ class UpdateFormTemplateRequest(BaseModel):
 # Form Template CRUD  (Req 2.1)
 # ---------------------------------------------------------------------------
 
+@router.get("/forms/versions/all")
+def list_all_form_versions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return all published form versions across all tenants for company assignment."""
+    from gmail_lead_sync.preapproval.models_preapproval import FormVersion, FormTemplate
+    rows = (
+        db.query(FormVersion, FormTemplate)
+        .join(FormTemplate, FormVersion.template_id == FormTemplate.id)
+        .order_by(FormTemplate.name, FormVersion.version_number.desc())
+        .all()
+    )
+    return [
+        {
+            "id": v.id,
+            "version_number": v.version_number,
+            "is_active": v.is_active,
+            "template_id": v.template_id,
+            "template_name": t.name,
+            "tenant_id": t.tenant_id,
+            "label": f"{t.name} — v{v.version_number}",
+        }
+        for v, t in rows
+    ]
+
+
 @router.get("/tenants/{tid}/forms")
 def list_form_templates(
     tid: int,

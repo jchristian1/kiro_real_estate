@@ -22,6 +22,7 @@ class CompanyUpdate(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    active_form_version_id: Optional[int] = None
 
 
 class CompanyRepository:

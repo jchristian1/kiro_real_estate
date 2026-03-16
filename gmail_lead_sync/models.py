@@ -116,6 +116,7 @@ class Company(Base):
     name = Column(String(255), nullable=False)
     phone = Column(String(50), nullable=True)
     email = Column(String(255), nullable=True)
+    active_form_version_id = Column(Integer, ForeignKey('form_versions.id'), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships

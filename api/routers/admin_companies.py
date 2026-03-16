@@ -72,7 +72,7 @@ def update_company(
     current_user: User = Depends(get_current_user),
 ):
     repo = CompanyRepository(db)
-    company = repo.update(company_id, CompanyUpdate(name=data.name, phone=data.phone, email=data.email))
+    company = repo.update(company_id, CompanyUpdate(name=data.name, phone=data.phone, email=data.email, active_form_version_id=data.active_form_version_id))
     if not company:
         raise NotFoundException(message=f"Company {company_id} not found", code=ErrorCode.NOT_FOUND_RESOURCE)
     record_audit_log(db, current_user.id, "company_updated", "company", company.id, f"Updated company {company.name}")
