@@ -98,7 +98,7 @@ class FormTemplate(Base):
     status      = Column(String(20), nullable=False, default="draft")  # draft|active|archived
     created_at  = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    versions = relationship("FormVersion", back_populates="template")
+    versions = relationship("FormVersion", back_populates="template", cascade="all, delete-orphan")
 
 
 class FormVersion(Base):
@@ -115,8 +115,8 @@ class FormVersion(Base):
     is_active      = Column(Boolean, default=False)
 
     template    = relationship("FormTemplate", back_populates="versions")
-    questions   = relationship("FormQuestion", back_populates="form_version")
-    logic_rules = relationship("FormLogicRule", back_populates="form_version")
+    questions   = relationship("FormQuestion", back_populates="form_version", cascade="all, delete-orphan")
+    logic_rules = relationship("FormLogicRule", back_populates="form_version", cascade="all, delete-orphan")
 
 
 class FormQuestion(Base):
