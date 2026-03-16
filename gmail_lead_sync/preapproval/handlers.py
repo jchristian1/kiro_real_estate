@@ -87,7 +87,11 @@ def _resolve_active_form_version(
     tenant_id: int,
     intent_type: IntentType = IntentType.BUY,
 ) -> FormVersion | None:
-    """Return the active FormVersion for *tenant_id* + *intent_type*, or None."""
+    """Return the active FormVersion for *tenant_id* + *intent_type*, or None.
+
+    Uses .first() rather than .one_or_none() so that if multiple active versions
+    exist (data inconsistency), we pick one rather than raising MultipleResultsFound.
+    """
     return (
         db.query(FormVersion)
         .join(FormTemplate, FormVersion.template_id == FormTemplate.id)
@@ -96,7 +100,7 @@ def _resolve_active_form_version(
             FormTemplate.intent_type == intent_type.value,
             FormVersion.is_active.is_(True),
         )
-        .one_or_none()
+        .first()
     )
 
 
