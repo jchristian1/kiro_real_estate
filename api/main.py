@@ -776,6 +776,38 @@ async def startup_event():
     except Exception as e:
         logger.warning(f"Could not run alembic upgrade head on startup: {e}")
 
+    # Auto-seed demo data on first run (only if no users exist yet)
+    try:
+        from api.models.web_ui_models import User as _User
+        _seed_db = SessionLocal()
+        try:
+            if _seed_db.query(_User).count() == 0:
+                logger.info("No users found — running seed data for first-time setup")
+                import sys as _sys
+                _sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                from scripts.seed_data import (
+                    seed_users, seed_templates, seed_agents,
+                    seed_lead_sources, seed_leads, seed_settings
+                )
+                from gmail_lead_sync.credentials import EncryptedDBCredentialsStore as _ECS
+                _cstore = _ECS(_seed_db, encryption_key=config.encryption_key)
+                seed_users(_seed_db)
+                _tmpls = seed_templates(_seed_db)
+                seed_agents(_seed_db, _cstore)
+                _srcs = seed_lead_sources(_seed_db, _tmpls)
+                seed_leads(_seed_db, _srcs)
+                seed_settings(_seed_db)
+                try:
+                    from gmail_lead_sync.preapproval.seed import seed_all as _seed_preapproval
+                    _seed_preapproval(_seed_db, tenant_id=1)
+                except Exception:
+                    pass
+                logger.info("Seed data created — login: admin/admin123")
+        finally:
+            _seed_db.close()
+    except Exception as e:
+        logger.warning(f"Could not auto-seed on startup: {e}")
+
     # Auto-start watchers for all agents that have credentials configured
     try:
         from api.models.web_ui_models import User as _User
