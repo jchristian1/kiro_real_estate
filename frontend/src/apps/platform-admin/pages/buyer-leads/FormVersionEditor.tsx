@@ -45,8 +45,9 @@ export const FormVersionEditor: React.FC = () => {
       const activeVersion = (versRes.data as { is_active: boolean; schema_json?: string }[]).find(v => v.is_active);
       if (activeVersion?.schema_json) {
         const schema = JSON.parse(activeVersion.schema_json) as { questions?: Question[]; logic_rules?: LogicRule[] } | Question[];
-        const questions = Array.isArray(schema) ? schema : (schema.questions ?? []);
+        const rawQuestions = Array.isArray(schema) ? schema : (schema.questions ?? []);
         const logicRules = Array.isArray(schema) ? [] : (schema.logic_rules ?? []);
+        const questions = rawQuestions.map(q => ({ ...q, options: q.options ?? [] }));
         setQuestions(questions.sort((a, b) => a.order - b.order));
         setLogicRules(logicRules);
       }
