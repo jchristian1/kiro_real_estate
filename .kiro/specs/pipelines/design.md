@@ -651,3 +651,94 @@ Key properties:
 **Seeding**:
 - Optional seed scripts for Real Estate Buyer Pipeline and Landlord-Tenant Law Firm Pipeline
 - Integrated into existing `scripts/seed_data.py` pattern
+
+
+---
+
+## Correctness Properties
+
+*A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
+
+### Property 1: Single Active Pipeline Invariant
+
+*For any* company, after any sequence of pipeline create and activate operations, the count of pipelines with `is_active = true` for that company must be at most 1.
+
+**Validates: Requirements 1.4, 1.5**
+
+### Property 2: Stage Positions Are Contiguous 1-Based
+
+*For any* pipeline, after any sequence of stage create, delete, or reorder operations, the set of stage positions must equal `{1, 2, ..., N}` where N is the number of stages.
+
+**Validates: Requirements 2.4**
+
+### Property 3: Exactly One Default Stage Per Pipeline
+
+*For any* pipeline, after any sequence of stage create, update, or set-default operations, the count of stages with `is_default = true` must equal exactly 1.
+
+**Validates: Requirements 2.5, 2.6**
+
+### Property 4: Stage History Length Equals Move Count
+
+*For any* lead, after any sequence of stage move operations, the length of `lead_stage_history` for that lead must equal the total number of moves performed (including the initial assignment).
+
+**Validates: Requirements 3.1, 3.2**
+
+### Property 5: Current Stage Consistency
+
+*For any* lead that has at least one stage history entry, `lead.current_stage_id` must equal the `to_stage_id` of the most recent `LeadStageHistory` entry for that lead.
+
+**Validates: Requirements 3.3, 3.4**
+
+### Property 6: Event Mapping Uniqueness
+
+*For any* pipeline, after any sequence of event mapping upsert operations, there must be at most one mapping per `(pipeline_id, event_type)` pair.
+
+**Validates: Requirements 4.2**
+
+### Property 7: Event Mapping Cross-Pipeline Validation
+
+*For any* event mapping, the `target_stage_id` must belong to the same pipeline as the mapping's `pipeline_id`.
+
+**Validates: Requirements 4.3**
+
+### Property 8: Disabled Mapping Does Not Move Lead
+
+*For any* lead and any event mapping with `is_enabled = false`, firing the mapped event must not change the lead's `current_stage_id`.
+
+**Validates: Requirements 6.4**
+
+### Property 9: Rules Evaluated in Position Order
+
+*For any* pipeline with N enabled automation rules, when an event is fired, the rules must be evaluated in strictly ascending `position` order.
+
+**Validates: Requirements 5.6, 6.5**
+
+### Property 10: Failed Action Step Does Not Halt Remaining Steps
+
+*For any* automation rule with M action steps where step K fails (K < M), steps K+1 through M must still be attempted and any completed stage transitions must not be rolled back.
+
+**Validates: Requirements 6.6, 12.3, 12.4**
+
+### Property 11: Agent Endpoint Tenant Isolation
+
+*For any* agent, the pipeline data returned by `GET /api/v1/agent/leads/{lead_id}/pipeline` must only contain data for leads belonging to that agent's own account.
+
+**Validates: Requirements 10.6**
+
+### Property 12: Stuck Leads Threshold
+
+*For any* lead in a pipeline, the lead is counted as "stuck" in the metrics endpoint if and only if `(now - stage_entered_at) > 7 days`.
+
+**Validates: Requirements 8.4**
+
+### Property 13: Stage Key Format Invariant
+
+*For any* pipeline stage, the `key` field must match the pattern `[a-z0-9_]+` (lowercase alphanumeric and underscores only) after any create or update operation.
+
+**Validates: Requirements 2.2, 12.6**
+
+### Property 14: Closed Won and Closed Lost Are Mutually Exclusive
+
+*For any* pipeline stage, `is_closed_won` and `is_closed_lost` cannot both be `true` simultaneously.
+
+**Validates: Requirements 2.8**
