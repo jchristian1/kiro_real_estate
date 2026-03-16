@@ -129,6 +129,19 @@ async def get_buyer_qualification_form(
     schema = _json.loads(form_version.schema_json)
     questions = schema if isinstance(schema, list) else schema.get("questions", [])
 
+    # Parse options_json string → array so the frontend gets a usable list
+    for q in questions:
+        raw = q.get("options_json")
+        if isinstance(raw, str):
+            try:
+                q["options"] = _json.loads(raw)
+            except (_json.JSONDecodeError, TypeError):
+                q["options"] = []
+        elif isinstance(raw, list):
+            q["options"] = raw
+        else:
+            q["options"] = []
+
     return {"token": token, "questions": questions}
 
 
