@@ -13,7 +13,6 @@ Tests:
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
-import os
 
 from api.main import app, get_db
 

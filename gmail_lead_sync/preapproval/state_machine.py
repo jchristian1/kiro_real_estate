@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -74,11 +74,12 @@ class LeadStateMachine:
         Steps:
         1. Load the lead (raises NotFoundException if missing — Req 1.8).
         2. Validate the transition is allowed (raises InvalidTransitionError — Req 1.2, 1.3).
-        3. Insert an immutable LeadStateTransition row (Req 1.4, 1.7).
-        4. Update leads.current_state + current_state_updated_at atomically (Req 1.5).
-        5. Commit.
+        3. Check for existing transition within idempotency window (Req 8.5, 8.6).
+        4. Insert an immutable LeadStateTransition row (Req 1.4, 1.7).
+        5. Update leads.current_state + current_state_updated_at atomically (Req 1.5).
+        6. Commit.
 
-        Returns the newly created LeadStateTransition row.
+        Returns the newly created LeadStateTransition row (or existing row if idempotent).
         """
         lead = db.get(Lead, lead_id)
         if lead is None:
@@ -98,6 +99,31 @@ class LeadStateMachine:
             )
 
         now = datetime.utcnow()
+
+        # Idempotency check: look for existing transition within last 5 seconds (Req 8.5, 8.6)
+        idempotency_window = now - timedelta(seconds=5)
+        existing_transition = (
+            db.query(LeadStateTransition)
+            .filter(
+                LeadStateTransition.lead_id == lead_id,
+                LeadStateTransition.from_state == from_state,
+                LeadStateTransition.to_state == to_state_value,
+                LeadStateTransition.occurred_at >= idempotency_window,
+            )
+            .order_by(LeadStateTransition.occurred_at.desc())
+            .first()
+        )
+
+        if existing_transition is not None:
+            logger.info(
+                "Lead %d transition %s → %s already exists (id=%d, occurred_at=%s), returning existing row",
+                lead_id,
+                from_state,
+                to_state_value,
+                existing_transition.id,
+                existing_transition.occurred_at,
+            )
+            return existing_transition
 
         # Immutable event log row (Req 1.4, 1.7)
         transition_row = LeadStateTransition(

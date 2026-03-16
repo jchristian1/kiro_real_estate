@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "name": "Auto Push on Task Completion",
+  "description": "After every spec task is marked completed, stages all changes, commits with a descriptive message, pushes to the current branch, and opens a PR if one doesn't exist yet.",
+  "version": "1",
+  "when": {
+    "type": "postTaskExecution"
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "cd \"$(git rev-parse --show-toplevel)\" && BRANCH=$(git branch --show-current) && git add -A && git diff --cached --quiet || git commit -m \"feat: complete spec task — $(date '+%Y-%m-%d %H:%M')\" && git push origin \"$BRANCH\"",
+    "timeout": 60
+  }
+}

@@ -15,7 +15,6 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 from gmail_lead_sync.logging_config import (
     RedactingFormatter,

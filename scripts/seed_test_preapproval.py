@@ -83,7 +83,7 @@ def seed(tenant_id: int, lead_id: int):
         form_version = (
             db.query(FormVersion)
             .join(FormTemplate)
-            .filter(FormTemplate.tenant_id == tenant_id, FormVersion.is_active == True)
+            .filter(FormTemplate.tenant_id == tenant_id, FormVersion.is_active.is_(True))
             .first()
         )
         if not form_version:
@@ -121,7 +121,7 @@ def seed(tenant_id: int, lead_id: int):
             scoring_version = (
                 db.query(ScoringVersion)
                 .join(ScoringConfig)
-                .filter(ScoringConfig.tenant_id == tenant_id, ScoringVersion.is_active == True)
+                .filter(ScoringConfig.tenant_id == tenant_id, ScoringVersion.is_active.is_(True))
                 .first()
             )
             if scoring_version:
@@ -167,7 +167,7 @@ def seed(tenant_id: int, lead_id: int):
         db.commit()
         print(f"\nDone. Open the Leads page, find lead {lead_id} ({lead.name}), and click View.")
 
-    except Exception as e:
+    except Exception:
         db.rollback()
         raise
     finally:

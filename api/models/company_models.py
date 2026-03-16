@@ -13,6 +13,7 @@ class CompanyUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     phone: Optional[str] = Field(None, max_length=50)
     email: Optional[str] = Field(None, max_length=255)
+    active_form_version_id: Optional[int] = None
 
 
 class CompanyResponse(BaseModel):
@@ -20,6 +21,7 @@ class CompanyResponse(BaseModel):
     name: str
     phone: Optional[str] = None
     email: Optional[str] = None
+    active_form_version_id: Optional[int] = None
     created_at: datetime
 
     class Config:

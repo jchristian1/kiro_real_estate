@@ -27,7 +27,7 @@ Environment Variables:
 import os
 import sys
 import logging
-from typing import List, Optional
+from typing import List
 from dataclasses import dataclass, field
 from dotenv import load_dotenv
 
@@ -143,7 +143,7 @@ class Config:
             errors.append("CORS_ORIGINS must contain at least one origin")
         
         if errors:
-            raise ValueError(f"Configuration validation failed:\n" + "\n".join(f"  - {error}" for error in errors))
+            raise ValueError("Configuration validation failed:\n" + "\n".join(f"  - {error}" for error in errors))
     
     def log_config(self, logger: logging.Logger):
         """
@@ -288,14 +288,14 @@ def validate_config_command():
         sys.exit(0)
         
     except ValueError as e:
-        print(f"✗ Configuration validation failed:")
+        print("✗ Configuration validation failed:")
         print(f"  {e}")
         print()
         print("Please check your environment variables and try again.")
         sys.exit(1)
     
     except Exception as e:
-        print(f"✗ Unexpected error during validation:")
+        print("✗ Unexpected error during validation:")
         print(f"  {e}")
         sys.exit(1)
 

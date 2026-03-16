@@ -15,8 +15,6 @@ Requirements: 24.2, 29.1, 29.2, 29.3, 29.4, 29.5, 29.6, 29.7
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch, AsyncMock
-from prometheus_client import REGISTRY
-import re
 
 from api.main import app, api_requests_total, api_request_duration_seconds, api_errors_total, watchers_active, leads_processed_total, increment_leads_processed
 
@@ -165,9 +163,9 @@ def test_error_counter_increments_on_5xx(client, mock_watcher_registry):
     Requirements: 29.6
     """
     # Mock an endpoint that raises an exception
-    with patch('api.main.app') as mock_app:
-        # Create a test client with the real app
-        test_client = TestClient(app)
+    with patch('api.main.app'):
+        # Create a test client with the real app (not used directly, but ensures app is initialized)
+        TestClient(app)
         
         # Get initial counter value
         # We'll trigger a 500 by causing an internal error
