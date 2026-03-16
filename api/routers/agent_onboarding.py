@@ -826,7 +826,7 @@ class PreconditionsNotMetResponse(BaseModel):
     },
     dependencies=[Depends(require_onboarding_step(5))],
 )
-def complete_onboarding(
+async def complete_onboarding(
     db: Session = Depends(get_db),
     agent: AgentUser = Depends(get_current_agent),
 ):
@@ -900,12 +900,8 @@ def complete_onboarding(
 
         # Auto-start the watcher for this agent so email monitoring begins immediately
         try:
-            import asyncio as _asyncio
             from api.main import watcher_registry as _registry
-            agent_id_str = str(agent.id)
-            loop = _asyncio.get_event_loop()
-            if loop.is_running():
-                _asyncio.ensure_future(_registry.start_watcher(agent_id_str))
+            await _registry.start_watcher(str(agent.id))
         except Exception as _e:
             import logging as _logging
             _logging.getLogger(__name__).warning(f"Could not auto-start watcher for agent {agent.id}: {_e}")

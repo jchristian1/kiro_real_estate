@@ -445,9 +445,11 @@ def update_agent(
         try:
             from api.main import watcher_registry
             import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.ensure_future(_restart_watcher(watcher_registry, agent_id))
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(_restart_watcher(watcher_registry, agent_id))
+            except RuntimeError:
+                pass  # not in async context, skip restart
         except Exception as e:
             import logging
             logging.getLogger(__name__).warning(f"Could not restart watcher after credential update for {agent_id}: {e}")
@@ -538,9 +540,11 @@ def delete_agent(
     try:
         import asyncio as _asyncio
         from api.main import watcher_registry as _registry
-        loop = _asyncio.get_event_loop()
-        if loop.is_running():
-            _asyncio.ensure_future(_registry.stop_watcher(agent_id))
+        try:
+            loop = _asyncio.get_running_loop()
+            loop.create_task(_registry.stop_watcher(agent_id))
+        except RuntimeError:
+            pass  # not in async context, skip
     except Exception:
         pass
 
