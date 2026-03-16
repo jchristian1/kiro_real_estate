@@ -47,9 +47,15 @@ export const FormVersionEditor: React.FC = () => {
         const schema = JSON.parse(activeVersion.schema_json) as { questions?: Question[]; logic_rules?: LogicRule[] } | Question[];
         const rawQuestions = Array.isArray(schema) ? schema : (schema.questions ?? []);
         const logicRules = Array.isArray(schema) ? [] : (schema.logic_rules ?? []);
-        const questions = rawQuestions.map(q => ({ ...q, options: q.options ?? [] }));
+        const questions = rawQuestions.map((q: any) => ({
+          ...q,
+          options: q.options ?? (q.options_json ? JSON.parse(q.options_json) : []),
+        }));
+        const parsedLogicRules = logicRules.map((r: any) =>
+          typeof r.rule_json === 'string' ? JSON.parse(r.rule_json) : r
+        );
         setQuestions(questions.sort((a, b) => a.order - b.order));
-        setLogicRules(logicRules);
+        setLogicRules(parsedLogicRules);
       }
     } catch { toastError('Failed to load form template'); } finally { setLoading(false); }
   }, [tenantId, formId]);
@@ -84,7 +90,19 @@ export const FormVersionEditor: React.FC = () => {
   const handlePublish = async () => {
     setPublishing(true);
     try {
-      await axios.post(`${API}/buyer-leads/tenants/${tenantId}/forms/${formId}/versions`, { questions, logic_rules: logicRules });
+      const payload = {
+        questions: questions.map(q => ({
+          question_key: q.question_key,
+          type: q.type,
+          label: q.label,
+          required: q.required,
+          order: q.order,
+          options_json: q.options.length > 0 ? JSON.stringify(q.options) : null,
+          validation_json: null,
+        })),
+        logic_rules: logicRules.map(r => ({ rule_json: JSON.stringify(r) })),
+      };
+      await axios.post(`${API}/buyer-leads/tenants/${tenantId}/forms/${formId}/versions`, payload);
       success('New version published');
       navigate(`/buyer-leads/${tenantId}/forms`);
     } catch (err: unknown) {
