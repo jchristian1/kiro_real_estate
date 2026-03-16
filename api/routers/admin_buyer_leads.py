@@ -85,8 +85,14 @@ class FormQuestionCreate(BaseModel):
     label: str
     required: bool = True
     options_json: str | None = None
+    options: list[dict[str, str]] | None = None  # frontend sends this
     order: int
     validation_json: str | None = None
+
+    def model_post_init(self, __context: Any) -> None:
+        """Convert frontend `options` array to `options_json` string if needed."""
+        if self.options is not None and self.options_json is None:
+            self.options_json = json.dumps(self.options)
 
 
 class FormLogicRuleCreate(BaseModel):
@@ -95,7 +101,17 @@ class FormLogicRuleCreate(BaseModel):
 
 class PublishFormVersionRequest(BaseModel):
     questions: list[FormQuestionCreate]
-    logic_rules: list[FormLogicRuleCreate] = []
+    logic_rules: list[FormLogicRuleCreate | dict] = []
+
+    def model_post_init(self, __context: Any) -> None:
+        """Convert frontend logic rule objects to FormLogicRuleCreate if needed."""
+        converted: list[FormLogicRuleCreate] = []
+        for rule in self.logic_rules:
+            if isinstance(rule, dict):
+                converted.append(FormLogicRuleCreate(rule_json=json.dumps(rule)))
+            else:
+                converted.append(rule)
+        self.logic_rules = converted
 
 
 class CreateFormTemplateRequest(BaseModel):
