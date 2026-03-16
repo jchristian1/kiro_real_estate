@@ -120,7 +120,7 @@ def _resolve_active_message_template(
             MessageTemplate.key == key.value,
             MessageTemplateVersion.is_active.is_(True),
         )
-        .one_or_none()
+        .first()
     )
 
 
@@ -458,7 +458,7 @@ def _resolve_active_scoring_version(
             ScoringConfig.intent_type == intent_type.value,
             ScoringVersion.is_active.is_(True),
         )
-        .one_or_none()
+        .first()
     )
 
 
