@@ -1,7 +1,7 @@
 """add_active_form_version_to_companies
 
 Revision ID: f3a4b5c6d7e8
-Revises: ed911637cb7a
+Revises: a1cc62a1c4a6
 Create Date: 2026-03-16 00:00:00.000000
 
 """
@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision: str = 'f3a4b5c6d7e8'
-down_revision: Union[str, None] = 'ed911637cb7a'
+down_revision: Union[str, None] = 'a1cc62a1c4a6'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
