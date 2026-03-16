@@ -36,7 +36,7 @@ export const CompaniesPage: React.FC = () => {
     fetchCompanies();
     axios.get<FormVersion[]>(`${API_BASE_URL}/buyer-leads/forms/versions/all`)
       .then(r => setFormVersions(r.data))
-      .catch(() => {});
+      .catch(err => console.error('Failed to load form versions:', err?.response?.status, err?.response?.data));
   }, []);
 
   const openCreate = () => { setEditing(null); setForm(emptyForm); setFormError(null); setShowForm(true); };
