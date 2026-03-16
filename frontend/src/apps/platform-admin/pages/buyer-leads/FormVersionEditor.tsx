@@ -102,12 +102,15 @@ export const FormVersionEditor: React.FC = () => {
         })),
         logic_rules: logicRules.map(r => ({ rule_json: JSON.stringify(r) })),
       };
+      console.log('Publishing payload:', JSON.stringify(payload, null, 2));
       await axios.post(`${API}/buyer-leads/tenants/${tenantId}/forms/${formId}/versions`, payload);
       success('New version published');
       navigate(`/buyer-leads/${tenantId}/forms`);
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      const data = (err as { response?: { data?: { detail?: string; message?: string } } })?.response?.data;
+      const msg = data?.detail || data?.message;
       toastError(msg || 'Failed to publish version');
+      console.error('Publish error:', (err as { response?: unknown })?.response);
     } finally { setPublishing(false); }
   };
 
