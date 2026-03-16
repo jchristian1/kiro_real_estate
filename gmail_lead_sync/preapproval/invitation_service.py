@@ -136,7 +136,7 @@ class FormInvitationService:
 
         # Req 3.4 — not found
         if invitation is None:
-            raise TokenNotFoundError(f"No invitation found for the provided token")
+            raise TokenNotFoundError("No invitation found for the provided token")
 
         # Req 3.4 — already used (check before expiry so callers get the most
         # specific error when a token is both used and expired)

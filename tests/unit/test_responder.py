@@ -330,7 +330,7 @@ class TestAutoResponder:
     def test_send_acknowledgment_success(self, mock_credentials_store, mock_db_session,
                                         sample_lead, sample_lead_source_with_template):
         """Test successful email sending."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import patch
         from gmail_lead_sync.responder import AutoResponder
         
         responder = AutoResponder(mock_credentials_store, mock_db_session)

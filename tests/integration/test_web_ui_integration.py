@@ -19,7 +19,7 @@ from sqlalchemy.pool import StaticPool
 
 from gmail_lead_sync.models import Base
 from gmail_lead_sync.credentials import EncryptedDBCredentialsStore
-from api.models.web_ui_models import User, Session as SessionModel
+from api.models.web_ui_models import User
 from api.models import web_ui_models  # noqa: F401 - registers models with Base
 from api.main import app, get_db
 from api.auth import hash_password, create_session
@@ -76,7 +76,7 @@ def auth_token(db, admin_user):
 @pytest.fixture
 def client(db, admin_user, auth_token):
     """TestClient with DB and auth overrides applied."""
-    from api.routes import agents, lead_sources, templates, watchers
+    from api.routers import admin_agents as agents, admin_lead_sources as lead_sources, admin_templates as templates, admin_watchers as watchers
 
     def override_db():
         yield db
@@ -88,7 +88,7 @@ def client(db, admin_user, auth_token):
         return EncryptedDBCredentialsStore(db, encryption_key=TEST_ENCRYPTION_KEY)
 
     app.dependency_overrides[get_db] = override_db
-    from api.routes import leads as leads_module
+    from api.routers import admin_leads as leads_module
 
     for module in (agents, lead_sources, templates, watchers, leads_module):
         if hasattr(module, "get_db"):

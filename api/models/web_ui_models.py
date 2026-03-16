@@ -12,7 +12,6 @@ This module defines the database schema for web UI functionality including:
 
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Index, UniqueConstraint
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
 from datetime import datetime
 from gmail_lead_sync.models import Base
 

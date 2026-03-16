@@ -5,10 +5,11 @@ Usage:
     python -m gmail_lead_sync.preapproval.seed --tenant-id <id>
 
 Inserts:
-- Default buyer qualification form template + version (7 questions)
-- Default scoring config + version (15 rules, HOT>=80, WARM>=50)
+- Default company (NYSLegal) if not present
+- Law firm landlord/tenant intake form template + version (5 questions)
+- Scoring config + version tuned for legal urgency
 - Default INITIAL_INVITE_EMAIL message template + version
-- Default POST_SUBMISSION_EMAIL message template + version (HOT/WARM/NURTURE variants)
+- Default POST_SUBMISSION_EMAIL message template + version
 
 All versions are set is_active=True. Safe to run multiple times — skips if
 a record with the same tenant_id + key/name already exists.
@@ -33,142 +34,111 @@ from gmail_lead_sync.preapproval.models_preapproval import (
 
 
 # ---------------------------------------------------------------------------
-# Default form questions
+# Law firm landlord/tenant intake form (5 questions)
 # ---------------------------------------------------------------------------
 
-DEFAULT_QUESTIONS = [
+LAW_FIRM_QUESTIONS = [
     {
-        "question_key": "timeline",
+        "question_key": "situation_type",
         "type": "single_choice",
-        "label": "When are you looking to buy?",
+        "label": "Which best describes your situation?",
         "required": True,
         "options": [
-            {"value": "asap", "label": "As soon as possible"},
-            {"value": "1_3_months", "label": "1–3 months"},
-            {"value": "3_6_months", "label": "3–6 months"},
-            {"value": "6_plus_months", "label": "6+ months"},
-            {"value": "not_sure", "label": "Not sure yet"},
+            {"value": "landlord_tenant_issue", "label": "I am a landlord with a tenant issue"},
+            {"value": "tenant_landlord_issue",  "label": "I am a tenant with a landlord issue"},
+            {"value": "residential_lease",      "label": "Residential lease matter"},
+            {"value": "commercial_lease",       "label": "Commercial lease matter"},
+            {"value": "not_sure",               "label": "I am not sure"},
         ],
         "order": 1,
     },
     {
-        "question_key": "budget",
+        "question_key": "issue_type",
         "type": "single_choice",
-        "label": "What is your approximate budget?",
+        "label": "What issue are you dealing with right now?",
         "required": True,
         "options": [
-            {"value": "under_300k", "label": "Under $300,000"},
-            {"value": "300k_500k", "label": "$300,000 – $500,000"},
-            {"value": "500k_750k", "label": "$500,000 – $750,000"},
-            {"value": "750k_1m", "label": "$750,000 – $1,000,000"},
-            {"value": "over_1m", "label": "Over $1,000,000"},
-            {"value": "not_sure", "label": "Not sure yet"},
+            {"value": "eviction",           "label": "Eviction / removal of tenant"},
+            {"value": "unpaid_rent",        "label": "Unpaid rent / rent collection"},
+            {"value": "lease_violation",    "label": "Lease violation / breach of lease"},
+            {"value": "notice_to_quit",     "label": "Notice to quit / termination notice"},
+            {"value": "security_deposit",   "label": "Security deposit dispute"},
+            {"value": "property_damage",    "label": "Property damage"},
+            {"value": "habitability",       "label": "Habitability / repair dispute"},
+            {"value": "commercial_dispute", "label": "Commercial lease dispute"},
+            {"value": "other",              "label": "Other"},
         ],
         "order": 2,
     },
     {
-        "question_key": "financing",
+        "question_key": "urgency",
         "type": "single_choice",
-        "label": "How do you plan to finance your purchase?",
+        "label": "How urgent is your matter?",
         "required": True,
         "options": [
-            {"value": "pre_approved", "label": "I'm already pre-approved"},
-            {"value": "cash", "label": "Cash purchase"},
-            {"value": "need_mortgage", "label": "I need to get a mortgage"},
-            {"value": "not_sure", "label": "Not sure yet"},
+            {"value": "emergency",   "label": "Emergency \u2014 court date, notice, or lockout happening now or within 7 days"},
+            {"value": "urgent",      "label": "Urgent \u2014 needs legal help within 2 weeks"},
+            {"value": "soon",        "label": "Soon \u2014 I want help within 30 days"},
+            {"value": "researching", "label": "Just researching options for now"},
         ],
         "order": 3,
     },
     {
-        "question_key": "areas",
-        "type": "multi_select",
-        "label": "Which areas are you interested in?",
-        "required": False,
+        "question_key": "hiring_stage",
+        "type": "single_choice",
+        "label": "Where are you in the hiring process?",
+        "required": True,
         "options": [
-            {"value": "downtown", "label": "Downtown"},
-            {"value": "suburbs", "label": "Suburbs"},
-            {"value": "rural", "label": "Rural"},
-            {"value": "flexible", "label": "Flexible / Open to suggestions"},
+            {"value": "ready_now",              "label": "I am ready to speak with an attorney immediately"},
+            {"value": "consultation_this_week", "label": "I want a consultation this week"},
+            {"value": "comparing",              "label": "I am comparing attorneys"},
+            {"value": "info_only",              "label": "I only want information for now"},
         ],
         "order": 4,
     },
     {
-        "question_key": "contact_preference",
+        "question_key": "legal_action_taken",
         "type": "single_choice",
-        "label": "How would you prefer we contact you?",
+        "label": "Have you already taken any legal action or received legal papers?",
         "required": True,
         "options": [
-            {"value": "email", "label": "Email"},
-            {"value": "phone", "label": "Phone call"},
-            {"value": "text", "label": "Text message"},
+            {"value": "filed_court",     "label": "Yes \u2014 I filed something in court"},
+            {"value": "received_papers", "label": "Yes \u2014 I received a notice, summons, or court papers"},
+            {"value": "sent_notices",    "label": "Yes \u2014 I sent formal notices but have not filed"},
+            {"value": "no_action",       "label": "No \u2014 not yet"},
         ],
         "order": 5,
     },
-    {
-        "question_key": "has_agent",
-        "type": "single_choice",
-        "label": "Are you currently working with a real estate agent?",
-        "required": True,
-        "options": [
-            {"value": "yes", "label": "Yes"},
-            {"value": "no", "label": "No"},
-        ],
-        "order": 6,
-    },
-    {
-        "question_key": "wants_tour",
-        "type": "single_choice",
-        "label": "Would you like to schedule a property tour?",
-        "required": False,
-        "options": [
-            {"value": "yes", "label": "Yes, please"},
-            {"value": "maybe", "label": "Maybe later"},
-            {"value": "no", "label": "No thanks"},
-        ],
-        "order": 7,
-    },
 ]
 
 
 # ---------------------------------------------------------------------------
-# Default scoring rules (15 rules)
+# Scoring rules tuned for legal urgency
 # ---------------------------------------------------------------------------
 
-DEFAULT_SCORING_RULES = [
-    # Timeline
-    {"question_key": "timeline", "answer_value": "asap",         "points": 30, "reason": "Immediate buyer"},
-    {"question_key": "timeline", "answer_value": "1_3_months",   "points": 20, "reason": "Near-term buyer"},
-    {"question_key": "timeline", "answer_value": "3_6_months",   "points": 10, "reason": "Mid-term buyer"},
-    {"question_key": "timeline", "answer_value": "6_plus_months","points":  5, "reason": "Long-term buyer"},
-    # Budget
-    {"question_key": "budget",   "answer_value": "over_1m",      "points": 20, "reason": "High-value buyer"},
-    {"question_key": "budget",   "answer_value": "750k_1m",      "points": 15, "reason": "Premium buyer"},
-    {"question_key": "budget",   "answer_value": "500k_750k",    "points": 10, "reason": "Mid-range buyer"},
-    {"question_key": "budget",   "answer_value": "300k_500k",    "points":  5, "reason": "Entry-level buyer"},
-    # Financing
-    {"question_key": "financing","answer_value": "pre_approved",  "points": 25, "reason": "Pre-approved — ready to buy"},
-    {"question_key": "financing","answer_value": "cash",          "points": 25, "reason": "Cash buyer — no financing risk"},
-    {"question_key": "financing","answer_value": "need_mortgage", "points":  5, "reason": "Needs mortgage — some risk"},
-    # Agent
-    {"question_key": "has_agent","answer_value": "no",            "points": 10, "reason": "No agent — open to representation"},
-    {"question_key": "has_agent","answer_value": "yes",           "points": -5, "reason": "Already has agent"},
-    # Tour
-    {"question_key": "wants_tour","answer_value": "yes",          "points": 15, "reason": "Wants tour — high intent"},
-    {"question_key": "wants_tour","answer_value": "maybe",        "points":  5, "reason": "Open to tour"},
+LAW_FIRM_SCORING_RULES = [
+    {"source": "answer", "key": "urgency",            "answer_value": "emergency",              "points": 40, "reason": "Emergency situation"},
+    {"source": "answer", "key": "urgency",            "answer_value": "urgent",                 "points": 25, "reason": "Urgent timeline"},
+    {"source": "answer", "key": "urgency",            "answer_value": "soon",                   "points": 10, "reason": "Near-term need"},
+    {"source": "answer", "key": "hiring_stage",       "answer_value": "ready_now",              "points": 30, "reason": "Ready to hire"},
+    {"source": "answer", "key": "hiring_stage",       "answer_value": "consultation_this_week", "points": 20, "reason": "Wants consult soon"},
+    {"source": "answer", "key": "hiring_stage",       "answer_value": "comparing",              "points": 10, "reason": "Actively comparing"},
+    {"source": "answer", "key": "legal_action_taken", "answer_value": "filed_court",            "points": 20, "reason": "Already in legal process"},
+    {"source": "answer", "key": "legal_action_taken", "answer_value": "received_papers",        "points": 15, "reason": "Has legal papers"},
 ]
 
-DEFAULT_THRESHOLDS = {"HOT": 80, "WARM": 50}
+LAW_FIRM_THRESHOLDS = {"HOT": 80, "WARM": 50}
 
 
 # ---------------------------------------------------------------------------
-# Default message templates
+# Message templates
 # ---------------------------------------------------------------------------
 
-INITIAL_INVITE_SUBJECT = "Complete your buyer profile — {{tenant.name}}"
+INITIAL_INVITE_SUBJECT = "Complete your intake form \u2014 {{tenant.name}}"
 INITIAL_INVITE_BODY = """\
 Hi {{lead.first_name}},
 
-Thank you for your interest. To help us match you with the right properties, please take 2 minutes to complete your buyer profile:
+Thank you for reaching out. To help us understand your situation and connect you with the right attorney, please take 2 minutes to complete our intake form:
 
 {{form.link}}
 
@@ -178,11 +148,11 @@ Best regards,
 {{tenant.name}}
 """
 
-POST_SUBMISSION_SUBJECT = "Thanks for completing your buyer profile, {{lead.first_name}}"
+POST_SUBMISSION_SUBJECT = "We received your intake form, {{lead.first_name}}"
 POST_SUBMISSION_BODY = """\
 Hi {{lead.first_name}},
 
-Thank you for completing your buyer profile. We'll be in touch shortly.
+Thank you for completing our intake form. We will review your information and be in touch with you shortly.
 
 Best regards,
 {{tenant.name}}
@@ -190,39 +160,37 @@ Best regards,
 
 POST_SUBMISSION_VARIANTS = {
     "HOT": {
-        "subject": "Great news, {{lead.first_name}} — let's schedule your tour",
+        "subject": "An attorney will contact you shortly, {{lead.first_name}}",
         "body": """\
 Hi {{lead.first_name}},
 
-Based on your profile, you look like a great fit for properties in our portfolio.
+Based on your intake form, your matter appears to be time-sensitive. One of our attorneys will be reaching out to you very shortly.
 
-I'd love to schedule a tour at your earliest convenience. Reply to this email or call us directly.
+If you need immediate assistance, please call our office directly.
 
 Best regards,
 {{tenant.name}}
 """,
     },
     "WARM": {
-        "subject": "Your buyer profile is ready, {{lead.first_name}}",
+        "subject": "Next steps for your legal matter, {{lead.first_name}}",
         "body": """\
 Hi {{lead.first_name}},
 
-Thanks for completing your buyer profile. We have some great options that match your criteria.
-
-When you're ready to take the next step, we're here to help.
+Thank you for completing our intake form. We have reviewed your information and will be in touch within 1-2 business days to discuss your options.
 
 Best regards,
 {{tenant.name}}
 """,
     },
     "NURTURE": {
-        "subject": "We're here when you're ready, {{lead.first_name}}",
+        "subject": "We\u2019re here when you\u2019re ready, {{lead.first_name}}",
         "body": """\
 Hi {{lead.first_name}},
 
-Thank you for your interest. We'll keep you updated on new listings that match your preferences.
+Thank you for your interest. We have noted your information and will keep you in mind as your situation develops.
 
-Feel free to reach out whenever you're ready to move forward.
+Feel free to reach out whenever you are ready to move forward.
 
 Best regards,
 {{tenant.name}}
@@ -235,39 +203,66 @@ Best regards,
 # Seed functions
 # ---------------------------------------------------------------------------
 
+def seed_company(db: Session, name: str = "NYSLegal") -> "Company":
+    """Create the default company if it doesn't exist. Returns the Company."""
+    from gmail_lead_sync.models import Company
+    existing = db.query(Company).filter(Company.name == name).first()
+    if existing:
+        return existing
+    company = Company(name=name)
+    db.add(company)
+    db.flush()
+    print(f"  ✓ Created company: {name} (id={company.id})")
+    return company
+
+
 def seed_form_template(db: Session, tenant_id: int) -> FormTemplate:
-    """Insert default buyer form template + version if not already present."""
+    """Insert law firm intake form template + version if not already present."""
     existing = (
         db.query(FormTemplate)
-        .filter_by(tenant_id=tenant_id, intent_type="BUY", name="Default Buyer Qualification Form")
+        .filter_by(tenant_id=tenant_id, intent_type="BUY", name="Law Firm")
         .first()
     )
     if existing:
-        return existing
+        # Make sure its latest version is active
+        from gmail_lead_sync.preapproval.models_preapproval import FormVersion as FV
+        fv = (
+            db.query(FV)
+            .filter_by(template_id=existing.id, is_active=True)
+            .first()
+        )
+        if fv:
+            return existing
 
     now = datetime.now(timezone.utc)
 
     template = FormTemplate(
         tenant_id=tenant_id,
         intent_type="BUY",
-        name="Default Buyer Qualification Form",
+        name="Law Firm",
         status="active",
         created_at=now,
     )
     db.add(template)
-    db.flush()  # get template.id
+    db.flush()
 
-    schema = [
-        {
+    # Build schema_json with options_json as string (matches what the editor saves)
+    questions_for_schema = []
+    for q in LAW_FIRM_QUESTIONS:
+        questions_for_schema.append({
             "question_key": q["question_key"],
             "type": q["type"],
             "label": q["label"],
             "required": q["required"],
-            "options": q.get("options"),
+            "options_json": json.dumps(q["options"]) if q.get("options") else None,
             "order": q["order"],
-        }
-        for q in DEFAULT_QUESTIONS
-    ]
+            "validation_json": None,
+        })
+
+    schema = {
+        "questions": questions_for_schema,
+        "logic_rules": [],
+    }
 
     version = FormVersion(
         template_id=template.id,
@@ -280,7 +275,7 @@ def seed_form_template(db: Session, tenant_id: int) -> FormTemplate:
     db.add(version)
     db.flush()
 
-    for q in DEFAULT_QUESTIONS:
+    for q in LAW_FIRM_QUESTIONS:
         db.add(FormQuestion(
             form_version_id=version.id,
             question_key=q["question_key"],
@@ -291,14 +286,15 @@ def seed_form_template(db: Session, tenant_id: int) -> FormTemplate:
             order=q["order"],
         ))
 
+    print(f"  ✓ Created form template 'Law Firm' (version 1, tenant_id={tenant_id})")
     return template
 
 
 def seed_scoring_config(db: Session, tenant_id: int) -> ScoringConfig:
-    """Insert default scoring config + version if not already present."""
+    """Insert law firm scoring config + version if not already present."""
     existing = (
         db.query(ScoringConfig)
-        .filter_by(tenant_id=tenant_id, intent_type="BUY", name="Default Buyer Scoring")
+        .filter_by(tenant_id=tenant_id, intent_type="BUY", name="Law Firm Scoring")
         .first()
     )
     if existing:
@@ -309,23 +305,23 @@ def seed_scoring_config(db: Session, tenant_id: int) -> ScoringConfig:
     config = ScoringConfig(
         tenant_id=tenant_id,
         intent_type="BUY",
-        name="Default Buyer Scoring",
+        name="Law Firm Scoring",
         created_at=now,
     )
     db.add(config)
     db.flush()
 
-    version = ScoringVersion(
+    db.add(ScoringVersion(
         scoring_config_id=config.id,
         version_number=1,
-        rules_json=json.dumps(DEFAULT_SCORING_RULES),
-        thresholds_json=json.dumps(DEFAULT_THRESHOLDS),
+        rules_json=json.dumps(LAW_FIRM_SCORING_RULES),
+        thresholds_json=json.dumps(LAW_FIRM_THRESHOLDS),
         created_at=now,
         published_at=now,
         is_active=True,
-    )
-    db.add(version)
+    ))
 
+    print(f"  ✓ Created scoring config 'Law Firm Scoring' (tenant_id={tenant_id})")
     return config
 
 
@@ -333,23 +329,11 @@ def seed_message_templates(db: Session, tenant_id: int) -> None:
     """Insert default message templates + versions if not already present."""
     now = datetime.now(timezone.utc)
 
-    # INITIAL_INVITE_EMAIL
     invite_key = MessageTemplateKey.INITIAL_INVITE_EMAIL.value
-    existing_invite = (
-        db.query(MessageTemplate)
-        .filter_by(tenant_id=tenant_id, intent_type="BUY", key=invite_key)
-        .first()
-    )
-    if not existing_invite:
-        invite_tmpl = MessageTemplate(
-            tenant_id=tenant_id,
-            intent_type="BUY",
-            key=invite_key,
-            created_at=now,
-        )
+    if not db.query(MessageTemplate).filter_by(tenant_id=tenant_id, intent_type="BUY", key=invite_key).first():
+        invite_tmpl = MessageTemplate(tenant_id=tenant_id, intent_type="BUY", key=invite_key, created_at=now)
         db.add(invite_tmpl)
         db.flush()
-
         db.add(MessageTemplateVersion(
             template_id=invite_tmpl.id,
             version_number=1,
@@ -360,24 +344,13 @@ def seed_message_templates(db: Session, tenant_id: int) -> None:
             published_at=now,
             is_active=True,
         ))
+        print(f"  ✓ Created INITIAL_INVITE_EMAIL template (tenant_id={tenant_id})")
 
-    # POST_SUBMISSION_EMAIL
     post_key = MessageTemplateKey.POST_SUBMISSION_EMAIL.value
-    existing_post = (
-        db.query(MessageTemplate)
-        .filter_by(tenant_id=tenant_id, intent_type="BUY", key=post_key)
-        .first()
-    )
-    if not existing_post:
-        post_tmpl = MessageTemplate(
-            tenant_id=tenant_id,
-            intent_type="BUY",
-            key=post_key,
-            created_at=now,
-        )
+    if not db.query(MessageTemplate).filter_by(tenant_id=tenant_id, intent_type="BUY", key=post_key).first():
+        post_tmpl = MessageTemplate(tenant_id=tenant_id, intent_type="BUY", key=post_key, created_at=now)
         db.add(post_tmpl)
         db.flush()
-
         db.add(MessageTemplateVersion(
             template_id=post_tmpl.id,
             version_number=1,
@@ -388,13 +361,37 @@ def seed_message_templates(db: Session, tenant_id: int) -> None:
             published_at=now,
             is_active=True,
         ))
+        print(f"  ✓ Created POST_SUBMISSION_EMAIL template (tenant_id={tenant_id})")
+
+
+def seed_assign_form_to_company(db: Session, company_id: int, form_version_id: int) -> None:
+    """Set active_form_version_id on the company."""
+    from gmail_lead_sync.models import Company
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if company and company.active_form_version_id != form_version_id:
+        company.active_form_version_id = form_version_id
+        print(f"  ✓ Assigned form version {form_version_id} to company {company_id}")
 
 
 def seed_all(db: Session, tenant_id: int) -> None:
     """Run all seed functions and commit."""
-    seed_form_template(db, tenant_id)
+    company = seed_company(db)
+    tenant_id = company.id  # always use the real company id
+
+    form_template = seed_form_template(db, tenant_id)
     seed_scoring_config(db, tenant_id)
     seed_message_templates(db, tenant_id)
+
+    # Assign the active form version to the company
+    from gmail_lead_sync.preapproval.models_preapproval import FormVersion as FV
+    active_fv = (
+        db.query(FV)
+        .filter_by(template_id=form_template.id, is_active=True)
+        .first()
+    )
+    if active_fv:
+        seed_assign_form_to_company(db, tenant_id, active_fv.id)
+
     db.commit()
     print(f"[seed] Done — tenant_id={tenant_id}")
 
@@ -405,7 +402,7 @@ def seed_all(db: Session, tenant_id: int) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Seed default buyer lead qualification data")
-    parser.add_argument("--tenant-id", type=int, required=True, help="Company/tenant ID to seed")
+    parser.add_argument("--tenant-id", type=int, default=1, help="Company/tenant ID to seed (default: 1)")
     args = parser.parse_args()
 
     import os
@@ -413,7 +410,7 @@ if __name__ == "__main__":
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
-    load_dotenv()  # load .env so DATABASE_URL is available
+    load_dotenv()
     db_url = os.getenv("DATABASE_URL", "sqlite:///./gmail_lead_sync.db")
     engine = create_engine(db_url, connect_args={"check_same_thread": False} if "sqlite" in db_url else {})
     SessionLocal = sessionmaker(bind=engine)

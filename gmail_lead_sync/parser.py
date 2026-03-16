@@ -165,13 +165,22 @@ class LeadParser:
         Validate lead data and create Lead record in database.
         """
         try:
+            # If agent_id is numeric (agent app agent), also set agent_user_id FK
+            agent_user_id = None
+            if agent_id is not None:
+                try:
+                    agent_user_id = int(agent_id)
+                except (ValueError, TypeError):
+                    pass
+
             lead = Lead(
                 name=lead_data.name,
                 phone=lead_data.phone,
                 source_email=lead_data.source_email,
                 gmail_uid=gmail_uid,
                 lead_source_id=lead_source_id,
-                agent_id=agent_id
+                agent_id=agent_id,
+                agent_user_id=agent_user_id,
             )
             
             self.db_session.add(lead)

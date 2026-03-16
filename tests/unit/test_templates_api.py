@@ -12,16 +12,14 @@ Tests cover:
 """
 
 import pytest
-from datetime import datetime
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from gmail_lead_sync.models import Base, Template
-from api.models.web_ui_models import User, Session as SessionModel, TemplateVersion
-from api.models import web_ui_models  # Import to register models with Base
-from api.main import app, get_db
+from api.models.web_ui_models import User, TemplateVersion
+from api.main import app
 from api.auth import hash_password, create_session
 
 
@@ -38,7 +36,6 @@ TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_eng
 @pytest.fixture(scope="function")
 def db_engine():
     """Create a shared database engine for testing."""
-    from api.models import web_ui_models  # noqa: F401
     
     Base.metadata.create_all(test_engine)
     
@@ -99,7 +96,7 @@ def client(db_session, test_user, auth_session):
         """Mock authentication - returns test user."""
         return test_user
     
-    from api.routes import templates
+    from api.routers import admin_templates as templates
     from api.main import get_db as main_get_db
     
     app.dependency_overrides[main_get_db] = override_get_db

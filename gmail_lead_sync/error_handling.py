@@ -362,7 +362,7 @@ def validate_regex_safety(pattern: str) -> Tuple[bool, Optional[str]]:
     # This catches patterns that might not match the simple heuristics above
     try:
         test_string = "a" * 10000  # Large test string
-        result = execute_regex_with_timeout(compiled, test_string, timeout=1.0)
+        execute_regex_with_timeout(compiled, test_string, timeout=1.0)
         # If we get here, the regex completed within timeout
         return True, None
     except RegexTimeoutError:

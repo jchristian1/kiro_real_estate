@@ -685,6 +685,14 @@ def main():
         lead_sources = seed_lead_sources(db, templates)
         leads = seed_leads(db, lead_sources)
         seed_settings(db)
+
+        # Seed preapproval data (form, scoring, message templates) for tenant 1
+        try:
+            from gmail_lead_sync.preapproval.seed import seed_all as seed_preapproval
+            seed_preapproval(db, tenant_id=1)
+            print("✓ Preapproval seed data created (tenant_id=1)")
+        except Exception as e:
+            print(f"  (preapproval seed skipped: {e})")
         
         # Summary
         print("=" * 60)

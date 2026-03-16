@@ -11,7 +11,7 @@ Tests cover:
 import pytest
 import asyncio
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, Mock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 from contextlib import contextmanager
 
 from api.services.session_cleanup import (

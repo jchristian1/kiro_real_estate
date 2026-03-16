@@ -28,8 +28,6 @@ import argparse
 import sys
 import signal
 import time
-import logging
-from typing import NoReturn
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
@@ -236,7 +234,7 @@ def start_watcher(args: argparse.Namespace) -> None:
             if watcher:
                 try:
                     watcher.disconnect()
-                except:
+                except Exception:
                     pass
             
             if not shutdown_requested:

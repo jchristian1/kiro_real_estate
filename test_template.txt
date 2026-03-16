@@ -1,7 +1,0 @@
-Hello {lead_name},
-
-Thank you for your inquiry! I received your contact information and will get back to you shortly.
-
-Best regards,
-Your Real Estate Agent
-{agent_email}

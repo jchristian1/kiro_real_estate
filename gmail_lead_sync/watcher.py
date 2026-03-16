@@ -14,13 +14,13 @@ import logging
 import time
 import socket
 import email
-from email.header import decode_header
-from typing import Optional, Tuple, List
+import hashlib
+from typing import Optional, List
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from gmail_lead_sync.credentials import CredentialsStore
-from gmail_lead_sync.models import Lead, ProcessingLog
+from gmail_lead_sync.models import ProcessedMessage
 from gmail_lead_sync.parser import LeadParser
 from gmail_lead_sync.responder import AutoResponder
 from gmail_lead_sync.rate_limiter import RateLimiter
@@ -150,7 +150,7 @@ class IMAPConnection:
             if self.client:
                 try:
                     self.client.logout()
-                except:
+                except Exception:
                     pass
                 self.client = None
             
@@ -188,7 +188,7 @@ class IMAPConnection:
             # Send NOOP to check if connection is alive
             status, _ = self.client.noop()
             return status == 'OK'
-        except:
+        except Exception:
             self._connected = False
             return False
     
@@ -222,7 +222,7 @@ class IMAPConnection:
             try:
                 self.client.logout()
                 logger.info("IMAP connection closed")
-            except:
+            except Exception:
                 pass
             finally:
                 self.client = None
@@ -281,8 +281,8 @@ class IMAPConnection:
             # Send DONE to exit IDLE
             self.client.send(b'DONE\r\n')
             
-            # Read response
-            response = self.client.readline()
+            # Read response (discard)
+            self.client.readline()
             logger.info("IDLE mode disabled")
             return True
             
@@ -359,61 +359,105 @@ class GmailWatcher:
         """
         self.connection.disconnect()
     
-    def is_email_processed(self, gmail_uid: str) -> bool:
+    def is_email_processed(self, message_id: str) -> bool:
         """
         Check if email has already been processed.
         
-        Queries the database to determine if a Lead record with the given
-        Gmail UID already exists, indicating the email has been processed.
+        Queries the ProcessedMessage table to determine if an email with the given
+        Message-ID has already been processed. Uses SHA-256 hash of the Message-ID
+        for deduplication, decoupling idempotency from lead creation.
         
         Args:
-            gmail_uid: Unique Gmail identifier for the email
+            message_id: Message-ID header from the email
             
         Returns:
             True if email already processed, False otherwise
             
-        Requirements: 3.1
+        Requirements: 10.4
         """
         try:
-            # Check if any Lead exists with this gmail_uid
-            existing_lead = self.db_session.query(Lead)\
-                .filter(Lead.gmail_uid == gmail_uid)\
+            # Compute SHA-256 hash of the Message-ID
+            message_id_hash = hashlib.sha256(message_id.encode('utf-8')).hexdigest()
+            
+            # Query ProcessedMessage table for (agent_id, message_id_hash)
+            existing_record = self.db_session.query(ProcessedMessage)\
+                .filter(
+                    ProcessedMessage.agent_id == self.agent_id,
+                    ProcessedMessage.message_id_hash == message_id_hash
+                )\
                 .first()
             
-            if existing_lead:
-                logger.debug(f"Email {gmail_uid} already processed (Lead ID {existing_lead.id})")
+            if existing_record:
+                logger.debug(
+                    f"Email with Message-ID hash {message_id_hash[:16]}... already processed "
+                    f"(ProcessedMessage ID {existing_record.id})"
+                )
                 return True
             
             return False
             
         except Exception as e:
-            logger.error(f"Error checking if email {gmail_uid} is processed: {e}", exc_info=True)
+            logger.error(
+                f"Error checking if email with Message-ID {message_id[:50]}... is processed: {e}",
+                exc_info=True
+            )
             # On error, assume not processed to avoid skipping emails
             return False
     
-    def mark_as_processed(self, gmail_uid: str, lead_id: Optional[int]) -> None:
+    def mark_as_processed(self, message_id: str, lead_id: Optional[int]) -> None:
         """
-        Mark email as processed by storing UID atomically with lead.
+        Mark email as processed by inserting a ProcessedMessage row.
         
-        This method is called after a Lead is successfully created to ensure
-        the Gmail UID is stored atomically with the Lead record. The actual
-        storage happens in the parser's validate_and_create_lead method within
-        a transaction.
-        
-        Note: In the current implementation, the UID is stored as part of the
-        Lead record itself (Lead.gmail_uid), so this method primarily serves
-        as a verification step and for logging purposes.
+        This method inserts a row into the ProcessedMessage table with the
+        SHA-256 hash of the Message-ID header. This decouples idempotency
+        tracking from lead creation - emails can be marked as processed even
+        if no lead was created.
         
         Args:
-            gmail_uid: Unique Gmail identifier for the email
-            lead_id: ID of the created Lead record (None if processing failed)
+            message_id: Message-ID header from the email
+            lead_id: ID of the created Lead record (None if processing failed or no lead created)
             
-        Requirements: 3.3, 3.4
+        Requirements: 10.4
         """
-        if lead_id:
-            logger.info(f"Email {gmail_uid} marked as processed (Lead ID {lead_id})")
-        else:
-            logger.info(f"Email {gmail_uid} processing completed without lead creation")
+        try:
+            # Compute SHA-256 hash of the Message-ID
+            message_id_hash = hashlib.sha256(message_id.encode('utf-8')).hexdigest()
+            
+            # Insert ProcessedMessage row
+            processed_message = ProcessedMessage(
+                agent_id=self.agent_id,
+                message_id_hash=message_id_hash,
+                processed_at=datetime.utcnow(),
+                lead_id=lead_id
+            )
+            
+            self.db_session.add(processed_message)
+            self.db_session.commit()
+            
+            if lead_id:
+                logger.info(
+                    f"Email with Message-ID hash {message_id_hash[:16]}... marked as processed "
+                    f"(Lead ID {lead_id})"
+                )
+            else:
+                logger.info(
+                    f"Email with Message-ID hash {message_id_hash[:16]}... marked as processed "
+                    f"(no lead created)"
+                )
+                
+        except IntegrityError as e:
+            # Unique constraint violation - email already marked as processed
+            self.db_session.rollback()
+            logger.warning(
+                f"Email with Message-ID hash {message_id_hash[:16]}... already marked as processed "
+                f"(IntegrityError: {e})"
+            )
+        except Exception as e:
+            self.db_session.rollback()
+            logger.error(
+                f"Error marking email with Message-ID {message_id[:50]}... as processed: {e}",
+                exc_info=True
+            )
     
     def process_unseen_emails(self, sender_list: List[str]) -> None:
         """
@@ -501,6 +545,7 @@ class GmailWatcher:
                 try:
                     self._process_single_email(
                         gmail_uid=email_data['uid'],
+                        message_id=email_data['message_id'],
                         sender=email_data['sender'],
                         body=email_data['body'],
                         date=email_data['date']
@@ -558,6 +603,13 @@ class GmailWatcher:
             
             email_message = email.message_from_bytes(raw_email)
             
+            # Extract Message-ID header
+            message_id = email_message.get('Message-ID', '')
+            if not message_id:
+                # Generate a fallback Message-ID using UID if header is missing
+                message_id = f"<uid-{uid}@gmail-fallback>"
+                logger.warning(f"Email {uid} missing Message-ID header, using fallback: {message_id}")
+            
             # Extract sender
             from_header = email_message.get('From', '')
             sender = self._extract_email_address(from_header)
@@ -576,6 +628,7 @@ class GmailWatcher:
             
             return {
                 'uid': uid,
+                'message_id': message_id,
                 'sender': sender,
                 'body': body,
                 'date': received_date
@@ -661,16 +714,23 @@ class GmailWatcher:
         
         return body.strip()
     
-    def _process_single_email(self, gmail_uid: str, sender: str, body: str, 
-                             date: datetime) -> None:
+    def _process_single_email(self, gmail_uid: str, message_id: str, sender: str, 
+                             body: str, date: datetime) -> None:
         """
         Process a single email: check if processed, parse, respond, log.
+        
+        Args:
+            gmail_uid: Gmail UID for the email
+            message_id: Message-ID header from the email
+            sender: Email sender address
+            body: Email body text
+            date: Email received date
         """
         logger.info(f"Processing email {gmail_uid} from {sender} (date: {date})")
         
-        # Check if already processed (idempotency)
-        if self.is_email_processed(gmail_uid):
-            logger.info(f"Email {gmail_uid} already processed, skipping")
+        # Check if already processed (idempotency) using Message-ID
+        if self.is_email_processed(message_id):
+            logger.info(f"Email {gmail_uid} already processed (Message-ID: {message_id[:50]}...), skipping")
             return
         
         try:
@@ -680,36 +740,39 @@ class GmailWatcher:
             if lead:
                 # Lead successfully created
                 logger.info(f"Lead {lead.id} created from email {gmail_uid}")
-                
-                # Mark as processed
-                self.mark_as_processed(gmail_uid, lead.id)
-                
-                # Send automated response if configured
+
+                # Insert EMAIL_RECEIVED lead event (Requirement 20.1)
                 try:
-                    # Refresh lead_source relationship
-                    self.db_session.refresh(lead)
-                    lead_source = lead.lead_source
-                    
-                    if lead_source.auto_respond_enabled:
-                        logger.info(f"Sending automated response for lead {lead.id}")
-                        self.responder.send_acknowledgment(lead, lead_source)
-                    else:
-                        logger.debug(f"Auto-response disabled for lead source {lead_source.id}")
-                        
+                    from gmail_lead_sync.lead_event_utils import insert_lead_event
+                    agent_user_id = getattr(lead, "agent_user_id", None)
+                    insert_lead_event(
+                        db=self.db_session,
+                        lead_id=lead.id,
+                        event_type="EMAIL_RECEIVED",
+                        payload_dict={
+                            "source_email": sender,
+                            "gmail_uid": gmail_uid,
+                        },
+                        agent_user_id=agent_user_id,
+                    )
+                    self.db_session.commit()
                 except Exception as e:
-                    # Log error but don't fail the entire processing
                     logger.error(
-                        f"Error sending automated response for lead {lead.id}: {e}",
-                        exc_info=True
+                        f"Error inserting EMAIL_RECEIVED event for lead {lead.id}: {e}",
+                        exc_info=True,
                     )
 
+                # Mark as processed
+                self.mark_as_processed(message_id, lead.id)
+                
                 # Trigger buyer lead preapproval pipeline if tenant is configured
                 try:
-                    from gmail_lead_sync.models import Credentials
+                    from gmail_lead_sync.models import Credentials, Company
                     from gmail_lead_sync.preapproval.handlers import on_buyer_lead_email_received
                     from gmail_lead_sync.preapproval.models_preapproval import FormTemplate
 
-                    # Resolve tenant_id via agent_id → Credentials.company_id
+                    # Resolve tenant_id: try Credentials.company_id first,
+                    # then AgentUser.company_id, then fall back to first company.
                     tenant_id = None
                     if lead.agent_id:
                         creds = (
@@ -719,6 +782,29 @@ class GmailWatcher:
                         )
                         if creds and creds.company_id:
                             tenant_id = creds.company_id
+
+                    # Fallback: check AgentUser.company_id (agent app agents)
+                    if not tenant_id:
+                        try:
+                            numeric_id = int(self.agent_id)
+                            from gmail_lead_sync.agent_models import AgentUser
+                            au = self.db_session.query(AgentUser).filter(
+                                AgentUser.id == numeric_id
+                            ).first()
+                            if au and au.company_id:
+                                tenant_id = au.company_id
+                        except (ValueError, TypeError):
+                            pass
+
+                    # Last resort: use the first available company
+                    if not tenant_id:
+                        first_company = self.db_session.query(Company).first()
+                        if first_company:
+                            tenant_id = first_company.id
+                            logger.info(
+                                f"No company set for agent {self.agent_id}, "
+                                f"using default company {tenant_id}"
+                            )
 
                     if tenant_id:
                         # Only trigger if tenant has an active BUY form
@@ -745,11 +831,15 @@ class GmailWatcher:
                             logger.debug(
                                 f"No BUY form for tenant {tenant_id}, skipping preapproval"
                             )
+                            # Fall back to simple acknowledgment
+                            self._send_acknowledgment_if_enabled(lead)
                     else:
                         logger.debug(
                             f"Cannot resolve tenant for lead {lead.id} "
                             f"(agent_id={lead.agent_id}), skipping preapproval"
                         )
+                        # Fall back to simple acknowledgment
+                        self._send_acknowledgment_if_enabled(lead)
                 except Exception as e:
                     logger.error(
                         f"Error triggering preapproval pipeline for lead {lead.id}: {e}",
@@ -758,9 +848,9 @@ class GmailWatcher:
             else:
                 # Parsing failed (already logged by parser)
                 logger.info(f"Failed to extract lead from email {gmail_uid}")
-                self.mark_as_processed(gmail_uid, None)
+                self.mark_as_processed(message_id, None)
                 
-        except IntegrityError as e:
+        except IntegrityError:
             # Duplicate UID - email was processed by another process
             logger.info(f"Email {gmail_uid} already processed (IntegrityError), skipping")
             self.db_session.rollback()
@@ -773,6 +863,19 @@ class GmailWatcher:
             )
             self.db_session.rollback()
     
+    def _send_acknowledgment_if_enabled(self, lead) -> None:
+        """Send acknowledgment email if auto-respond is enabled for the lead source."""
+        try:
+            self.db_session.refresh(lead)
+            lead_source = lead.lead_source
+            if lead_source and lead_source.auto_respond_enabled:
+                logger.info(f"Sending acknowledgment for lead {lead.id} (no preapproval pipeline)")
+                self.responder.send_acknowledgment(lead, lead_source)
+            else:
+                logger.debug(f"Auto-response disabled for lead source, skipping acknowledgment")
+        except Exception as e:
+            logger.error(f"Error sending acknowledgment for lead {lead.id}: {e}", exc_info=True)
+
     def start_monitoring(self) -> None:
         """
         Start IDLE mode monitoring for new emails.

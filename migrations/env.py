@@ -1,9 +1,28 @@
+import os
 from logging.config import fileConfig
 
+from dotenv import load_dotenv
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
+from gmail_lead_sync.models import Base  # noqa: E402
+
+# Load .env so DATABASE_URL is available when running alembic from the CLI
+load_dotenv()
+
+# Import additional model bases so autogenerate sees all tables
+try:
+    from gmail_lead_sync.agent_models import Base as AgentBase  # noqa: E402
+    AgentBase.metadata  # ensure it's loaded
+except Exception:
+    AgentBase = None
+
+try:
+    from gmail_lead_sync.preapproval.models_preapproval import Base as PreapprovalBase  # noqa: E402
+    PreapprovalBase.metadata  # ensure it's loaded
+except Exception:
+    PreapprovalBase = None
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -14,12 +33,26 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# Override sqlalchemy.url from DATABASE_URL env var if set
+_db_url = os.environ.get("DATABASE_URL")
+if _db_url:
+    config.set_main_option("sqlalchemy.url", _db_url)
+
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-from gmail_lead_sync.models import Base
-target_metadata = Base.metadata
+# Merge all metadata objects so autogenerate sees every table
+from sqlalchemy import MetaData
+
+_combined_metadata = MetaData()
+for _base in [Base, AgentBase, PreapprovalBase]:
+    if _base is not None:
+        for table in _base.metadata.tables.values():
+            if table.name not in _combined_metadata.tables:
+                table.tometadata(_combined_metadata)
+
+target_metadata = _combined_metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
