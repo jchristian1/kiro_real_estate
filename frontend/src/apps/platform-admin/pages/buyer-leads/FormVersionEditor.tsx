@@ -44,13 +44,11 @@ export const FormVersionEditor: React.FC = () => {
       setTemplateName(tmplRes.data.name);
       const activeVersion = (versRes.data as { is_active: boolean; schema_json?: string }[]).find(v => v.is_active);
       if (activeVersion?.schema_json) {
-        const parsed = JSON.parse(activeVersion.schema_json);
-        // schema_json may be {questions: [...], logic_rules: [...]} or a flat Question[]
-        const qs: Question[] = Array.isArray(parsed) ? parsed : (parsed.questions ?? []);
-        setQuestions(qs.sort((a, b) => a.order - b.order));
-        if (!Array.isArray(parsed) && parsed.logic_rules) {
-          setLogicRules(parsed.logic_rules);
-        }
+        const schema = JSON.parse(activeVersion.schema_json) as { questions?: Question[]; logic_rules?: LogicRule[] } | Question[];
+        const questions = Array.isArray(schema) ? schema : (schema.questions ?? []);
+        const logicRules = Array.isArray(schema) ? [] : (schema.logic_rules ?? []);
+        setQuestions(questions.sort((a, b) => a.order - b.order));
+        setLogicRules(logicRules);
       }
     } catch { toastError('Failed to load form template'); } finally { setLoading(false); }
   }, [tenantId, formId]);
