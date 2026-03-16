@@ -31,7 +31,6 @@ export const PublicFormPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ total: number; bucket: string; explanation: string } | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
@@ -82,7 +81,7 @@ export const PublicFormPage: React.FC = () => {
       const res = await axios.post(`${PUBLIC_API}/public/buyer-qualification/${token}/submit`, {
         answers,
       });
-      setResult(res.data.score);
+      void res; // score data intentionally not shown to user
       setSubmitted(true);
     } catch (e: unknown) {
       const err = e as { response?: { data?: { error?: string } } };
@@ -126,26 +125,13 @@ export const PublicFormPage: React.FC = () => {
     return (
       <div style={styles.page}>
         <div style={styles.card}>
-          <div style={{ textAlign: 'center', padding: '32px 24px' }}>
-            <div style={{ fontSize: 56, marginBottom: 16 }}>✅</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: '#1C1C1E', marginBottom: 8 }}>
-              Thanks for completing your profile!
+          <div style={{ textAlign: 'center', padding: '48px 32px' }}>
+            <div style={{ fontSize: 56, marginBottom: 20 }}>✅</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#1C1C1E', marginBottom: 12 }}>
+              Thank you!
             </div>
-            {result && (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, margin: '24px 0' }}>
-                  <span style={{ fontSize: 52, fontWeight: 700, color: '#1C1C1E' }}>{result.total}</span>
-                  <span style={{ background: bucketColor(result.bucket), color: '#fff', fontSize: 14, fontWeight: 700, padding: '5px 14px', borderRadius: 20 }}>
-                    {result.bucket}
-                  </span>
-                </div>
-                <div style={{ fontSize: 14, color: '#3C3C43', lineHeight: 1.6, maxWidth: 400, margin: '0 auto' }}>
-                  {result.explanation}
-                </div>
-              </>
-            )}
-            <div style={{ marginTop: 24, fontSize: 14, color: '#8E8E93' }}>
-              We'll be in touch soon. You can close this page.
+            <div style={{ fontSize: 15, color: '#3C3C43', lineHeight: 1.7, maxWidth: 380, margin: '0 auto' }}>
+              We've received your information and will be in touch with you shortly. You can close this page.
             </div>
           </div>
         </div>
