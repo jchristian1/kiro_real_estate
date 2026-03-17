@@ -257,13 +257,16 @@ def evaluate_rules(
     pipeline_id: int,
     trigger_event: str,
     lead,
+    stage_just_entered_id: Optional[int] = None,
 ) -> list[PipelineActionRule]:
     """Return matching ENABLED rules for *lead* in ascending position order.
 
     A rule matches when:
     - It is enabled (is_enabled=True).
-    - Its trigger matches: trigger_event_type == trigger_event (on_event) OR
-      trigger_stage_id == lead.current_stage_id (on_stage_enter).
+    - Its trigger matches:
+        - on_event: trigger_event_type == trigger_event
+        - on_stage_enter: trigger_stage_id == stage_just_entered_id (only fires
+          when the lead actually just entered that stage in this event cycle).
     - Its condition is satisfied:
         - "always": always matches.
         - "bucket_is": lead.score_bucket matches condition_value (case-insensitive).
@@ -283,7 +286,10 @@ def evaluate_rules(
             if rule.trigger_event_type != trigger_event:
                 continue
         elif rule.trigger_type == "on_stage_enter":
-            if rule.trigger_stage_id != getattr(lead, "current_stage_id", None):
+            # Only fire if the lead just entered this stage in the current event cycle.
+            if stage_just_entered_id is None:
+                continue
+            if rule.trigger_stage_id != stage_just_entered_id:
                 continue
         else:
             continue

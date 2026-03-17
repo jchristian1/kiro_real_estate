@@ -388,10 +388,12 @@ def fire_event(
     # 4. Apply event mapping (Req 6.3, 6.4)
     # ------------------------------------------------------------------
     mapping = get_mapping(db, pipeline_id, event_type)
+    stage_entered: Optional[int] = None  # track if we moved to a new stage
     if mapping is not None:
         if mapping.is_enabled:
             move_stage(db, lead_id, mapping.target_stage_id, ChangeSource.event)
             db.refresh(lead)
+            stage_entered = mapping.target_stage_id
             record_audit_log(
                 db_session=db,
                 user_id=_SYSTEM_USER_ID,
@@ -408,8 +410,13 @@ def fire_event(
 
     # ------------------------------------------------------------------
     # 5. Evaluate automation rules (Req 6.5)
+    #
+    # Evaluate both:
+    #   a) on_event rules matching this event_type
+    #   b) on_stage_enter rules matching the lead's current stage
+    #      (fires when the lead just entered a new stage via event mapping)
     # ------------------------------------------------------------------
-    matching_rules = evaluate_rules(db, pipeline_id, event_type.value, lead)
+    matching_rules = evaluate_rules(db, pipeline_id, event_type.value, lead, stage_just_entered_id=stage_entered)
 
     for rule in matching_rules:
         steps = sorted(rule.steps, key=lambda s: s.position)
