@@ -724,213 +724,9 @@ def on_buyer_form_submitted(
     )
 
     # ------------------------------------------------------------------
-    # 10. Resolve post-submission template — prefer AgentTemplate, fall back
-    #     to POST_SUBMISSION_EMAIL MessageTemplate (Req 7.9).
-    #     Skip if the pipeline has action rules that will handle the bucket
-    #     event (to avoid duplicate emails).
+    # 10. Fire pipeline events — the pipeline handles all post-submission
+    #     emails via send_bucket_followup_email / send_email_template rules.
     # ------------------------------------------------------------------
-    lead: Lead = db.get(Lead, invitation.lead_id)
-    first_name = lead.name.split()[0] if lead.name else ""
-
-    from sqlalchemy import text as _text
-    tenant_row = db.execute(_text("SELECT name FROM companies WHERE id = :tid"), {"tid": invitation.tenant_id}).fetchone()
-    tenant_name = tenant_row[0] if tenant_row else ""
-
-    # Check if the pipeline has action rules on the bucket event — if so,
-    # skip the automatic post-submission email to avoid duplicates.
-    _bucket_event_str_map = {"HOT": "qualification_bucket_hot", "WARM": "qualification_bucket_warm", "NURTURE": "qualification_bucket_nurture"}
-    _bucket_event_str = _bucket_event_str_map.get(score_result.bucket.value)
-    _pipeline_will_handle_email = False
-    try:
-        from api.services.pipeline_service import get_active_pipeline
-        from api.services.pipeline_action_rule_service import evaluate_rules as _eval_rules
-        _active_pipeline = get_active_pipeline(db, invitation.tenant_id)
-        if _active_pipeline and _bucket_event_str:
-            _matching = _eval_rules(db, _active_pipeline.id, _bucket_event_str, lead)
-            _pipeline_will_handle_email = any(
-                any(
-                    (s.action_type.value if hasattr(s.action_type, "value") else s.action_type)
-                    in ("send_email_template", "send_bucket_followup_email")
-                    for s in r.steps
-                )
-                for r in _matching
-            )
-    except Exception as _pe:
-        logger.warning("Could not check pipeline rules for post-submission email: %s", _pe)
-
-    if _pipeline_will_handle_email:
-        logger.info(
-            "Pipeline has action rules for bucket event '%s' (lead_id=%d); "
-            "skipping automatic post-submission email.",
-            _bucket_event_str,
-            invitation.lead_id,
-        )
-        # Still fire pipeline events so the pipeline can handle it.
-        try:
-            from api.models.pipeline_models import BuiltInEventType
-            from api.services.lead_stage_transition_engine import fire_event
-            fire_event(db, invitation.lead_id, BuiltInEventType.qualification_form_submitted, {"tenant_id": invitation.tenant_id})
-            _bucket_event_map = {
-                "HOT": BuiltInEventType.qualification_bucket_hot,
-                "WARM": BuiltInEventType.qualification_bucket_warm,
-                "NURTURE": BuiltInEventType.qualification_bucket_nurture,
-            }
-            bucket_event = _bucket_event_map.get(score_result.bucket.value)
-            if bucket_event:
-                fire_event(db, invitation.lead_id, bucket_event, {"tenant_id": invitation.tenant_id})
-        except Exception as _pe:
-            logger.warning("Pipeline fire_event failed after form submitted for lead %d: %s", invitation.lead_id, _pe, exc_info=True)
-        return {
-            "submission_id": submission.id,
-            "score": {
-                "total": score_result.total,
-                "bucket": score_result.bucket.value,
-                "explanation": score_result.explanation,
-            },
-        }
-
-    # Map score bucket to AgentTemplate type
-    _bucket_to_type = {"HOT": "POST_HOT", "WARM": "POST_WARM", "NURTURE": "POST_NURTURE"}
-    _agent_tpl_type = _bucket_to_type.get(score_result.bucket.value)
-    agent_tpl = _resolve_agent_template(db, invitation.tenant_id, _agent_tpl_type) if _agent_tpl_type else None
-
-    if agent_tpl is None:
-        # Fall back to MessageTemplate POST_SUBMISSION_EMAIL
-        msg_version = _resolve_active_message_template(
-            db,
-            tenant_id=invitation.tenant_id,
-            intent_type=IntentType.BUY,
-            key=MessageTemplateKey.POST_SUBMISSION_EMAIL,
-        )
-        if msg_version is None:
-            logger.error(
-                "No active POST_SUBMISSION_EMAIL template for tenant %d (lead_id=%d); "
-                "skipping post-submission email.",
-                invitation.tenant_id,
-                invitation.lead_id,
-            )
-            db.add(
-                LeadInteraction(
-                    tenant_id=invitation.tenant_id,
-                    lead_id=invitation.lead_id,
-                    intent_type=IntentType.BUY.value,
-                    channel=Channel.EMAIL.value,
-                    direction="outbound",
-                    occurred_at=datetime.utcnow(),
-                    content_text="[ERROR: no active POST_SUBMISSION_EMAIL template]",
-                )
-            )
-            db.commit()
-            return {
-                "submission_id": submission.id,
-                "score": {
-                    "total": score_result.total,
-                    "bucket": score_result.bucket.value,
-                    "explanation": score_result.explanation,
-                },
-            }
-    else:
-        msg_version = None  # not needed when using AgentTemplate
-
-    # ------------------------------------------------------------------
-    # 11. Render template with bucket variant and send email (Req 10.2)
-    # ------------------------------------------------------------------
-    if agent_tpl is not None:
-        from gmail_lead_sync.agent_models import AgentUser as _AgentUser
-        _agent = db.query(_AgentUser).filter(_AgentUser.company_id == invitation.tenant_id).first()
-        agent_context = {
-            "lead_name": lead.name or first_name,
-            "agent_name": _agent.full_name if _agent else tenant_name,
-            "agent_phone": _agent.phone if _agent else "",
-            "agent_email": _agent.email if _agent else "",
-            "form_link": "",
-        }
-        rendered_subject, rendered_body = _render_agent_template(agent_tpl[0], agent_tpl[1], agent_context)
-    else:
-        context: dict = {
-            "lead.first_name": first_name,
-            "lead.email": lead.source_email,
-            "score.total": str(score_result.total),
-            "score.bucket": score_result.bucket.value,
-            "score.explanation": score_result.explanation,
-            "tenant.name": tenant_name,
-            **{k: str(v) for k, v in request_metadata.items() if v is not None},
-        }
-        rendered_obj = _template_engine.render(
-            msg_version,
-            context,
-            variant_key=score_result.bucket.value,  # Req 10.2
-        )
-        rendered_subject, rendered_body = rendered_obj.subject, rendered_obj.body
-
-    creds = _get_tenant_email_credentials(db, invitation.tenant_id)
-    if creds is None:
-        logger.error(
-            "No SMTP credentials for tenant %d; cannot send POST_SUBMISSION_EMAIL "
-            "(lead_id=%d).",
-            invitation.tenant_id,
-            invitation.lead_id,
-        )
-    else:
-        from_email, app_password = creds
-        _send_email(
-            to_address=lead.source_email,
-            subject=rendered_subject,
-            body=rendered_body,
-            from_address=from_email,
-            app_password=app_password,
-        )
-
-    # ------------------------------------------------------------------
-    # 12. Transition: SCORED → POST_SUBMISSION_EMAIL_SENT (Req 10.1)
-    # ------------------------------------------------------------------
-    _state_machine.transition(
-        db,
-        tenant_id=invitation.tenant_id,
-        lead_id=invitation.lead_id,
-        intent_type=IntentType.BUY,
-        to_state=LeadState.POST_SUBMISSION_EMAIL_SENT,
-    )
-
-    # ------------------------------------------------------------------
-    # 12b. Insert POST_EMAIL_SENT lead event (Requirement 20.1)
-    # ------------------------------------------------------------------
-    try:
-        from gmail_lead_sync.lead_event_utils import insert_lead_event
-        insert_lead_event(
-            db=db,
-            lead_id=invitation.lead_id,
-            event_type="POST_EMAIL_SENT",
-            payload_dict={
-                "subject": rendered_subject,
-                "body": rendered_body,
-            },
-        )
-        db.flush()
-    except Exception as _exc:
-        logger.error(
-            "Failed to insert POST_EMAIL_SENT event for lead %d: %s",
-            invitation.lead_id,
-            _exc,
-            exc_info=True,
-        )
-
-    # ------------------------------------------------------------------
-    # 13. Record outbound LeadInteraction — subject only (Req 10.3, 10.4)
-    # ------------------------------------------------------------------
-    db.add(
-        LeadInteraction(
-            tenant_id=invitation.tenant_id,
-            lead_id=invitation.lead_id,
-            intent_type=IntentType.BUY.value,
-            channel=Channel.EMAIL.value,
-            direction="outbound",
-            occurred_at=datetime.utcnow(),
-            content_text=rendered_subject,  # Req 10.4 / 17.6: subject only
-        )
-    )
-    db.commit()
-
     logger.info(
         "Buyer form submitted and scored: tenant=%d lead=%d submission=%d "
         "bucket=%s score=%d",
@@ -941,7 +737,6 @@ def on_buyer_form_submitted(
         score_result.total,
     )
 
-    # Fire pipeline events for form submission and bucket scoring.
     try:
         from api.models.pipeline_models import BuiltInEventType
         from api.services.lead_stage_transition_engine import fire_event
@@ -962,9 +757,6 @@ def on_buyer_form_submitted(
             exc_info=True,
         )
 
-    # ------------------------------------------------------------------
-    # 14. Return SubmitResult (Req 4.4)
-    # ------------------------------------------------------------------
     return {
         "submission_id": submission.id,
         "score": {
