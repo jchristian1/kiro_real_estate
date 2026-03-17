@@ -6,7 +6,7 @@ Implement the configurable Pipelines feature as an orchestration layer over exis
 
 ## Tasks
 
-- [ ] 1. SQLAlchemy models and Alembic migration
+- [x] 1. SQLAlchemy models and Alembic migration
   - [x] 1.1 Create pipeline SQLAlchemy models
     - Create `api/models/pipeline_models.py` with ORM classes: `Pipeline`, `PipelineStage`, `LeadStageHistory`, `PipelineEventMapping`, `PipelineActionRule`, `PipelineActionRuleStep`
     - Add `pipeline_id`, `current_stage_id`, `stage_entered_at` columns to the existing `Lead` model (in `gmail_lead_sync/models.py` or wherever `Lead` is defined)
@@ -15,30 +15,30 @@ Implement the configurable Pipelines feature as an orchestration layer over exis
     - Add unique constraint on `pipeline_stages(pipeline_id, key)`
     - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
-  - [~] 1.2 Generate Alembic migration
+  - [x] 1.2 Generate Alembic migration
     - Create migration in `alembic/versions/` covering all new tables and the three new `leads` columns
     - Ensure migration is reversible (downgrade removes new tables and columns)
     - _Requirements: 13.1, 13.2_
 
-- [ ] 2. Pydantic schemas
-  - [~] 2.1 Create pipeline Pydantic schemas
+- [x] 2. Pydantic schemas
+  - [x] 2.1 Create pipeline Pydantic schemas
     - Create `api/models/pipeline_schemas.py` with request/response schemas for all six models: `PipelineCreate`, `PipelineResponse`, `PipelineStageCreate`, `PipelineStageResponse`, `LeadStageHistoryResponse`, `PipelineEventMappingResponse`, `PipelineActionRuleCreate`, `PipelineActionRuleResponse`, `PipelineActionRuleStepCreate`, `AgentLeadPipelineResponse`
     - Include `StageCategory`, `ChangeSource`, `BuiltInEventType`, `ActionType` enums
     - _Requirements: 7.1, 10.5_
 
-- [ ] 3. PipelineService and PipelineStageService
-  - [~] 3.1 Implement PipelineService
+- [x] 3. PipelineService and PipelineStageService
+  - [x] 3.1 Implement PipelineService
     - Create `api/services/pipeline_service.py`
     - Implement `get_active_pipeline`, `create_pipeline`, `update_pipeline`, `set_active_pipeline`, `list_pipelines`
     - Enforce single active pipeline per company: on activation, set all other company pipelines to `is_active = false`
     - Enforce unique pipeline name per company
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6_
 
-  - [~] 3.2 Write property test for single active pipeline invariant
+  - [x] 3.2 Write property test for single active pipeline invariant
     - **Property 1: Single Active Pipeline Invariant**
     - **Validates: Requirements 1.4, 1.5**
 
-  - [~] 3.3 Implement PipelineStageService
+  - [x] 3.3 Implement PipelineStageService
     - Create `api/services/pipeline_stage_service.py`
     - Implement `list_stages`, `create_stage`, `update_stage`, `delete_stage`, `reorder_stages`, `set_default_stage`
     - Validate `key` format (lowercase alphanumeric + underscores), uniqueness per pipeline
@@ -49,24 +49,24 @@ Implement the configurable Pipelines feature as an orchestration layer over exis
     - Implement bulk UPDATE for reorder (single query, not N queries)
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 2.11, 12.2, 13.7_
 
-  - [~] 3.4 Write property test for stage position contiguity
+  - [x] 3.4 Write property test for stage position contiguity
     - **Property 2: Stage Positions Are Contiguous 1-Based**
     - **Validates: Requirements 2.4**
 
-  - [~] 3.5 Write property test for exactly one default stage
+  - [x] 3.5 Write property test for exactly one default stage
     - **Property 3: Exactly One Default Stage Per Pipeline**
     - **Validates: Requirements 2.5, 2.6**
 
-  - [~] 3.6 Write property test for stage key format invariant
+  - [x] 3.6 Write property test for stage key format invariant
     - **Property 13: Stage Key Format Invariant**
     - **Validates: Requirements 2.2, 12.6**
 
-  - [~] 3.7 Write property test for closed won/lost mutual exclusivity
+  - [x] 3.7 Write property test for closed won/lost mutual exclusivity
     - **Property 14: Closed Won and Closed Lost Are Mutually Exclusive**
     - **Validates: Requirements 2.8**
 
-- [ ] 4. LeadStageService
-  - [~] 4.1 Implement LeadStageService
+- [x] 4. LeadStageService
+  - [x] 4.1 Implement LeadStageService
     - Create `api/services/lead_stage_service.py`
     - Implement `assign_initial_stage`, `move_stage`, `get_current_stage`, `get_stage_history`, `get_leads_in_stage`
     - On every transition: write `LeadStageHistory` entry, update `lead.current_stage_id` and `lead.stage_entered_at`
@@ -74,16 +74,16 @@ Implement the configurable Pipelines feature as an orchestration layer over exis
     - Never delete or modify existing history entries
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7_
 
-  - [~] 4.2 Write property test for stage history length equals move count
+  - [x] 4.2 Write property test for stage history length equals move count
     - **Property 4: Stage History Length Equals Move Count**
     - **Validates: Requirements 3.1, 3.2**
 
-  - [~] 4.3 Write property test for current stage consistency
+  - [x] 4.3 Write property test for current stage consistency
     - **Property 5: Current Stage Consistency**
     - **Validates: Requirements 3.3, 3.4**
 
-- [ ] 5. PipelineEventMappingService
-  - [~] 5.1 Implement PipelineEventMappingService
+- [x] 5. PipelineEventMappingService
+  - [x] 5.1 Implement PipelineEventMappingService
     - Create `api/services/pipeline_event_mapping_service.py`
     - Implement `list_mappings`, `upsert_mapping`, `get_mapping`
     - Enforce upsert semantics on `(pipeline_id, event_type)` — one mapping per pair
@@ -93,16 +93,16 @@ Implement the configurable Pipelines feature as an orchestration layer over exis
     - Implement in-memory cache per company; invalidate on any write
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 12.1, 13.6_
 
-  - [~] 5.2 Write property test for event mapping uniqueness
+  - [x] 5.2 Write property test for event mapping uniqueness
     - **Property 6: Event Mapping Uniqueness**
     - **Validates: Requirements 4.2**
 
-  - [~] 5.3 Write property test for event mapping cross-pipeline validation
+  - [x] 5.3 Write property test for event mapping cross-pipeline validation
     - **Property 7: Event Mapping Cross-Pipeline Validation**
     - **Validates: Requirements 4.3**
 
-- [ ] 6. PipelineActionRuleService
-  - [~] 6.1 Implement PipelineActionRuleService
+- [x] 6. PipelineActionRuleService
+  - [x] 6.1 Implement PipelineActionRuleService
     - Create `api/services/pipeline_action_rule_service.py`
     - Implement `list_rules`, `create_rule`, `update_rule`, `delete_rule`, `reorder_rules`, `evaluate_rules`
     - Validate `trigger_type`, `condition_type`, `action_type` enums
@@ -111,12 +111,12 @@ Implement the configurable Pipelines feature as an orchestration layer over exis
     - Implement in-memory cache per company; invalidate on any write
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 12.5, 13.6_
 
-  - [~] 6.2 Write property test for rules evaluated in position order
+  - [x] 6.2 Write property test for rules evaluated in position order
     - **Property 9: Rules Evaluated in Position Order**
     - **Validates: Requirements 5.6, 6.5**
 
 - [ ] 7. LeadStageTransitionEngine
-  - [~] 7.1 Implement LeadStageTransitionEngine
+  - [x] 7.1 Implement LeadStageTransitionEngine
     - Create `api/services/lead_stage_transition_engine.py`
     - Implement `fire_event(lead_id, event_type, context)`
     - Look up active pipeline for lead's company; if none, return without error
@@ -127,11 +127,11 @@ Implement the configurable Pipelines feature as an orchestration layer over exis
     - Delegate email/form/scoring actions to existing platform services (no duplication)
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 12.3, 12.4_
 
-  - [~] 7.2 Write property test for disabled mapping does not move lead
+  - [-] 7.2 Write property test for disabled mapping does not move lead
     - **Property 8: Disabled Mapping Does Not Move Lead**
     - **Validates: Requirements 6.4**
 
-  - [~] 7.3 Write property test for failed action step does not halt remaining steps
+  - [-] 7.3 Write property test for failed action step does not halt remaining steps
     - **Property 10: Failed Action Step Does Not Halt Remaining Steps**
     - **Validates: Requirements 6.6, 12.3, 12.4**
 
