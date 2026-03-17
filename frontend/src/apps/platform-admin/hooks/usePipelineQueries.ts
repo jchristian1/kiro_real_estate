@@ -173,3 +173,20 @@ export const useMoveLeadStage = () => {
     onSuccess: (_d, { leadId }) => qc.invalidateQueries({ queryKey: pipelineKeys.leadStage(leadId) }),
   });
 };
+
+// ── Admin templates (for automation action config) ────────────────────────
+
+interface AdminTemplate { id: number; name: string; subject: string; }
+
+export const useAdminTemplates = () =>
+  useQuery({
+    queryKey: ['admin-templates'],
+    queryFn: async (): Promise<AdminTemplate[]> => {
+      const res = await fetch('/api/v1/templates', { credentials: 'include' });
+      if (!res.ok) return [];
+      const data = await res.json();
+      // Response is { templates: [...] }
+      return Array.isArray(data) ? data : (data.templates ?? []);
+    },
+    staleTime: 60_000,
+  });

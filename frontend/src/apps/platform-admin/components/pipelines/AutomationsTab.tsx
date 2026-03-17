@@ -9,6 +9,7 @@ import { getTokens } from '../../../../shared/utils/theme';
 import {
   usePipelineRules, usePipelineStages,
   useCreateRule, useUpdateRule, useDeleteRule,
+  useAdminTemplates,
 } from '../../hooks/usePipelineQueries';
 import type { PipelineActionRule, PipelineStage, RuleCreate, RuleUpdate, ActionType } from '../../api/pipelinesApi';
 
@@ -37,6 +38,7 @@ export const AutomationsTab: React.FC<Props> = ({ pipelineId }) => {
   const t = getTokens(theme);
   const { data: rules = [], isLoading } = usePipelineRules(pipelineId);
   const { data: stages = [] } = usePipelineStages(pipelineId);
+  const { data: templates = [] } = useAdminTemplates();
   const createRule = useCreateRule();
   const sorted = [...rules].sort((a, b) => a.position - b.position);
 
@@ -97,7 +99,7 @@ export const AutomationsTab: React.FC<Props> = ({ pipelineId }) => {
       )}
 
       {sorted.map(rule => (
-        <RuleCard key={rule.id} rule={rule} pipelineId={pipelineId} stages={stages} />
+        <RuleCard key={rule.id} rule={rule} pipelineId={pipelineId} stages={stages} templates={templates} />
       ))}
 
       {sorted.length > 0 && (
@@ -119,7 +121,7 @@ export const AutomationsTab: React.FC<Props> = ({ pipelineId }) => {
 
 // ── Rule Card ─────────────────────────────────────────────────────────────
 
-const RuleCard: React.FC<{ rule: PipelineActionRule; pipelineId: number; stages: PipelineStage[] }> = ({ rule, pipelineId, stages }) => {
+const RuleCard: React.FC<{ rule: PipelineActionRule; pipelineId: number; stages: PipelineStage[]; templates: { id: number; name: string; subject: string }[] }> = ({ rule, pipelineId, stages, templates }) => {
   const { theme } = useTheme();
   const t = getTokens(theme);
   const updateRule = useUpdateRule();
@@ -304,6 +306,8 @@ const RuleCard: React.FC<{ rule: PipelineActionRule; pipelineId: number; stages:
                   idx={_idx}
                   onUpdate={(updated) => setDraft(d => ({ ...d, steps: (d.steps ?? []).map((s, i) => i === _idx ? updated : s) }))}
                   onRemove={() => removeStep(_idx)}
+                  templates={templates}
+                  stages={stages}
                 />
               ))}
               <button
@@ -367,7 +371,9 @@ const ActionRow: React.FC<{
   idx: number;
   onUpdate: (s: { action_type: ActionType; action_config_json: string; position: number }) => void;
   onRemove: () => void;
-}> = ({ step, idx: _idx, onUpdate, onRemove }) => {
+  templates: { id: number; name: string; subject: string }[];
+  stages: PipelineStage[];
+}> = ({ step, idx: _idx, onUpdate, onRemove, templates, stages }) => {
   const { theme } = useTheme();
   const t = getTokens(theme);
   const opt = ACTION_OPTIONS.find(o => o.value === step.action_type);
@@ -399,17 +405,54 @@ const ActionRow: React.FC<{
       {/* Friendly config fields per action type */}
       {step.action_type === 'send_email_template' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <input placeholder="Template ID" value={config.template_id ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, template_id: e.target.value }) })} style={sel} />
+          <label style={{ fontSize: 11, color: t.textFaint }}>Email template</label>
+          <select
+            value={config.template_id ?? ''}
+            onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, template_id: e.target.value }) })}
+            style={sel}
+          >
+            <option value="">— select a template —</option>
+            {templates.map(tpl => (
+              <option key={tpl.id} value={String(tpl.id)}>{tpl.name}</option>
+            ))}
+          </select>
+          {templates.length === 0 && (
+            <div style={{ fontSize: 11, color: t.textFaint }}>No templates found. Create one in the Templates page first.</div>
+          )}
         </div>
       )}
       {step.action_type === 'send_qualification_form' && (
         <input placeholder="Form ID" value={config.form_id ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, form_id: e.target.value }) })} style={sel} />
       )}
       {step.action_type === 'send_bucket_followup_email' && (
-        <input placeholder="Template ID (optional)" value={config.template_id ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, template_id: e.target.value }) })} style={sel} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 11, color: t.textFaint }}>Email template (optional)</label>
+          <select
+            value={config.template_id ?? ''}
+            onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, template_id: e.target.value }) })}
+            style={sel}
+          >
+            <option value="">— use default —</option>
+            {templates.map(tpl => (
+              <option key={tpl.id} value={String(tpl.id)}>{tpl.name}</option>
+            ))}
+          </select>
+        </div>
       )}
       {step.action_type === 'move_to_stage' && (
-        <input placeholder="Stage ID" value={config.stage_id ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, stage_id: e.target.value }) })} style={sel} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 11, color: t.textFaint }}>Target stage</label>
+          <select
+            value={config.stage_id ?? ''}
+            onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, stage_id: e.target.value }) })}
+            style={sel}
+          >
+            <option value="">— select a stage —</option>
+            {[...stages].sort((a, b) => a.position - b.position).map(s => (
+              <option key={s.id} value={String(s.id)}>{s.name}</option>
+            ))}
+          </select>
+        </div>
       )}
     </div>
   );
