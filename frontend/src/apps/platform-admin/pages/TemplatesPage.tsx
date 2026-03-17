@@ -30,7 +30,7 @@ interface TemplateVersion {
   subject_template: string;
 }
 
-const PLACEHOLDERS = ['{lead_name}', '{agent_name}', '{agent_phone}', '{agent_email}'];
+const PLACEHOLDERS = ['{lead_name}', '{agent_name}', '{agent_phone}', '{agent_email}', '{form_link}'];
 
 // ─── Live Preview ─────────────────────────────────────────────────────────────
 
@@ -39,6 +39,7 @@ const SAMPLE: Record<string, string> = {
   '{agent_name}': 'Agent Smith',
   '{agent_phone}': '555-9999',
   '{agent_email}': 'agent@example.com',
+  '{form_link}': 'https://app.example.com/qualify/abc123',
 };
 
 function renderPreview(text: string): string {

@@ -211,6 +211,7 @@ def preview_template(
         '{agent_name}': 'Agent Smith',
         '{agent_phone}': '555-9999',
         '{agent_email}': 'agent@example.com',
+        '{form_link}': 'https://app.example.com/qualify/abc123',
     }
 
     rendered_subject = preview_data.subject
