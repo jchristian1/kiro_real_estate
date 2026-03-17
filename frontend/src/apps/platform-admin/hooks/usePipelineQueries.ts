@@ -188,5 +188,5 @@ export const useAdminTemplates = () =>
       // Response is { templates: [...] }
       return Array.isArray(data) ? data : (data.templates ?? []);
     },
-    staleTime: 60_000,
+    staleTime: 0,
   });

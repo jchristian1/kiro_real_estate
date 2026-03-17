@@ -4,6 +4,7 @@
  */
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import axios, { AxiosError } from 'axios';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../../shared/contexts/ThemeContext';
 import { getTokens } from '../../../shared/utils/theme';
 import { useToast } from '../../../shared/contexts/ToastContext';
@@ -496,6 +497,7 @@ export const TemplatesPage: React.FC = () => {
   const t = getTokens(theme);
   const isDark = theme === 'dark';
   const { success, error: toastError } = useToast();
+  const queryClient = useQueryClient();
 
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
@@ -521,7 +523,7 @@ export const TemplatesPage: React.FC = () => {
   const openEdit = (tmpl: Template) => { setDrawerTarget(tmpl); setDrawerOpen(true); };
   const closeDrawer = () => setDrawerOpen(false);
 
-  const handleSaved = () => { closeDrawer(); fetchTemplates(); };
+  const handleSaved = () => { closeDrawer(); fetchTemplates(); queryClient.invalidateQueries({ queryKey: ['admin-templates'] }); };
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
@@ -529,6 +531,7 @@ export const TemplatesPage: React.FC = () => {
       await axios.delete(`${API}/templates/${deleteTarget.id}`);
       success('Template deleted');
       setTemplates(prev => prev.filter(t => t.id !== deleteTarget.id));
+      queryClient.invalidateQueries({ queryKey: ['admin-templates'] });
     } catch { toastError('Delete failed'); }
     finally { setDeleteTarget(null); }
   };
