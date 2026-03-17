@@ -7,8 +7,6 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
-
-const queryClient = new QueryClient();
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { DashboardLayout } from './components/DashboardLayout';
 import { LoginPage } from './pages/LoginPage';
@@ -31,51 +29,53 @@ import { FormVersionEditor } from './pages/buyer-leads/FormVersionEditor';
 import { TemplateVersionEditor } from './pages/buyer-leads/TemplateVersionEditor';
 import { PublicFormPage } from './pages/PublicFormPage';
 
+const queryClient = new QueryClient();
+
 export const PlatformAdminApp: React.FC = () => (
   <QueryClientProvider client={queryClient}>
-  <AuthProvider>
-    <Routes>
-      {/* Public routes */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/public/buyer-qualification/:token" element={<PublicFormPage />} />
+    <AuthProvider>
+      <Routes>
+        {/* Public routes */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/public/buyer-qualification/:token" element={<PublicFormPage />} />
 
-      {/* Redirect root to dashboard */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* Redirect root to dashboard */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-      {/* Protected routes */}
-      <Route
-        element={
-          <ProtectedRoute>
-            <DashboardLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/agents" element={<AgentsPage />} />
-        <Route path="/companies" element={<CompaniesPage />} />
-        <Route path="/lead-sources" element={<LeadSourcesPage />} />
-        <Route path="/templates" element={<TemplatesPage />} />
-        <Route path="/leads" element={<LeadsPage />} />
-        <Route path="/audit-logs" element={<AuditLogsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/pipelines" element={<PipelinesPage />} />
+        {/* Protected routes */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/agents" element={<AgentsPage />} />
+          <Route path="/companies" element={<CompaniesPage />} />
+          <Route path="/lead-sources" element={<LeadSourcesPage />} />
+          <Route path="/templates" element={<TemplatesPage />} />
+          <Route path="/leads" element={<LeadsPage />} />
+          <Route path="/audit-logs" element={<AuditLogsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/pipelines" element={<PipelinesPage />} />
 
-        <Route path="/qualification-templates/:tenantId/message-templates/:templateId" element={<TemplateVersionEditor />} />
+          <Route path="/qualification-templates/:tenantId/message-templates/:templateId" element={<TemplateVersionEditor />} />
 
-        <Route path="/buyer-leads/:tenantId" element={<BuyerLeadsLayout />}>
-          <Route index element={<BuyerFormTab />} />
-          <Route path="forms" element={<BuyerFormTab />} />
-          <Route path="forms/:formId" element={<FormVersionEditor />} />
-          <Route path="scoring" element={<BuyerScoringTab />} />
-          <Route path="states" element={<LeadStatesTab />} />
-          <Route path="simulate" element={<SimulationTab />} />
-          <Route path="audit" element={<BuyerAuditTab />} />
+          <Route path="/buyer-leads/:tenantId" element={<BuyerLeadsLayout />}>
+            <Route index element={<BuyerFormTab />} />
+            <Route path="forms" element={<BuyerFormTab />} />
+            <Route path="forms/:formId" element={<FormVersionEditor />} />
+            <Route path="scoring" element={<BuyerScoringTab />} />
+            <Route path="states" element={<LeadStatesTab />} />
+            <Route path="simulate" element={<SimulationTab />} />
+            <Route path="audit" element={<BuyerAuditTab />} />
+          </Route>
         </Route>
-      </Route>
 
-      {/* Catch-all redirect to dashboard */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
-  </AuthProvider>
+        {/* Catch-all redirect to dashboard */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </AuthProvider>
   </QueryClientProvider>
 );
