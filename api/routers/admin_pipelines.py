@@ -113,9 +113,22 @@ router = APIRouter(
 )
 
 
-def _company_id(current_user=Depends(get_current_admin)) -> int:
-    """Extract company_id from the authenticated admin user."""
-    return current_user.company_id
+def _company_id(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_admin),
+) -> int:
+    """
+    Extract company_id from the authenticated admin user.
+    Platform admins (company_id=None) fall back to the first available company.
+    """
+    if current_user.company_id is not None:
+        return current_user.company_id
+    from gmail_lead_sync.models import Company
+    first = db.query(Company).order_by(Company.id).first()
+    if first is None:
+        from api.exceptions import NotFoundException
+        raise NotFoundException(message="No company found", code=ErrorCode.NOT_FOUND)
+    return first.id
 
 
 def _compute_stuck_leads_count(db: Session, pipeline_id: int, threshold_hours: int = 168) -> int:
@@ -149,31 +162,31 @@ def _compute_stuck_leads_count(db: Session, pipeline_id: int, threshold_hours: i
 @router.get("", response_model=list[PipelineResponse])
 def list_pipelines_endpoint(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """List all pipelines for the current company. Requirements: 7.1"""
-    return list_pipelines(db, current_user.company_id)
+    return list_pipelines(db, company_id)
 
 
 @router.post("", response_model=PipelineResponse, status_code=201)
 def create_pipeline_endpoint(
     data: PipelineCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """Create a new pipeline. Requirements: 7.2"""
-    return create_pipeline(db, current_user.company_id, data)
+    return create_pipeline(db, company_id, data)
 
 
 @router.get("/{pipeline_id}", response_model=PipelineResponse)
 def get_pipeline_endpoint(
     pipeline_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """Get a single pipeline. Requirements: 7.3"""
     from api.services.pipeline_service import _get_pipeline_for_company
-    return _get_pipeline_for_company(db, pipeline_id, current_user.company_id)
+    return _get_pipeline_for_company(db, pipeline_id, company_id)
 
 
 @router.put("/{pipeline_id}", response_model=PipelineResponse)
@@ -181,20 +194,20 @@ def update_pipeline_endpoint(
     pipeline_id: int,
     data: PipelineUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """Update pipeline metadata. Requirements: 7.4"""
-    return update_pipeline(db, pipeline_id, current_user.company_id, data)
+    return update_pipeline(db, pipeline_id, company_id, data)
 
 
 @router.post("/{pipeline_id}/activate", response_model=PipelineResponse)
 def activate_pipeline_endpoint(
     pipeline_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """Activate a pipeline (deactivates all others). Requirements: 7.5"""
-    return set_active_pipeline(db, pipeline_id, current_user.company_id)
+    return set_active_pipeline(db, pipeline_id, company_id)
 
 
 # ---------------------------------------------------------------------------
@@ -206,11 +219,11 @@ def activate_pipeline_endpoint(
 def list_stages_endpoint(
     pipeline_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """List stages for a pipeline. Requirements: 7.6"""
     from api.services.pipeline_service import _get_pipeline_for_company
-    _get_pipeline_for_company(db, pipeline_id, current_user.company_id)
+    _get_pipeline_for_company(db, pipeline_id, company_id)
     return list_stages(db, pipeline_id)
 
 
@@ -219,11 +232,11 @@ def create_stage_endpoint(
     pipeline_id: int,
     data: PipelineStageCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """Create a stage. Requirements: 7.6"""
     from api.services.pipeline_service import _get_pipeline_for_company
-    _get_pipeline_for_company(db, pipeline_id, current_user.company_id)
+    _get_pipeline_for_company(db, pipeline_id, company_id)
     return create_stage(db, pipeline_id, data)
 
 
@@ -232,11 +245,11 @@ def reorder_stages_endpoint(
     pipeline_id: int,
     data: StageReorderRequest,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """Reorder stages. Requirements: 7.6"""
     from api.services.pipeline_service import _get_pipeline_for_company
-    _get_pipeline_for_company(db, pipeline_id, current_user.company_id)
+    _get_pipeline_for_company(db, pipeline_id, company_id)
     return reorder_stages(db, pipeline_id, data.ordered_ids)
 
 
@@ -246,11 +259,11 @@ def update_stage_endpoint(
     stage_id: int,
     data: PipelineStageUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """Update a stage. Requirements: 7.6"""
     from api.services.pipeline_service import _get_pipeline_for_company
-    _get_pipeline_for_company(db, pipeline_id, current_user.company_id)
+    _get_pipeline_for_company(db, pipeline_id, company_id)
     return update_stage(db, stage_id, pipeline_id, data)
 
 
@@ -260,11 +273,11 @@ def delete_stage_endpoint(
     stage_id: int,
     reassign_to_stage_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """Delete a stage, optionally reassigning leads. Requirements: 7.6"""
     from api.services.pipeline_service import _get_pipeline_for_company
-    _get_pipeline_for_company(db, pipeline_id, current_user.company_id)
+    _get_pipeline_for_company(db, pipeline_id, company_id)
     delete_stage(db, stage_id, pipeline_id, reassign_to_stage_id)
 
 
@@ -277,11 +290,11 @@ def delete_stage_endpoint(
 def list_event_mappings_endpoint(
     pipeline_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """List event mappings for a pipeline. Requirements: 7.7"""
     from api.services.pipeline_service import _get_pipeline_for_company
-    _get_pipeline_for_company(db, pipeline_id, current_user.company_id)
+    _get_pipeline_for_company(db, pipeline_id, company_id)
     return list_mappings(db, pipeline_id)
 
 
@@ -294,11 +307,11 @@ def upsert_event_mapping_endpoint(
     event_type: BuiltInEventType,
     data: PipelineEventMappingUpsert,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """Create or update an event mapping. Requirements: 7.7"""
     from api.services.pipeline_service import _get_pipeline_for_company
-    _get_pipeline_for_company(db, pipeline_id, current_user.company_id)
+    _get_pipeline_for_company(db, pipeline_id, company_id)
     return upsert_mapping(db, pipeline_id, event_type, data.target_stage_id, data.is_enabled)
 
 
@@ -311,11 +324,11 @@ def upsert_event_mapping_endpoint(
 def list_rules_endpoint(
     pipeline_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """List automation rules. Requirements: 7.8"""
     from api.services.pipeline_service import _get_pipeline_for_company
-    _get_pipeline_for_company(db, pipeline_id, current_user.company_id)
+    _get_pipeline_for_company(db, pipeline_id, company_id)
     return list_rules(db, pipeline_id)
 
 
@@ -324,11 +337,11 @@ def create_rule_endpoint(
     pipeline_id: int,
     data: PipelineActionRuleCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """Create an automation rule. Requirements: 7.8"""
     from api.services.pipeline_service import _get_pipeline_for_company
-    _get_pipeline_for_company(db, pipeline_id, current_user.company_id)
+    _get_pipeline_for_company(db, pipeline_id, company_id)
     return create_rule(db, pipeline_id, data)
 
 
@@ -337,11 +350,11 @@ def reorder_rules_endpoint(
     pipeline_id: int,
     data: RuleReorderRequest,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """Reorder automation rules. Requirements: 7.8"""
     from api.services.pipeline_service import _get_pipeline_for_company
-    _get_pipeline_for_company(db, pipeline_id, current_user.company_id)
+    _get_pipeline_for_company(db, pipeline_id, company_id)
     return reorder_rules(db, pipeline_id, data.ordered_ids)
 
 
@@ -351,11 +364,11 @@ def update_rule_endpoint(
     rule_id: int,
     data: PipelineActionRuleUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """Update an automation rule. Requirements: 7.8"""
     from api.services.pipeline_service import _get_pipeline_for_company
-    _get_pipeline_for_company(db, pipeline_id, current_user.company_id)
+    _get_pipeline_for_company(db, pipeline_id, company_id)
     return update_rule(db, rule_id, pipeline_id, data)
 
 
@@ -364,11 +377,11 @@ def delete_rule_endpoint(
     pipeline_id: int,
     rule_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """Delete an automation rule. Requirements: 7.8"""
     from api.services.pipeline_service import _get_pipeline_for_company
-    _get_pipeline_for_company(db, pipeline_id, current_user.company_id)
+    _get_pipeline_for_company(db, pipeline_id, company_id)
     delete_rule(db, rule_id, pipeline_id)
 
 
@@ -381,7 +394,7 @@ def delete_rule_endpoint(
 def get_lead_stage_endpoint(
     lead_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """Get the current stage and history for a lead. Requirements: 7.9"""
     from gmail_lead_sync.models import Lead
@@ -390,9 +403,8 @@ def get_lead_stage_endpoint(
     if lead is None:
         raise NotFoundException(message=f"Lead {lead_id} not found", code=ErrorCode.NOT_FOUND_RESOURCE)
 
-    # Tenant isolation: lead must belong to the admin's company.
     lead_company_id = getattr(lead, "company_id", None)
-    if lead_company_id != current_user.company_id:
+    if lead_company_id != company_id:
         raise NotFoundException(message=f"Lead {lead_id} not found", code=ErrorCode.NOT_FOUND_RESOURCE)
 
     current_stage = get_current_stage(db, lead_id)
@@ -415,6 +427,7 @@ def move_lead_stage_endpoint(
     data: LeadStageMoveRequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """Manually move a lead to a new stage. Requirements: 7.9"""
     from api.services.audit_log import record_audit_log
@@ -425,7 +438,7 @@ def move_lead_stage_endpoint(
         raise NotFoundException(message=f"Lead {lead_id} not found", code=ErrorCode.NOT_FOUND_RESOURCE)
 
     lead_company_id = getattr(lead, "company_id", None)
-    if lead_company_id != current_user.company_id:
+    if lead_company_id != company_id:
         raise NotFoundException(message=f"Lead {lead_id} not found", code=ErrorCode.NOT_FOUND_RESOURCE)
 
     move_stage(
@@ -470,7 +483,7 @@ def move_lead_stage_endpoint(
 def get_pipeline_metrics_endpoint(
     pipeline_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_admin),
+    company_id: int = Depends(_company_id),
 ):
     """Return pipeline metrics via DB-level aggregation. Requirements: 8.1–8.5"""
     from datetime import datetime, timedelta
@@ -478,7 +491,7 @@ def get_pipeline_metrics_endpoint(
 
     from api.services.pipeline_service import _get_pipeline_for_company
 
-    pipeline = _get_pipeline_for_company(db, pipeline_id, current_user.company_id)
+    pipeline = _get_pipeline_for_company(db, pipeline_id, company_id)
 
     # Total leads in this pipeline.
     total_leads = db.query(func.count(Lead.id)).filter(Lead.pipeline_id == pipeline_id).scalar() or 0
