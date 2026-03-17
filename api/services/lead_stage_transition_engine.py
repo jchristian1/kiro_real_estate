@@ -200,10 +200,11 @@ def _execute_step(
     rule_id: int,
     step,
     context: dict,
-) -> None:
+) -> Optional[int]:
     """
     Execute a single automation rule step.
 
+    Returns the new stage_id if a move_to_stage action was performed, else None.
     Raises an exception on failure so the caller can catch and log it.
     """
     action_type = step.action_type.value if hasattr(step.action_type, "value") else step.action_type
@@ -296,12 +297,15 @@ def _execute_step(
             "Pipeline action: move_to_stage lead_id=%s stage_id=%s",
             lead_id, stage_id,
         )
+        return int(stage_id)
 
     else:
         logger.warning(
             "Unknown action_type '%s' for step %s in rule %s — skipping",
             action_type, step.id, rule_id,
         )
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -413,17 +417,25 @@ def fire_event(
     #
     # Evaluate both:
     #   a) on_event rules matching this event_type
-    #   b) on_stage_enter rules matching the lead's current stage
-    #      (fires when the lead just entered a new stage via event mapping)
+    #   b) on_stage_enter rules for any stage the lead just entered
+    #      (via event mapping above, or via move_to_stage action steps below)
     # ------------------------------------------------------------------
-    matching_rules = evaluate_rules(db, pipeline_id, event_type.value, lead, stage_just_entered_id=stage_entered)
+    # Collect all stages entered during this event cycle (event mapping + action moves).
+    stages_to_process: list[Optional[int]] = [stage_entered]  # may be None if no mapping fired
 
-    for rule in matching_rules:
+    # Process stages in a queue so that move_to_stage actions can chain:
+    # stage A enter → rule fires → move_to_stage B → stage B enter → rule fires, etc.
+    processed_stage_enters: set[int] = set()
+    if stage_entered is not None:
+        processed_stage_enters.add(stage_entered)
+
+    # First pass: on_event rules for this event_type
+    on_event_rules = evaluate_rules(db, pipeline_id, event_type.value, lead, stage_just_entered_id=None)
+    for rule in on_event_rules:
         steps = sorted(rule.steps, key=lambda s: s.position)
         for step in steps:
             try:
-                _execute_step(db, lead_id, pipeline_id, rule.id, step, context)
-                # Write audit log for successful action (Req 6.8).
+                new_stage = _execute_step(db, lead_id, pipeline_id, rule.id, step, context)
                 record_audit_log(
                     db_session=db,
                     user_id=_SYSTEM_USER_ID,
@@ -436,15 +448,14 @@ def fire_event(
                         f"executed for lead {lead_id} on event '{event_type.value}'"
                     ),
                 )
+                if new_stage is not None and new_stage not in processed_stage_enters:
+                    processed_stage_enters.add(new_stage)
+                    stages_to_process.append(new_stage)
             except Exception as exc:  # noqa: BLE001
-                # Log failure and continue remaining steps (Req 6.6, 12.3, 12.4).
                 error_msg = str(exc)
                 logger.error(
                     "Pipeline action step failed: rule_id=%s step_id=%s lead_id=%s error=%s",
-                    rule.id,
-                    step.id,
-                    lead_id,
-                    error_msg,
+                    rule.id, step.id, lead_id, error_msg,
                 )
                 record_audit_log(
                     db_session=db,
@@ -457,4 +468,47 @@ def fire_event(
                         f"on event '{event_type.value}': {error_msg}"
                     ),
                 )
-                # Continue to next step — do NOT re-raise.
+
+    # Second pass: on_stage_enter rules for each stage entered this cycle (including chained moves).
+    for entered_stage_id in stages_to_process:
+        if entered_stage_id is None:
+            continue
+        db.refresh(lead)
+        stage_enter_rules = evaluate_rules(db, pipeline_id, event_type.value, lead, stage_just_entered_id=entered_stage_id)
+        for rule in stage_enter_rules:
+            steps = sorted(rule.steps, key=lambda s: s.position)
+            for step in steps:
+                try:
+                    new_stage = _execute_step(db, lead_id, pipeline_id, rule.id, step, context)
+                    record_audit_log(
+                        db_session=db,
+                        user_id=_SYSTEM_USER_ID,
+                        action="pipeline_action_executed",
+                        resource_type="pipeline_action_rule_step",
+                        resource_id=step.id,
+                        details=(
+                            f"Rule {rule.id} ('{rule.name}') step {step.id} "
+                            f"action_type='{step.action_type.value if hasattr(step.action_type, 'value') else step.action_type}' "
+                            f"executed for lead {lead_id} on stage_enter {entered_stage_id}"
+                        ),
+                    )
+                    if new_stage is not None and new_stage not in processed_stage_enters:
+                        processed_stage_enters.add(new_stage)
+                        stages_to_process.append(new_stage)
+                except Exception as exc:  # noqa: BLE001
+                    error_msg = str(exc)
+                    logger.error(
+                        "Pipeline action step failed: rule_id=%s step_id=%s lead_id=%s error=%s",
+                        rule.id, step.id, lead_id, error_msg,
+                    )
+                    record_audit_log(
+                        db_session=db,
+                        user_id=_SYSTEM_USER_ID,
+                        action="pipeline_action_failed",
+                        resource_type="pipeline_action_rule_step",
+                        resource_id=step.id,
+                        details=(
+                            f"Rule {rule.id} step {step.id} FAILED for lead {lead_id} "
+                            f"on stage_enter {entered_stage_id}: {error_msg}"
+                        ),
+                    )
