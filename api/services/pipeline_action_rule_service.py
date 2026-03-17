@@ -216,7 +216,11 @@ def update_rule(
     if "condition_type" in update_fields:
         _validate_condition_type(update_fields["condition_type"])
 
-    steps_data: Optional[list[PipelineActionRuleStepCreate]] = update_fields.pop("steps", None)
+    # Pop steps from the dict — use the original Pydantic model instances
+    # (model_dump returns plain dicts, which break _validate_steps/_create_steps)
+    update_fields.pop("steps", None)
+    steps_data: Optional[list[PipelineActionRuleStepCreate]] = data.steps
+
     if steps_data is not None:
         _validate_steps(steps_data)
 

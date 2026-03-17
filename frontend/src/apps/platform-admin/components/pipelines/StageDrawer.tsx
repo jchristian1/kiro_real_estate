@@ -562,7 +562,11 @@ const ActionRuleCard: React.FC<{
   const handleSave = async () => {
     setSaveError(null);
     try {
-      await updateRule.mutateAsync({ pipelineId, ruleId: rule.id, ...draft });
+      const payload = {
+        ...draft,
+        condition_value: draft.condition_type === 'always' ? undefined : (draft.condition_value || undefined),
+      };
+      await updateRule.mutateAsync({ pipelineId, ruleId: rule.id, ...payload });
       setSaved(true);
       setTimeout(() => { setSaved(false); setExpanded(false); }, 800);
     } catch (err: unknown) {
