@@ -19,6 +19,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/lead-sources',  label: 'Lead Sources',     icon: '⬡' },
   { to: '/templates',     label: 'Templates',        icon: '◧' },
   { to: '/audit-logs',    label: 'Audit Logs',       icon: '≡' },
+  { to: '/pipelines',     label: 'Pipelines',        icon: '⟶' },
   { to: '/settings',      label: 'Settings',         icon: '⚙' },
 ];
 

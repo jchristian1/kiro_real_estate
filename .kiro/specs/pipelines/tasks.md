@@ -190,52 +190,52 @@ Implement the configurable Pipelines feature as an orchestration layer over exis
     - Call `seed_pipelines` from the startup auto-seed block in `api/main.py`
     - _Requirements: 11.4_
 
-- [ ] 14. Admin pipeline builder UI — foundation
-  - [~] 14.1 Create pipeline API client
+- [x] 14. Admin pipeline builder UI — foundation
+  - [x] 14.1 Create pipeline API client
     - Create `frontend/src/apps/platform-admin/api/pipelinesApi.ts` with typed functions for all pipeline admin endpoints (pipelines CRUD, stages, event-mappings, rules, lead stage, metrics)
     - Follow the existing axios pattern used in the agent app
     - _Requirements: 9.1_
 
-  - [~] 14.2 Create pipeline React Query hooks
+  - [x] 14.2 Create pipeline React Query hooks
     - Create `frontend/src/apps/platform-admin/hooks/usePipelineQueries.ts`
     - Hooks: `usePipelines`, `usePipeline`, `usePipelineStages`, `usePipelineEventMappings`, `usePipelineRules`, `usePipelineMetrics`, `useLeadStageHistory`
     - Mutation hooks: `useCreatePipeline`, `useUpdatePipeline`, `useActivatePipeline`, `useCreateStage`, `useUpdateStage`, `useDeleteStage`, `useReorderStages`, `useUpsertEventMapping`, `useCreateRule`, `useUpdateRule`, `useDeleteRule`, `useReorderRules`, `useMoveLeadStage`
     - _Requirements: 9.1_
 
-  - [~] 14.3 Create PipelinesPage skeleton and register route
+  - [x] 14.3 Create PipelinesPage skeleton and register route
     - Create `frontend/src/apps/platform-admin/pages/PipelinesPage.tsx` with tab bar (Builder, Built-in Rules, Automations, Activity) and overview metric cards (Leads in Pipeline, Avg Time in Stage, Conversion to Won, Stuck Leads)
     - Add route `/pipelines` in `PlatformAdminApp.tsx`
     - Add "Pipelines" nav item (icon `⟶`) to `Sidebar.tsx` NAV_ITEMS
     - _Requirements: 9.1, 9.9_
 
-- [ ] 15. Admin pipeline builder UI — Builder tab
-  - [~] 15.1 Implement horizontal stage flow with drag-and-drop
+- [x] 15. Admin pipeline builder UI — Builder tab
+  - [x] 15.1 Implement horizontal stage flow with drag-and-drop
     - Install `@dnd-kit/core` and `@dnd-kit/sortable` (add to `frontend/package.json`)
     - Build `StageFlow` component: horizontal row of colored stage pills in position order, using `@dnd-kit/sortable` for drag-and-drop reordering
     - On drag end, call `useReorderStages` mutation
     - _Requirements: 9.2, 9.3_
 
-  - [~] 15.2 Implement stage settings drawer
+  - [x] 15.2 Implement stage settings drawer
     - Build `StageDrawer` component: side drawer opened on stage pill click
     - Fields: name, key (auto-slugified), color picker (hex), category selector, is_default toggle, is_closed_won toggle, is_closed_lost toggle
     - Save calls `useUpdateStage`; delete calls `useDeleteStage` (with 409 handling showing affected lead count)
     - _Requirements: 9.4, 2.10_
 
-  - [~] 15.3 Implement first-run template chooser modal
+  - [x] 15.3 Implement first-run template chooser modal
     - Build `TemplateChooserModal` component shown when no pipeline exists for the company
     - Options: Real Estate Buyer Pipeline, Law Firm Pipeline, Blank
     - On selection, call `useCreatePipeline` with the chosen template name then `useActivatePipeline`
     - _Requirements: 9.8, 11.3_
 
-- [ ] 16. Admin pipeline builder UI — Built-in Rules tab
-  - [~] 16.1 Implement Built-in Rules tab
+- [x] 16. Admin pipeline builder UI — Built-in Rules tab
+  - [x] 16.1 Implement Built-in Rules tab
     - Build `BuiltInRulesTab` component: table with one row per `BuiltInEventType`
     - Each row: event type label, target stage dropdown (pipeline stages), enable/disable toggle
     - Changes call `useUpsertEventMapping`
     - _Requirements: 9.5_
 
-- [ ] 17. Admin pipeline builder UI — Automations tab
-  - [~] 17.1 Implement Automations tab with When/Then card builder
+- [x] 17. Admin pipeline builder UI — Automations tab
+  - [x] 17.1 Implement Automations tab with When/Then card builder
     - Build `AutomationsTab` component: list of `RuleCard` components
     - Each `RuleCard`: WHEN trigger selector (trigger_type + trigger_event_type/trigger_stage_id), AND condition selector (condition_type + condition_value), THEN action steps (action_type + action_config), enable/disable toggle, delete button
     - "Add step" button appends a new action step row
@@ -243,24 +243,24 @@ Implement the configurable Pipelines feature as an orchestration layer over exis
     - Changes call `useUpdateRule`; delete calls `useDeleteRule`
     - _Requirements: 9.6_
 
-- [ ] 18. Admin pipeline builder UI — Activity tab and pipeline selector
-  - [~] 18.1 Implement Activity tab
+- [x] 18. Admin pipeline builder UI — Activity tab and pipeline selector
+  - [x] 18.1 Implement Activity tab
     - Build `ActivityTab` component: paginated table of `LeadStageHistory` entries
     - Columns: lead name, from stage, to stage, source, reason, timestamp
     - _Requirements: 9.7_
 
-  - [~] 18.2 Implement pipeline selector
+  - [x] 18.2 Implement pipeline selector
     - When multiple pipelines exist, show a dropdown/selector above the tab bar to switch between pipelines
     - "New Pipeline" button opens a create modal
     - _Requirements: 9.9_
 
-- [ ] 19. Agent lead detail pipeline enrichment
-  - [~] 19.1 Add pipeline API hook to agent queries
+- [x] 19. Agent lead detail pipeline enrichment
+  - [x] 19.1 Add pipeline API hook to agent queries
     - Add `useLeadPipeline(leadId)` hook to `frontend/src/apps/agent/hooks/useAgentQueries.ts`
     - Calls `GET /api/v1/agent/leads/{lead_id}/pipeline`
     - _Requirements: 10.5, 10.7_
 
-  - [~] 19.2 Add Pipeline section to AgentLeadDetailPage
+  - [x] 19.2 Add Pipeline section to AgentLeadDetailPage
     - Add a "Pipeline" tab to the existing tab bar in `AgentLeadDetailPage.tsx`
     - Pipeline tab content:
       - Pipeline Stage section: current stage name + "Entered N days ago"
@@ -269,13 +269,13 @@ Implement the configurable Pipelines feature as an orchestration layer over exis
       - Quick Actions bar: Call button, Email button, Text button (marked "coming soon")
     - _Requirements: 10.1, 10.2, 10.3, 10.4_
 
-- [ ] 20. Checkpoint — metrics and stuck leads
-  - [~] 20.1 Write property test for stuck leads threshold
+- [x] 20. Checkpoint — metrics and stuck leads
+  - [x] 20.1 Write property test for stuck leads threshold
     - **Property 12: Stuck Leads Threshold**
     - **Validates: Requirements 8.4**
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 21. Final checkpoint
+- [x] 21. Final checkpoint
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

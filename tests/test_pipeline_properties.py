@@ -1233,22 +1233,20 @@ class TestProperty11AgentEndpointTenantIsolation:
                 name="New",
                 key="new",
                 color="#000000",
-                category=StageCategory.active,
+                category=StageCategory.open,
                 position=1,
                 is_default=True,
             ),
         )
         set_active_pipeline(db, pipeline_b.id, company_b.id)
 
-        # Create a lead belonging to company B.
-        lead_b = Lead(
-            name="Lead B",
-            phone="555-0001",
-            source_email="b@example.com",
-            agent_id="agent_b",
-        )
+        # Create a lead belonging to company B (using _make_lead_source to satisfy NOT NULL).
+        lead_source_b = _make_lead_source(db)
+        lead_source_b.company_id = company_b.id
+        db.commit()
+        db.refresh(lead_source_b)
+        lead_b = _make_lead(db, lead_source_b.id)
         lead_b.company_id = company_b.id
-        db.add(lead_b)
         db.commit()
         db.refresh(lead_b)
 
@@ -1295,25 +1293,27 @@ class TestProperty11AgentEndpointTenantIsolation:
                 name="New",
                 key="new_a",
                 color="#FFFFFF",
-                category=StageCategory.active,
+                category=StageCategory.open,
                 position=1,
                 is_default=True,
             ),
         )
         set_active_pipeline(db, pipeline_a.id, company_a.id)
 
-        lead_a = Lead(
-            name="Lead A",
-            phone="555-0002",
-            source_email="a@example.com",
-            agent_id="agent_a",
-        )
+        lead_source_a = _make_lead_source(db)
+        lead_source_a.company_id = company_a.id
+        db.commit()
+        db.refresh(lead_source_a)
+        lead_a = _make_lead(db, lead_source_a.id)
         lead_a.company_id = company_a.id
-        db.add(lead_a)
+        db.commit()
+        db.refresh(lead_a)
         db.commit()
         db.refresh(lead_a)
 
         # Fire event to assign initial stage.
+        import api.services.pipeline_action_rule_service as _rule_svc
+        _rule_svc._cache.clear()
         fire_event(db, lead_a.id, BuiltInEventType.lead_created, {})
         db.refresh(lead_a)
 
@@ -1329,3 +1329,133 @@ class TestProperty11AgentEndpointTenantIsolation:
         current_stage = get_current_stage(db, lead_a.id)
         assert current_stage is not None, "Lead should have a current stage after fire_event."
         assert current_stage.id == stage_a.id
+
+
+# ---------------------------------------------------------------------------
+# Property 12: Stuck Leads Threshold
+# ---------------------------------------------------------------------------
+
+from datetime import datetime, timedelta, timezone
+
+from api.routers.admin_pipelines import _compute_stuck_leads_count
+
+
+class TestProperty12StuckLeadsThreshold:
+    """
+    Property 12: Stuck Leads Threshold
+    **Validates: Requirements 8.4**
+
+    A lead is "stuck" if it has been in its current stage for more than 7 days
+    (168 hours). The metrics endpoint must count exactly those leads.
+
+    We test this by directly exercising the aggregation helper used by the
+    metrics endpoint, varying the stage_entered_at timestamp relative to now.
+    """
+
+    @given(
+        hours_in_stage=st.floats(min_value=0.0, max_value=500.0, allow_nan=False),
+    )
+    @settings(
+        max_examples=200,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
+    def test_stuck_threshold_is_168_hours(
+        self,
+        db_session,
+        hours_in_stage: float,
+    ):
+        """
+        Property 12: Stuck Leads Threshold
+        **Validates: Requirements 8.4**
+
+        For a lead that has been in its current stage for `hours_in_stage` hours:
+        - If hours_in_stage > 168 → the lead is stuck (count = 1)
+        - If hours_in_stage <= 168 → the lead is not stuck (count = 0)
+        """
+        db = db_session
+        company = _make_company(db)
+        pipeline = _make_pipeline(db, company.id)
+        set_active_pipeline(db, pipeline.id, company.id)
+
+        stage = _make_stage(
+            db, pipeline.id, name="Stage", key="stage_p12", position=1, is_default=True
+        )
+
+        lead_source = _make_lead_source(db)
+        lead_source.company_id = company.id
+        db.commit()
+        db.refresh(lead_source)
+
+        lead = _make_lead(db, lead_source.id)
+
+        # Assign lead to stage with a synthetic stage_entered_at
+        assign_initial_stage(db, lead.id, pipeline.id, stage.id)
+
+        # Override stage_entered_at to simulate the desired time in stage
+        entered_at = datetime.now(timezone.utc) - timedelta(hours=hours_in_stage)
+        lead.stage_entered_at = entered_at
+        db.commit()
+        db.refresh(lead)
+
+        # Compute stuck count using the same helper the metrics endpoint uses
+        stuck_count = _compute_stuck_leads_count(db, pipeline.id, threshold_hours=168)
+
+        expected_stuck = 1 if hours_in_stage > 168 else 0
+        assert stuck_count == expected_stuck, (
+            f"hours_in_stage={hours_in_stage:.2f}: expected stuck_count={expected_stuck}, "
+            f"got {stuck_count}"
+        )
+
+    @given(
+        hours_list=st.lists(
+            st.floats(min_value=0.0, max_value=500.0, allow_nan=False),
+            min_size=1,
+            max_size=10,
+        )
+    )
+    @settings(
+        max_examples=100,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
+    def test_stuck_count_equals_leads_over_threshold(
+        self,
+        db_session,
+        hours_list: list[float],
+    ):
+        """
+        Property 12: Stuck Leads Threshold (multi-lead variant)
+        **Validates: Requirements 8.4**
+
+        For N leads each with a different hours_in_stage, the stuck count must
+        equal the number of leads with hours_in_stage > 168.
+        """
+        db = db_session
+        company = _make_company(db)
+        pipeline = _make_pipeline(db, company.id)
+        set_active_pipeline(db, pipeline.id, company.id)
+
+        stage = _make_stage(
+            db, pipeline.id, name="Stage", key="stage_p12b", position=1, is_default=True
+        )
+
+        lead_source = _make_lead_source(db)
+        lead_source.company_id = company.id
+        db.commit()
+        db.refresh(lead_source)
+
+        for hours in hours_list:
+            lead = _make_lead(db, lead_source.id)
+            assign_initial_stage(db, lead.id, pipeline.id, stage.id)
+            entered_at = datetime.now(timezone.utc) - timedelta(hours=hours)
+            lead.stage_entered_at = entered_at
+            db.commit()
+
+        expected_stuck = sum(1 for h in hours_list if h > 168)
+        stuck_count = _compute_stuck_leads_count(db, pipeline.id, threshold_hours=168)
+
+        assert stuck_count == expected_stuck, (
+            f"hours_list={[round(h, 1) for h in hours_list]}: "
+            f"expected {expected_stuck} stuck leads, got {stuck_count}"
+        )

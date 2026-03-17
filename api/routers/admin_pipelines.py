@@ -118,6 +118,29 @@ def _company_id(current_user=Depends(get_current_admin)) -> int:
     return current_user.company_id
 
 
+def _compute_stuck_leads_count(db: Session, pipeline_id: int, threshold_hours: int = 168) -> int:
+    """
+    Return the count of leads in the given pipeline whose stage_entered_at
+    is older than `threshold_hours` hours ago.
+
+    Extracted as a module-level helper so it can be imported by property tests.
+    Requirements: 8.4, 8.5
+    """
+    from datetime import datetime, timedelta
+    from gmail_lead_sync.models import Lead
+
+    cutoff = datetime.utcnow() - timedelta(hours=threshold_hours)
+    return (
+        db.query(func.count(Lead.id))
+        .filter(
+            Lead.pipeline_id == pipeline_id,
+            Lead.stage_entered_at < cutoff,
+        )
+        .scalar()
+        or 0
+    )
+
+
 # ---------------------------------------------------------------------------
 # Pipeline CRUD
 # ---------------------------------------------------------------------------
@@ -499,16 +522,7 @@ def get_pipeline_metrics_endpoint(
     conversion_to_won = round(won_count / total_leads, 4) if total_leads > 0 else 0.0
 
     # Stuck leads: leads whose stage_entered_at is > 7 days ago.
-    seven_days_ago = datetime.utcnow() - timedelta(days=7)
-    stuck_leads_count = (
-        db.query(func.count(Lead.id))
-        .filter(
-            Lead.pipeline_id == pipeline_id,
-            Lead.stage_entered_at < seven_days_ago,
-        )
-        .scalar()
-        or 0
-    )
+    stuck_leads_count = _compute_stuck_leads_count(db, pipeline_id, threshold_hours=168)
 
     return PipelineMetricsResponse(
         total_leads=total_leads,

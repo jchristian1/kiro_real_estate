@@ -17,6 +17,7 @@ import { TemplatesPage } from './pages/TemplatesPage';
 import { LeadsPage } from './pages/LeadsPage';
 import { AuditLogsPage } from './pages/AuditLogsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { PipelinesPage } from './pages/PipelinesPage';
 import { BuyerLeadsLayout } from './pages/buyer-leads/BuyerLeadsLayout';
 import { BuyerFormTab } from './pages/buyer-leads/BuyerFormTab';
 import { BuyerScoringTab } from './pages/buyer-leads/BuyerScoringTab';
@@ -53,6 +54,7 @@ export const PlatformAdminApp: React.FC = () => (
         <Route path="/leads" element={<LeadsPage />} />
         <Route path="/audit-logs" element={<AuditLogsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/pipelines" element={<PipelinesPage />} />
 
         <Route path="/qualification-templates/:tenantId/message-templates/:templateId" element={<TemplateVersionEditor />} />
 
