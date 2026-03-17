@@ -32,7 +32,7 @@ from api.repositories.buyer_leads_repository import (
 from api.dependencies.auth import require_role
 
 logger = logging.getLogger(__name__)
-router = APIRouter(dependencies=[Depends(require_role("platform_admin"))])
+router = APIRouter(dependencies=[Depends(require_role("company_admin"))])
 
 
 # ---------------------------------------------------------------------------

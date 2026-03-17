@@ -109,7 +109,7 @@ from api.services.pipeline_stage_service import (
 router = APIRouter(
     prefix="/pipelines",
     tags=["Pipelines"],
-    dependencies=[Depends(require_role("platform_admin"))],
+    dependencies=[Depends(require_role("company_admin"))],
 )
 
 
