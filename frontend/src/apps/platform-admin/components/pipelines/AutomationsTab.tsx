@@ -15,23 +15,21 @@ import type { PipelineActionRule, PipelineStage, RuleCreate, RuleUpdate, ActionT
 interface Props { pipelineId: number; }
 
 const TRIGGER_OPTIONS = [
-  { value: 'stage_entered', label: 'Lead enters a stage', icon: '→' },
-  { value: 'stage_exited',  label: 'Lead exits a stage',  icon: '←' },
-  { value: 'event_fired',   label: 'A platform event fires', icon: '⚡' },
+  { value: 'on_stage_enter', label: 'Lead enters a stage', icon: '→' },
+  { value: 'on_event',       label: 'A platform event fires', icon: '⚡' },
 ];
 
 const CONDITION_OPTIONS = [
-  { value: 'always',       label: 'Always (no condition)',  desc: 'Run every time the trigger fires' },
-  { value: 'score_bucket', label: 'Lead score bucket is…',  desc: 'e.g. HOT, WARM, NURTURE' },
-  { value: 'tag_present',  label: 'Lead has tag…',          desc: 'e.g. vip, urgent' },
+  { value: 'always',    label: 'Always (no condition)',  desc: 'Run every time the trigger fires' },
+  { value: 'bucket_is', label: 'Lead score bucket is…',  desc: 'e.g. HOT, WARM, NURTURE' },
+  { value: 'stage_is',  label: 'Lead is in stage…',      desc: 'Match by stage key' },
 ];
 
 const ACTION_OPTIONS: { value: ActionType; label: string; icon: string; desc: string }[] = [
-  { value: 'send_email',   label: 'Send Email',        icon: '✉️', desc: 'Send an email to the lead' },
-  { value: 'send_form',    label: 'Send Form',         icon: '📋', desc: 'Send a qualification form' },
-  { value: 'update_score', label: 'Update Score',      icon: '📊', desc: 'Adjust the lead score' },
-  { value: 'add_tag',      label: 'Add Tag',           icon: '🏷️', desc: 'Tag the lead' },
-  { value: 'webhook',      label: 'Send Webhook',      icon: '🔗', desc: 'POST to an external URL' },
+  { value: 'send_email_template',       label: 'Send Email Template',      icon: '✉️', desc: 'Send a pre-built email template to the lead' },
+  { value: 'send_qualification_form',   label: 'Send Qualification Form',  icon: '📋', desc: 'Send a qualification form to the lead' },
+  { value: 'send_bucket_followup_email',label: 'Send Bucket Follow-up',    icon: '📨', desc: 'Send a follow-up email based on score bucket' },
+  { value: 'move_to_stage',             label: 'Move to Stage',            icon: '➡️', desc: 'Move the lead to a specific pipeline stage' },
 ];
 
 export const AutomationsTab: React.FC<Props> = ({ pipelineId }) => {
@@ -46,7 +44,7 @@ export const AutomationsTab: React.FC<Props> = ({ pipelineId }) => {
     await createRule.mutateAsync({
       pipelineId,
       name: 'New Automation',
-      trigger_type: 'stage_entered',
+      trigger_type: 'on_stage_enter',
       condition_type: 'always',
       is_enabled: false,
       position: sorted.length + 1,
@@ -154,7 +152,7 @@ const RuleCard: React.FC<{ rule: PipelineActionRule; pipelineId: number; stages:
   const addStep = () => {
     setDraft(d => ({
       ...d,
-      steps: [...(d.steps ?? []), { action_type: 'send_email', action_config_json: '{}', position: (d.steps?.length ?? 0) + 1 }],
+      steps: [...(d.steps ?? []), { action_type: 'send_email_template' as ActionType, action_config_json: '{}', position: (d.steps?.length ?? 0) + 1 }],
     }));
   };
 
@@ -249,7 +247,7 @@ const RuleCard: React.FC<{ rule: PipelineActionRule; pipelineId: number; stages:
                   {TRIGGER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.icon} {o.label}</option>)}
                 </select>
               </div>
-              {(draft.trigger_type === 'stage_entered' || draft.trigger_type === 'stage_exited') && (
+              {(draft.trigger_type === 'on_stage_enter') && (
                 <div>
                   <label style={{ fontSize: 11, color: t.textFaint, display: 'block', marginBottom: 4 }}>Which stage?</label>
                   <select value={draft.trigger_stage_id ?? ''} onChange={e => setDraft(d => ({ ...d, trigger_stage_id: e.target.value ? Number(e.target.value) : undefined }))} style={sel}>
@@ -299,13 +297,13 @@ const RuleCard: React.FC<{ rule: PipelineActionRule; pipelineId: number; stages:
               {(draft.steps ?? []).length === 0 && (
                 <div style={{ fontSize: 12, color: t.textFaint, fontStyle: 'italic' }}>No actions yet — add one below.</div>
               )}
-              {(draft.steps ?? []).map((step, idx) => (
+      {(draft.steps ?? []).map((step, _idx) => (
                 <ActionRow
-                  key={idx}
+                  key={_idx}
                   step={step}
-                  idx={idx}
-                  onUpdate={(updated) => setDraft(d => ({ ...d, steps: (d.steps ?? []).map((s, i) => i === idx ? updated : s) }))}
-                  onRemove={() => removeStep(idx)}
+                  idx={_idx}
+                  onUpdate={(updated) => setDraft(d => ({ ...d, steps: (d.steps ?? []).map((s, i) => i === _idx ? updated : s) }))}
+                  onRemove={() => removeStep(_idx)}
                 />
               ))}
               <button
@@ -369,7 +367,7 @@ const ActionRow: React.FC<{
   idx: number;
   onUpdate: (s: { action_type: ActionType; action_config_json: string; position: number }) => void;
   onRemove: () => void;
-}> = ({ step, idx, onUpdate, onRemove }) => {
+}> = ({ step, idx: _idx, onUpdate, onRemove }) => {
   const { theme } = useTheme();
   const t = getTokens(theme);
   const opt = ACTION_OPTIONS.find(o => o.value === step.action_type);
@@ -399,23 +397,19 @@ const ActionRow: React.FC<{
       {opt && <div style={{ fontSize: 11, color: t.textFaint, marginBottom: 8 }}>{opt.desc}</div>}
 
       {/* Friendly config fields per action type */}
-      {step.action_type === 'send_email' && (
+      {step.action_type === 'send_email_template' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <input placeholder="Subject line" value={config.subject ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, subject: e.target.value }) })} style={sel} />
-          <input placeholder="Template ID (optional)" value={config.template_id ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, template_id: e.target.value }) })} style={sel} />
+          <input placeholder="Template ID" value={config.template_id ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, template_id: e.target.value }) })} style={sel} />
         </div>
       )}
-      {step.action_type === 'send_form' && (
+      {step.action_type === 'send_qualification_form' && (
         <input placeholder="Form ID" value={config.form_id ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, form_id: e.target.value }) })} style={sel} />
       )}
-      {step.action_type === 'update_score' && (
-        <input placeholder="Score delta (e.g. +10 or -5)" value={config.delta ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, delta: e.target.value }) })} style={sel} />
+      {step.action_type === 'send_bucket_followup_email' && (
+        <input placeholder="Template ID (optional)" value={config.template_id ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, template_id: e.target.value }) })} style={sel} />
       )}
-      {step.action_type === 'add_tag' && (
-        <input placeholder="Tag name (e.g. vip)" value={config.tag ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, tag: e.target.value }) })} style={sel} />
-      )}
-      {step.action_type === 'webhook' && (
-        <input placeholder="Webhook URL (https://…)" value={config.url ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, url: e.target.value }) })} style={sel} />
+      {step.action_type === 'move_to_stage' && (
+        <input placeholder="Stage ID" value={config.stage_id ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, stage_id: e.target.value }) })} style={sel} />
       )}
     </div>
   );

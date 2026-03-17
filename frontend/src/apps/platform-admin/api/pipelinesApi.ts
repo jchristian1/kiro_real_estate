@@ -32,7 +32,7 @@ export type BuiltInEventType =
   | 'qualification_bucket_hot'
   | 'qualification_bucket_warm'
   | 'qualification_bucket_nurture';
-export type ActionType = 'send_email' | 'send_form' | 'update_score' | 'add_tag' | 'webhook';
+export type ActionType = 'send_email_template' | 'send_qualification_form' | 'send_bucket_followup_email' | 'move_to_stage';
 
 // ── Response types ────────────────────────────────────────────────────────
 
