@@ -204,6 +204,7 @@ def on_buyer_lead_email_received(
     tenant_id: int,
     lead_id: int,
     parsed_metadata: dict,
+    skip_pipeline_events: bool = False,
 ) -> None:
     """Handle a new buyer lead email by initiating the qualification pipeline.
 
@@ -422,18 +423,21 @@ def on_buyer_lead_email_received(
     )
 
     # Fire pipeline events for response_email_sent and qualification_form_sent.
-    try:
-        from api.models.pipeline_models import BuiltInEventType
-        from api.services.lead_stage_transition_engine import fire_event
-        fire_event(db, lead_id, BuiltInEventType.response_email_sent, {"tenant_id": tenant_id})
-        fire_event(db, lead_id, BuiltInEventType.qualification_form_sent, {"tenant_id": tenant_id})
-    except Exception as _pe:
-        logger.warning(
-            "Pipeline fire_event failed after invite sent for lead %d: %s",
-            lead_id,
-            _pe,
-            exc_info=True,
-        )
+    # Skip when called from within the pipeline engine (_execute_step) to avoid
+    # recursive event firing that would cause duplicate emails.
+    if not skip_pipeline_events:
+        try:
+            from api.models.pipeline_models import BuiltInEventType
+            from api.services.lead_stage_transition_engine import fire_event
+            fire_event(db, lead_id, BuiltInEventType.response_email_sent, {"tenant_id": tenant_id})
+            fire_event(db, lead_id, BuiltInEventType.qualification_form_sent, {"tenant_id": tenant_id})
+        except Exception as _pe:
+            logger.warning(
+                "Pipeline fire_event failed after invite sent for lead %d: %s",
+                lead_id,
+                _pe,
+                exc_info=True,
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -721,7 +725,9 @@ def on_buyer_form_submitted(
 
     # ------------------------------------------------------------------
     # 10. Resolve post-submission template — prefer AgentTemplate, fall back
-    #     to POST_SUBMISSION_EMAIL MessageTemplate (Req 7.9)
+    #     to POST_SUBMISSION_EMAIL MessageTemplate (Req 7.9).
+    #     Skip if the pipeline has action rules that will handle the bucket
+    #     event (to avoid duplicate emails).
     # ------------------------------------------------------------------
     lead: Lead = db.get(Lead, invitation.lead_id)
     first_name = lead.name.split()[0] if lead.name else ""
@@ -729,6 +735,59 @@ def on_buyer_form_submitted(
     from sqlalchemy import text as _text
     tenant_row = db.execute(_text("SELECT name FROM companies WHERE id = :tid"), {"tid": invitation.tenant_id}).fetchone()
     tenant_name = tenant_row[0] if tenant_row else ""
+
+    # Check if the pipeline has action rules on the bucket event — if so,
+    # skip the automatic post-submission email to avoid duplicates.
+    _bucket_event_str_map = {"HOT": "qualification_bucket_hot", "WARM": "qualification_bucket_warm", "NURTURE": "qualification_bucket_nurture"}
+    _bucket_event_str = _bucket_event_str_map.get(score_result.bucket.value)
+    _pipeline_will_handle_email = False
+    try:
+        from api.services.pipeline_service import get_active_pipeline
+        from api.services.pipeline_action_rule_service import evaluate_rules as _eval_rules
+        _active_pipeline = get_active_pipeline(db, invitation.tenant_id)
+        if _active_pipeline and _bucket_event_str:
+            _matching = _eval_rules(db, _active_pipeline.id, _bucket_event_str, lead)
+            _pipeline_will_handle_email = any(
+                any(
+                    (s.action_type.value if hasattr(s.action_type, "value") else s.action_type)
+                    in ("send_email_template", "send_bucket_followup_email")
+                    for s in r.steps
+                )
+                for r in _matching
+            )
+    except Exception as _pe:
+        logger.warning("Could not check pipeline rules for post-submission email: %s", _pe)
+
+    if _pipeline_will_handle_email:
+        logger.info(
+            "Pipeline has action rules for bucket event '%s' (lead_id=%d); "
+            "skipping automatic post-submission email.",
+            _bucket_event_str,
+            invitation.lead_id,
+        )
+        # Still fire pipeline events so the pipeline can handle it.
+        try:
+            from api.models.pipeline_models import BuiltInEventType
+            from api.services.lead_stage_transition_engine import fire_event
+            fire_event(db, invitation.lead_id, BuiltInEventType.qualification_form_submitted, {"tenant_id": invitation.tenant_id})
+            _bucket_event_map = {
+                "HOT": BuiltInEventType.qualification_bucket_hot,
+                "WARM": BuiltInEventType.qualification_bucket_warm,
+                "NURTURE": BuiltInEventType.qualification_bucket_nurture,
+            }
+            bucket_event = _bucket_event_map.get(score_result.bucket.value)
+            if bucket_event:
+                fire_event(db, invitation.lead_id, bucket_event, {"tenant_id": invitation.tenant_id})
+        except Exception as _pe:
+            logger.warning("Pipeline fire_event failed after form submitted for lead %d: %s", invitation.lead_id, _pe, exc_info=True)
+        return {
+            "submission_id": submission.id,
+            "score": {
+                "total": score_result.total,
+                "bucket": score_result.bucket.value,
+                "explanation": score_result.explanation,
+            },
+        }
 
     # Map score bucket to AgentTemplate type
     _bucket_to_type = {"HOT": "POST_HOT", "WARM": "POST_WARM", "NURTURE": "POST_NURTURE"}

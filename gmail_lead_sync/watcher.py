@@ -781,11 +781,13 @@ class GmailWatcher:
                         exc_info=True,
                     )
                 
-                # Trigger buyer lead preapproval pipeline if tenant is configured
+                # Trigger buyer lead preapproval pipeline if tenant is configured.
+                # Skip if the pipeline already sent the form invite via a
+                # send_qualification_form action rule on lead_created.
                 try:
                     from gmail_lead_sync.models import Credentials, Company
                     from gmail_lead_sync.preapproval.handlers import on_buyer_lead_email_received
-                    from gmail_lead_sync.preapproval.models_preapproval import FormTemplate
+                    from gmail_lead_sync.preapproval.models_preapproval import FormTemplate, FormInvitation
 
                     # Resolve tenant_id: try Credentials.company_id first,
                     # then AgentUser.company_id, then fall back to first company.
@@ -833,16 +835,29 @@ class GmailWatcher:
                             .first()
                         )
                         if has_form:
-                            logger.info(
-                                f"Triggering preapproval pipeline for lead {lead.id} "
-                                f"(tenant={tenant_id})"
+                            # Check if the pipeline already sent a form invite via
+                            # a send_qualification_form action rule on lead_created.
+                            already_invited = (
+                                self.db_session.query(FormInvitation)
+                                .filter(FormInvitation.lead_id == lead.id)
+                                .first()
                             )
-                            on_buyer_lead_email_received(
-                                db=self.db_session,
-                                tenant_id=tenant_id,
-                                lead_id=lead.id,
-                                parsed_metadata={},
-                            )
+                            if already_invited:
+                                logger.info(
+                                    f"Form invite already sent by pipeline rule for lead {lead.id}, "
+                                    f"skipping direct on_buyer_lead_email_received call"
+                                )
+                            else:
+                                logger.info(
+                                    f"Triggering preapproval pipeline for lead {lead.id} "
+                                    f"(tenant={tenant_id})"
+                                )
+                                on_buyer_lead_email_received(
+                                    db=self.db_session,
+                                    tenant_id=tenant_id,
+                                    lead_id=lead.id,
+                                    parsed_metadata={},
+                                )
                         else:
                             logger.debug(
                                 f"No BUY form for tenant {tenant_id}, skipping preapproval"

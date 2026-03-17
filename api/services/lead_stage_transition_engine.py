@@ -238,6 +238,7 @@ def _execute_step(
                 tenant_id=tenant_id,
                 lead_id=lead_id,
                 parsed_metadata=context,
+                skip_pipeline_events=True,  # prevent recursive pipeline event firing
             )
             logger.info(
                 "Pipeline action: send_qualification_form sent lead_id=%s tenant_id=%s",
