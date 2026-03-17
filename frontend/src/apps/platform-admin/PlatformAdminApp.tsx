@@ -5,7 +5,10 @@
 
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
+
+const queryClient = new QueryClient();
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { DashboardLayout } from './components/DashboardLayout';
 import { LoginPage } from './pages/LoginPage';
@@ -29,6 +32,7 @@ import { TemplateVersionEditor } from './pages/buyer-leads/TemplateVersionEditor
 import { PublicFormPage } from './pages/PublicFormPage';
 
 export const PlatformAdminApp: React.FC = () => (
+  <QueryClientProvider client={queryClient}>
   <AuthProvider>
     <Routes>
       {/* Public routes */}
@@ -73,4 +77,5 @@ export const PlatformAdminApp: React.FC = () => (
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   </AuthProvider>
+  </QueryClientProvider>
 );
