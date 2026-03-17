@@ -19,7 +19,7 @@ import { getTokens } from '../../../../shared/utils/theme';
 import {
   usePipelineStages, useReorderStages, useCreateStage,
 } from '../../hooks/usePipelineQueries';
-import { StageDrawer } from './StageDrawer';
+import { StageDrawer } from './StageDrawer.tsx';
 import type { PipelineStage, PipelineStageCreate } from '../../api/pipelinesApi';
 
 interface Props { pipelineId: number; }
