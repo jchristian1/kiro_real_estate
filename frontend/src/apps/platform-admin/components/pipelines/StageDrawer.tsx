@@ -525,6 +525,8 @@ const ActionRuleCard: React.FC<{
   const isDark = theme === 'dark';
   const updateRule = useUpdateRule();
   const [expanded, setExpanded] = useState(rule.steps.length === 0);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   const [draft, setDraft] = useState({
     name: rule.name,
@@ -558,8 +560,16 @@ const ActionRuleCard: React.FC<{
   const getConfig = (json: string) => { try { return JSON.parse(json); } catch { return {}; } };
 
   const handleSave = async () => {
-    await updateRule.mutateAsync({ pipelineId, ruleId: rule.id, ...draft });
-    setExpanded(false);
+    setSaveError(null);
+    try {
+      await updateRule.mutateAsync({ pipelineId, ruleId: rule.id, ...draft });
+      setSaved(true);
+      setTimeout(() => { setSaved(false); setExpanded(false); }, 800);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        || (err instanceof Error ? err.message : 'Failed to save rule');
+      setSaveError(msg);
+    }
   };
 
   return (
@@ -692,17 +702,25 @@ const ActionRuleCard: React.FC<{
             }}>+ Add step</button>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button onClick={() => setExpanded(false)} style={{ background: 'none', border: `1px solid ${t.border}`, borderRadius: 8, color: t.textMuted, fontSize: 13, padding: '7px 14px', cursor: 'pointer' }}>
-              Cancel
-            </button>
-            <button onClick={handleSave} disabled={updateRule.isPending} style={{
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none',
-              borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600,
-              padding: '7px 18px', cursor: 'pointer',
-            }}>
-              {updateRule.isPending ? 'Saving…' : 'Save'}
-            </button>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexDirection: 'column' }}>
+            {saveError && (
+              <div style={{ fontSize: 12, color: t.red, background: t.redBg, border: `1px solid ${t.red}33`, borderRadius: 8, padding: '7px 10px' }}>
+                {saveError}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setExpanded(false); setSaveError(null); }} style={{ background: 'none', border: `1px solid ${t.border}`, borderRadius: 8, color: t.textMuted, fontSize: 13, padding: '7px 14px', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={handleSave} disabled={updateRule.isPending || saved} style={{
+                background: saved ? '#22c55e' : 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none',
+                borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600,
+                padding: '7px 18px', cursor: 'pointer', transition: 'background 0.2s',
+                minWidth: 70,
+              }}>
+                {saved ? '✓ Saved' : updateRule.isPending ? 'Saving…' : 'Save'}
+              </button>
+            </div>
           </div>
         </div>
       )}
