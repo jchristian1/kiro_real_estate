@@ -22,7 +22,7 @@ client.interceptors.response.use(
 
 // ── Enums (mirror backend) ────────────────────────────────────────────────
 
-export type StageCategory = 'active' | 'won' | 'lost' | 'nurture';
+export type StageCategory = 'open' | 'in_progress' | 'waiting' | 'won' | 'lost';
 export type ChangeSource = 'event' | 'manual' | 'rule' | 'import';
 export type BuiltInEventType =
   | 'lead_created'

@@ -220,7 +220,7 @@ const QuickAddStageForm: React.FC<{
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onAdd({ name: name.trim(), key: slugify(name), color, category: 'active', position: nextPosition });
+    onAdd({ name: name.trim(), key: slugify(name), color, category: 'open', position: nextPosition });
   };
 
   return (

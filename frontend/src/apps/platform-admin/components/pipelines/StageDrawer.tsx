@@ -17,7 +17,7 @@ interface Props {
 }
 
 const COLORS = ['#6366f1', '#34d399', '#f87171', '#fb923c', '#fbbf24', '#60a5fa', '#a78bfa', '#f472b6', '#2dd4bf', '#e879f9'];
-const CATEGORIES: StageCategory[] = ['active', 'won', 'lost', 'nurture'];
+const CATEGORIES: StageCategory[] = ['open', 'in_progress', 'waiting', 'won', 'lost'];
 
 export const StageDrawer: React.FC<Props> = ({ stage, pipelineId, stages, onClose }) => {
   const { theme } = useTheme();
