@@ -218,6 +218,12 @@ async def submit_buyer_qualification(
             status_code=400,
             content={"error": "Validation failed", "details": str(exc)},
         )
+    except Exception as exc:
+        logger.error("Unexpected error processing form submission: %s", exc, exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"error": "An unexpected error occurred. Please try again."},
+        )
 
     # Req 4.4 — 200 with submission_id and score summary
     # score may be None when no active ScoringVersion exists (Req 5.11)

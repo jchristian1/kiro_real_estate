@@ -243,20 +243,26 @@ def on_buyer_lead_email_received(
     # ------------------------------------------------------------------
     # 2. Transition: NULL → NEW_EMAIL_RECEIVED → FORM_INVITE_CREATED (Req 9.3)
     # ------------------------------------------------------------------
-    _state_machine.transition(
-        db,
-        tenant_id=tenant_id,
-        lead_id=lead_id,
-        intent_type=IntentType.BUY,
-        to_state=LeadState.NEW_EMAIL_RECEIVED,
-    )
-    _state_machine.transition(
-        db,
-        tenant_id=tenant_id,
-        lead_id=lead_id,
-        intent_type=IntentType.BUY,
-        to_state=LeadState.FORM_INVITE_CREATED,
-    )
+    try:
+        _state_machine.transition(
+            db,
+            tenant_id=tenant_id,
+            lead_id=lead_id,
+            intent_type=IntentType.BUY,
+            to_state=LeadState.NEW_EMAIL_RECEIVED,
+        )
+        _state_machine.transition(
+            db,
+            tenant_id=tenant_id,
+            lead_id=lead_id,
+            intent_type=IntentType.BUY,
+            to_state=LeadState.FORM_INVITE_CREATED,
+        )
+    except Exception as _sm_exc:
+        logger.warning(
+            "State machine transition skipped for lead %d (current state may differ): %s",
+            lead_id, _sm_exc,
+        )
 
     # ------------------------------------------------------------------
     # 3. Create FormInvitation; raw token for URL (Req 9.5)
@@ -368,13 +374,19 @@ def on_buyer_lead_email_received(
         _lead_invite.agent_current_state = "INVITE_SENT"
     db.commit()
 
-    _state_machine.transition(
-        db,
-        tenant_id=tenant_id,
-        lead_id=lead_id,
-        intent_type=IntentType.BUY,
-        to_state=LeadState.FORM_INVITE_SENT,
-    )
+    try:
+        _state_machine.transition(
+            db,
+            tenant_id=tenant_id,
+            lead_id=lead_id,
+            intent_type=IntentType.BUY,
+            to_state=LeadState.FORM_INVITE_SENT,
+        )
+    except Exception as _sm_exc:
+        logger.warning(
+            "State machine transition to FORM_INVITE_SENT skipped for lead %d: %s",
+            lead_id, _sm_exc,
+        )
 
     # ------------------------------------------------------------------
     # 7b. Insert INVITE_SENT lead event (Requirement 20.1)
@@ -613,13 +625,19 @@ def on_buyer_form_submitted(
     # ------------------------------------------------------------------
     # 5. Transition: FORM_INVITE_SENT → FORM_SUBMITTED (Req 10.1)
     # ------------------------------------------------------------------
-    _state_machine.transition(
-        db,
-        tenant_id=invitation.tenant_id,
-        lead_id=invitation.lead_id,
-        intent_type=IntentType.BUY,
-        to_state=LeadState.FORM_SUBMITTED,
-    )
+    try:
+        _state_machine.transition(
+            db,
+            tenant_id=invitation.tenant_id,
+            lead_id=invitation.lead_id,
+            intent_type=IntentType.BUY,
+            to_state=LeadState.FORM_SUBMITTED,
+        )
+    except Exception as _sm_exc:
+        logger.warning(
+            "State machine transition to FORM_SUBMITTED skipped for lead %d: %s",
+            invitation.lead_id, _sm_exc,
+        )
 
     # ------------------------------------------------------------------
     # 5b. Insert FORM_SUBMITTED lead event (Requirement 20.1)
@@ -715,13 +733,19 @@ def on_buyer_form_submitted(
     # ------------------------------------------------------------------
     # 9. Transition: FORM_SUBMITTED → SCORED (Req 10.1)
     # ------------------------------------------------------------------
-    _state_machine.transition(
-        db,
-        tenant_id=invitation.tenant_id,
-        lead_id=invitation.lead_id,
-        intent_type=IntentType.BUY,
-        to_state=LeadState.SCORED,
-    )
+    try:
+        _state_machine.transition(
+            db,
+            tenant_id=invitation.tenant_id,
+            lead_id=invitation.lead_id,
+            intent_type=IntentType.BUY,
+            to_state=LeadState.SCORED,
+        )
+    except Exception as _sm_exc:
+        logger.warning(
+            "State machine transition to SCORED skipped for lead %d: %s",
+            invitation.lead_id, _sm_exc,
+        )
 
     # ------------------------------------------------------------------
     # 10. Fire pipeline events — the pipeline handles all post-submission
