@@ -115,7 +115,7 @@ Implement the configurable Pipelines feature as an orchestration layer over exis
     - **Property 9: Rules Evaluated in Position Order**
     - **Validates: Requirements 5.6, 6.5**
 
-- [ ] 7. LeadStageTransitionEngine
+- [x] 7. LeadStageTransitionEngine
   - [x] 7.1 Implement LeadStageTransitionEngine
     - Create `api/services/lead_stage_transition_engine.py`
     - Implement `fire_event(lead_id, event_type, context)`
@@ -127,19 +127,19 @@ Implement the configurable Pipelines feature as an orchestration layer over exis
     - Delegate email/form/scoring actions to existing platform services (no duplication)
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 12.3, 12.4_
 
-  - [-] 7.2 Write property test for disabled mapping does not move lead
+  - [x] 7.2 Write property test for disabled mapping does not move lead
     - **Property 8: Disabled Mapping Does Not Move Lead**
     - **Validates: Requirements 6.4**
 
-  - [-] 7.3 Write property test for failed action step does not halt remaining steps
+  - [x] 7.3 Write property test for failed action step does not halt remaining steps
     - **Property 10: Failed Action Step Does Not Halt Remaining Steps**
     - **Validates: Requirements 6.6, 12.3, 12.4**
 
-- [ ] 8. Checkpoint — backend services
+- [x] 8. Checkpoint — backend services
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 9. Admin pipeline router
-  - [~] 9.1 Create admin_pipelines router
+- [x] 9. Admin pipeline router
+  - [x] 9.1 Create admin_pipelines router
     - Create `api/routers/admin_pipelines.py` with `platform_admin` role guard on all routes
     - Implement pipeline CRUD: `GET/POST /api/v1/pipelines`, `GET/PUT /api/v1/pipelines/{id}`, `POST /api/v1/pipelines/{id}/activate`
     - Implement stage CRUD + reorder: `GET/POST /api/v1/pipelines/{id}/stages`, `PUT/DELETE /api/v1/pipelines/{id}/stages/{stage_id}`, `POST /api/v1/pipelines/{id}/stages/reorder`
@@ -150,42 +150,42 @@ Implement the configurable Pipelines feature as an orchestration layer over exis
     - Enforce company-level tenant isolation on all endpoints
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 7.10, 8.1, 8.2, 8.3, 8.4, 8.5_
 
-  - [~] 9.2 Register admin_pipelines router in main.py
+  - [x] 9.2 Register admin_pipelines router in main.py
     - Import and mount `admin_pipelines_router` in `api/main.py` under `/api/v1` with tag `Pipelines`
     - _Requirements: 7.1_
 
-- [ ] 10. Agent pipeline router
-  - [~] 10.1 Create agent pipeline endpoint
+- [x] 10. Agent pipeline router
+  - [x] 10.1 Create agent pipeline endpoint
     - Add `GET /api/v1/agent/leads/{lead_id}/pipeline` to `api/routers/agent_leads.py` (or a new `agent_pipeline.py`)
     - Return `AgentLeadPipelineResponse`: `pipeline_name`, `current_stage`, `stage_entered_at`, all stages, lifecycle statuses, stage history
     - Enforce tenant isolation: agent can only access their own leads
     - _Requirements: 10.5, 10.6, 10.7_
 
-  - [~] 10.2 Write property test for agent endpoint tenant isolation
+  - [x] 10.2 Write property test for agent endpoint tenant isolation
     - **Property 11: Agent Endpoint Tenant Isolation**
     - **Validates: Requirements 10.6**
 
-- [ ] 11. Integration hooks
-  - [~] 11.1 Hook LeadStageTransitionEngine into lead creation flow
+- [x] 11. Integration hooks
+  - [x] 11.1 Hook LeadStageTransitionEngine into lead creation flow
     - In the lead creation path (watcher / `LeadRepository.create` post-commit), call `LeadStageTransitionEngine.fire_event(lead_id, "lead_created", context)`
     - Ensure no error is raised when no active pipeline exists
     - _Requirements: 6.1, 6.2, 6.7_
 
-  - [~] 11.2 Hook LeadStageTransitionEngine into qualification events
+  - [x] 11.2 Hook LeadStageTransitionEngine into qualification events
     - In the existing qualification/scoring flow, fire the appropriate `BuiltInEventType` events: `response_email_sent`, `qualification_form_sent`, `qualification_form_submitted`, `qualification_bucket_hot`, `qualification_bucket_warm`, `qualification_bucket_nurture`
     - _Requirements: 6.1, 6.3, 4.1_
 
-- [ ] 12. Checkpoint — backend complete
+- [x] 12. Checkpoint — backend complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 13. Seed data and pipeline templates
-  - [~] 13.1 Implement pipeline seed templates
+- [x] 13. Seed data and pipeline templates
+  - [x] 13.1 Implement pipeline seed templates
     - Create `api/services/pipeline_templates.py` with `create_real_estate_pipeline(db, company_id)` and `create_law_firm_pipeline(db, company_id)` functions
     - Real Estate template: stages New Lead → Contacted → Appointment Set → Under Contract → Won / Lost; include default event mappings
     - Law Firm template: stages New Inquiry → Consultation Scheduled → Retained → Active Case → Closed Won / Closed Lost; include default event mappings
     - _Requirements: 11.1, 11.2, 11.3_
 
-  - [~] 13.2 Integrate templates into seed_data.py
+  - [x] 13.2 Integrate templates into seed_data.py
     - Add `seed_pipelines(db)` function to `scripts/seed_data.py` that calls the template functions for the demo company
     - Call `seed_pipelines` from the startup auto-seed block in `api/main.py`
     - _Requirements: 11.4_

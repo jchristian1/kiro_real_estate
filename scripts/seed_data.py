@@ -606,6 +606,44 @@ def seed_leads(db, lead_sources):
     return leads
 
 
+def seed_pipelines(db):
+    """
+    Create demo pipeline templates for the first company (tenant_id=1).
+
+    Creates a Real Estate Buyer Pipeline and a Law Firm Pipeline.
+    Idempotent: skips creation if pipelines already exist for the company.
+
+    Requirements: 11.4
+    """
+    print("Creating pipeline templates...")
+    try:
+        from api.models.pipeline_models import Pipeline
+        from api.services.pipeline_templates import (
+            create_real_estate_pipeline,
+            create_law_firm_pipeline,
+        )
+        from api.services.pipeline_service import set_active_pipeline
+
+        existing = db.query(Pipeline).filter(Pipeline.company_id == 1).count()
+        if existing > 0:
+            print("  ⊙ Pipelines already exist for company 1, skipping")
+            print()
+            return
+
+        re_pipeline = create_real_estate_pipeline(db, company_id=1)
+        print(f"  ✓ Created Real Estate Buyer Pipeline (id={re_pipeline.id})")
+
+        lf_pipeline = create_law_firm_pipeline(db, company_id=1)
+        print(f"  ✓ Created Law Firm Pipeline (id={lf_pipeline.id})")
+
+        # Activate the Real Estate pipeline by default.
+        set_active_pipeline(db, re_pipeline.id, company_id=1)
+        print(f"  ✓ Activated Real Estate Buyer Pipeline")
+    except Exception as e:
+        print(f"  (pipeline seed skipped: {e})")
+    print()
+
+
 def seed_settings(db):
     """
     Create default system settings.
@@ -688,11 +726,14 @@ def main():
 
         # Seed preapproval data (form, scoring, message templates) for tenant 1
         try:
-            from gmail_lead_sync.preapproval.seed import seed_all as seed_preapproval
+            from gmail_lead_sync.preapproval.seed import seed_preapproval as seed_preapproval
             seed_preapproval(db, tenant_id=1)
             print("✓ Preapproval seed data created (tenant_id=1)")
         except Exception as e:
             print(f"  (preapproval seed skipped: {e})")
+
+        # Seed pipeline templates
+        seed_pipelines(db)
         
         # Summary
         print("=" * 60)

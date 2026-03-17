@@ -421,6 +421,20 @@ def on_buyer_lead_email_received(
         invitation.id,
     )
 
+    # Fire pipeline events for response_email_sent and qualification_form_sent.
+    try:
+        from api.models.pipeline_models import BuiltInEventType
+        from api.services.lead_stage_transition_engine import fire_event
+        fire_event(db, lead_id, BuiltInEventType.response_email_sent, {"tenant_id": tenant_id})
+        fire_event(db, lead_id, BuiltInEventType.qualification_form_sent, {"tenant_id": tenant_id})
+    except Exception as _pe:
+        logger.warning(
+            "Pipeline fire_event failed after invite sent for lead %d: %s",
+            lead_id,
+            _pe,
+            exc_info=True,
+        )
+
 
 # ---------------------------------------------------------------------------
 # Additional imports for on_buyer_form_submitted
@@ -867,6 +881,27 @@ def on_buyer_form_submitted(
         score_result.bucket.value,
         score_result.total,
     )
+
+    # Fire pipeline events for form submission and bucket scoring.
+    try:
+        from api.models.pipeline_models import BuiltInEventType
+        from api.services.lead_stage_transition_engine import fire_event
+        fire_event(db, invitation.lead_id, BuiltInEventType.qualification_form_submitted, {"tenant_id": invitation.tenant_id})
+        _bucket_event_map = {
+            "HOT": BuiltInEventType.qualification_bucket_hot,
+            "WARM": BuiltInEventType.qualification_bucket_warm,
+            "NURTURE": BuiltInEventType.qualification_bucket_nurture,
+        }
+        bucket_event = _bucket_event_map.get(score_result.bucket.value)
+        if bucket_event:
+            fire_event(db, invitation.lead_id, bucket_event, {"tenant_id": invitation.tenant_id})
+    except Exception as _pe:
+        logger.warning(
+            "Pipeline fire_event failed after form submitted for lead %d: %s",
+            invitation.lead_id,
+            _pe,
+            exc_info=True,
+        )
 
     # ------------------------------------------------------------------
     # 14. Return SubmitResult (Req 4.4)

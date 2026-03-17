@@ -764,6 +764,22 @@ class GmailWatcher:
 
                 # Mark as processed
                 self.mark_as_processed(message_id, lead.id)
+
+                # Fire pipeline lead_created event (Req 6.1, 6.2, 6.7)
+                try:
+                    from api.models.pipeline_models import BuiltInEventType
+                    from api.services.lead_stage_transition_engine import fire_event
+                    fire_event(
+                        self.db_session,
+                        lead.id,
+                        BuiltInEventType.lead_created,
+                        {"source_email": sender, "gmail_uid": gmail_uid},
+                    )
+                except Exception as _pe:
+                    logger.warning(
+                        f"Pipeline fire_event(lead_created) failed for lead {lead.id}: {_pe}",
+                        exc_info=True,
+                    )
                 
                 # Trigger buyer lead preapproval pipeline if tenant is configured
                 try:

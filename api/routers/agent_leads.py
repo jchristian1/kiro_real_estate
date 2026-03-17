@@ -758,3 +758,83 @@ def get_lead_events(
         lead_id=lead_id,
         events=events,
     )
+
+
+@router.get(
+    "/leads/{lead_id}/pipeline",
+    response_model="AgentLeadPipelineResponse",
+    summary="Get pipeline stage info for a lead",
+)
+def get_lead_pipeline(
+    lead_id: int,
+    db: Session = Depends(get_db),
+    agent: AgentUser = Depends(get_current_agent),
+):
+    """
+    Return pipeline stage info for a lead visible to the authenticated agent.
+
+    Enforces tenant isolation: the lead must belong to the agent's company.
+    Returns pipeline name, current stage, all stages, lifecycle events, and history.
+
+    Requirements: 10.5, 10.6, 10.7
+    """
+    from api.exceptions import NotFoundException
+    from api.models.error_models import ErrorCode
+    from api.models.pipeline_schemas import (
+        AgentLeadPipelineResponse,
+        LeadStageHistoryResponse,
+        PipelineStageResponse,
+    )
+    from api.services.lead_stage_service import get_current_stage, get_stage_history
+    from api.services.pipeline_service import get_active_pipeline
+    from api.services.pipeline_stage_service import list_stages
+    from gmail_lead_sync.models import Lead
+
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if lead is None:
+        raise NotFoundException(message="Lead not found", code=ErrorCode.NOT_FOUND_LEAD)
+
+    # Tenant isolation: lead must belong to the agent's company.
+    lead_company_id = getattr(lead, "company_id", None)
+    agent_company_id = getattr(agent, "company_id", None)
+    if lead_company_id != agent_company_id:
+        raise NotFoundException(message="Lead not found", code=ErrorCode.NOT_FOUND_LEAD)
+
+    pipeline = get_active_pipeline(db, agent_company_id) if agent_company_id else None
+    if pipeline is None:
+        return AgentLeadPipelineResponse(
+            pipeline_name="",
+            current_stage=None,
+            stage_entered_at=None,
+            stages=[],
+            lifecycle=[],
+            stage_history=[],
+        )
+
+    current_stage = get_current_stage(db, lead_id)
+    stages = list_stages(db, pipeline.id)
+    history = get_stage_history(db, lead_id)
+
+    from api.models.pipeline_models import PipelineStage as _PipelineStage
+
+    # Build a stage id->name lookup for lifecycle labels.
+    stage_name_map = {s.id: s.name for s in stages}
+
+    # Build lifecycle: one entry per history event with stage name and timestamp.
+    lifecycle = [
+        {
+            "event": f"Entered {stage_name_map.get(h.to_stage_id, str(h.to_stage_id))}",
+            "timestamp": h.created_at.isoformat() if h.created_at else None,
+            "source": h.change_source.value if hasattr(h.change_source, "value") else h.change_source,
+        }
+        for h in history
+    ]
+
+    return AgentLeadPipelineResponse(
+        pipeline_name=pipeline.name,
+        current_stage=PipelineStageResponse.model_validate(current_stage) if current_stage else None,
+        stage_entered_at=getattr(lead, "stage_entered_at", None),
+        stages=[PipelineStageResponse.model_validate(s) for s in stages],
+        lifecycle=lifecycle,
+        stage_history=[LeadStageHistoryResponse.model_validate(h) for h in history],
+    )

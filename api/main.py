@@ -60,6 +60,7 @@ from api.routers.admin_templates import router as admin_templates_router  # noqa
 from api.routers.admin_settings import router as admin_settings_router  # noqa: E402
 from api.routers.admin_companies import router as admin_companies_router  # noqa: E402
 from api.routers.admin_buyer_leads import router as admin_buyer_leads_router  # noqa: E402
+from api.routers.admin_pipelines import router as admin_pipelines_router  # noqa: E402
 from api.routers.public_submission import router as public_submission_router  # noqa: E402
 from api.routers.public_health import router as public_health_router  # noqa: E402
 from api.routers import (  # noqa: E402
@@ -683,6 +684,7 @@ app.include_router(admin_leads_router, prefix="/api/v1", tags=["Leads"])
 app.include_router(admin_settings_router, prefix="/api/v1", tags=["Settings"])
 app.include_router(admin_companies_router, prefix="/api/v1", tags=["Companies"])
 app.include_router(admin_buyer_leads_router, prefix="/api/v1/buyer-leads", tags=["Buyer Leads"])
+app.include_router(admin_pipelines_router, prefix="/api/v1", tags=["Pipelines"])
 
 # Agent-app routers
 app.include_router(agent_auth.router, prefix="/api/v1", tags=["Agent Auth"])
@@ -787,7 +789,8 @@ async def startup_event():
                 _sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
                 from scripts.seed_data import (
                     seed_users, seed_templates, seed_agents,
-                    seed_lead_sources, seed_leads, seed_settings
+                    seed_lead_sources, seed_leads, seed_settings,
+                    seed_pipelines,
                 )
                 from gmail_lead_sync.credentials import EncryptedDBCredentialsStore as _ECS
                 _cstore = _ECS(_seed_db, encryption_key=config.encryption_key)
@@ -800,6 +803,10 @@ async def startup_event():
                 try:
                     from gmail_lead_sync.preapproval.seed import seed_all as _seed_preapproval
                     _seed_preapproval(_seed_db, tenant_id=1)
+                except Exception:
+                    pass
+                try:
+                    seed_pipelines(_seed_db)
                 except Exception:
                     pass
                 logger.info("Seed data created — login: admin/admin123")
