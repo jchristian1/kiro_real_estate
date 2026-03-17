@@ -51,6 +51,7 @@ from api.utils.rate_limiter import limiter  # noqa: E402
 from gmail_lead_sync.credentials import EncryptedDBCredentialsStore  # noqa: E402
 from api.services.watcher_registry import WatcherRegistry  # noqa: E402
 from api.routers.admin_auth import router as admin_auth_router  # noqa: E402
+from api.routers.admin_register import router as admin_register_router  # noqa: E402
 from api.routers.admin_agents import router as admin_agents_router  # noqa: E402
 from api.routers.admin_audit import router as admin_audit_router  # noqa: E402
 from api.routers.admin_leads import router as admin_leads_router  # noqa: E402
@@ -675,6 +676,7 @@ app.include_router(public_health_router, prefix="/api/v1", tags=["Health"])
 
 # Platform-admin routers
 app.include_router(admin_auth_router, prefix="/api/v1", tags=["Authentication"])
+app.include_router(admin_register_router, prefix="/api/v1", tags=["Authentication"])
 app.include_router(admin_audit_router, prefix="/api/v1", tags=["Audit Logs"])
 app.include_router(admin_agents_router, prefix="/api/v1", tags=["Agents"])
 app.include_router(admin_lead_sources_router, prefix="/api/v1", tags=["Lead Sources"])
