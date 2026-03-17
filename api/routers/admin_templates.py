@@ -10,7 +10,7 @@ Endpoints:
 - POST /api/v1/templates/preview - Preview template with sample data
 """
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from api.models.web_ui_models import User
@@ -31,7 +31,7 @@ from api.models.error_models import ErrorCode
 from api.exceptions import ValidationException, NotFoundException, ConflictException
 from api.services.audit_log import record_audit_log
 from api.repositories.template_repository import AdminTemplateRepository
-from api.dependencies.auth import require_role
+from api.dependencies.auth import require_role, get_current_admin
 
 router = APIRouter(dependencies=[Depends(require_role("company_admin"))])
 
@@ -45,16 +45,11 @@ def get_db():
         db.close()
 
 
-def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
-    from api.auth import get_current_user as auth_get_current_user
-    return auth_get_current_user(request, db)
-
-
 @router.post("/templates", response_model=TemplateResponse, status_code=status.HTTP_201_CREATED)
 def create_template(
     template_data: TemplateCreateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
 ):
     """Create a new template. Requirements: 3.1, 3.2, 3.4, 3.6, 3.8"""
     repo = AdminTemplateRepository(db)
@@ -82,7 +77,7 @@ def create_template(
 @router.get("/templates", response_model=TemplateListResponse)
 def list_templates(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
 ):
     """List all templates. Requirements: 3.1"""
     repo = AdminTemplateRepository(db)
@@ -94,7 +89,7 @@ def list_templates(
 def get_template(
     template_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
 ):
     """Get details for a specific template. Requirements: 3.1"""
     repo = AdminTemplateRepository(db)
@@ -112,7 +107,7 @@ def update_template(
     template_id: int,
     template_data: TemplateUpdateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
 ):
     """Update an existing template. Requirements: 3.1, 3.2, 3.4, 3.6, 3.8"""
     repo = AdminTemplateRepository(db)
@@ -174,7 +169,7 @@ def update_template(
 def delete_template(
     template_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
 ):
     """Delete a template. Requirements: 3.1, 3.8"""
     repo = AdminTemplateRepository(db)
@@ -201,7 +196,7 @@ def delete_template(
 def preview_template(
     preview_data: TemplatePreviewRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
 ):
     """Preview a template with sample data. Requirements: 3.3, 13.1, 13.2, 13.3"""
     import html
@@ -228,7 +223,7 @@ def preview_template(
 def get_template_versions(
     template_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
 ):
     """Get version history for a template. Requirements: 3.6"""
     repo = AdminTemplateRepository(db)
@@ -248,7 +243,7 @@ def rollback_template(
     template_id: int,
     rollback_data: TemplateRollbackRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
 ):
     """Rollback a template to a specific version. Requirements: 3.7, 3.8"""
     repo = AdminTemplateRepository(db)
