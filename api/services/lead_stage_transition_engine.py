@@ -139,7 +139,11 @@ def _send_email_via_smtp(to_address: str, subject: str, body: str, from_address:
 
 
 def _render_admin_template(db: Session, template_id, lead, tenant_id: int) -> tuple[str, str]:
-    """Fetch an AdminTemplate by ID and render it with lead/agent placeholders."""
+    """Fetch an AdminTemplate by ID and render it with lead/agent placeholders.
+
+    For {form_link}, creates a real FormInvitation and embeds the token URL.
+    Falls back to the base URL if no active form version exists for the tenant.
+    """
     from api.repositories.template_repository import AdminTemplateRepository
     from gmail_lead_sync.agent_models import AgentUser
     import os as _os
@@ -152,12 +156,34 @@ def _render_admin_template(db: Session, template_id, lead, tenant_id: int) -> tu
     agent = db.query(AgentUser).filter(AgentUser.company_id == tenant_id).first()
     base_url = _os.environ.get("PUBLIC_BASE_URL", "http://localhost:5173").rstrip("/")
 
+    # Build a real form link with a token if the template uses {form_link}
+    form_link = f"{base_url}/public/buyer-qualification"
+    if "{form_link}" in tpl.subject or "{form_link}" in tpl.body:
+        try:
+            from gmail_lead_sync.preapproval.handlers import (
+                _resolve_active_form_version, _build_form_url,
+            )
+            from gmail_lead_sync.preapproval.invitation_service import FormInvitationService
+            from gmail_lead_sync.preapproval.models_preapproval import IntentType
+            form_version = _resolve_active_form_version(db, tenant_id, IntentType.BUY)
+            if form_version is not None:
+                raw_token, _ = FormInvitationService().create_invitation(
+                    db, tenant_id=tenant_id, lead_id=lead.id,
+                    form_version_id=form_version.id,
+                )
+                form_link = _build_form_url(raw_token)
+        except Exception as _fe:
+            logger.warning(
+                "Could not create form invitation for lead %s tenant %s: %s",
+                lead.id, tenant_id, _fe,
+            )
+
     mapping = {
         "{lead_name}": lead.name or "",
         "{agent_name}": (agent.full_name if agent else "") or "",
         "{agent_phone}": (agent.phone if agent else "") or "",
         "{agent_email}": (agent.email if agent else "") or "",
-        "{form_link}": f"{base_url}/public/buyer-qualification",
+        "{form_link}": form_link,
     }
     subject = tpl.subject
     body = tpl.body
