@@ -17,7 +17,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useTheme } from '../../../../shared/contexts/ThemeContext';
 import { getTokens } from '../../../../shared/utils/theme';
 import {
-  usePipelineStages, useReorderStages, useCreateStage,
+  usePipelineStages, useReorderStages, useCreateStage, usePipelineRules,
 } from '../../hooks/usePipelineQueries';
 import { StageDrawer } from './StageDrawer.tsx';
 import type { PipelineStage, PipelineStageCreate } from '../../api/pipelinesApi';
@@ -30,6 +30,7 @@ export const BuilderTab: React.FC<Props> = ({ pipelineId }) => {
   const { data: stages = [], isLoading } = usePipelineStages(pipelineId);
   const reorderStages = useReorderStages();
   const createStage = useCreateStage();
+  const { data: allRules = [] } = usePipelineRules(pipelineId);
   const [drawerStage, setDrawerStage] = useState<PipelineStage | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -99,7 +100,11 @@ export const BuilderTab: React.FC<Props> = ({ pipelineId }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: 0, minWidth: 'max-content' }}>
               {sorted.map((stage, idx) => (
                 <React.Fragment key={stage.id}>
-                  <SortableStage stage={stage} onClick={() => setDrawerStage(stage)} />
+                  <SortableStage
+                    stage={stage}
+                    onClick={() => setDrawerStage(stage)}
+                    ruleCount={allRules.filter(r => r.trigger_type === 'on_stage_enter' && r.trigger_stage_id === stage.id).length}
+                  />
                   {idx < sorted.length - 1 && (
                     <div style={{ color: t.textFaint, fontSize: 16, padding: '0 4px', flexShrink: 0 }}>→</div>
                   )}
@@ -156,44 +161,89 @@ export const BuilderTab: React.FC<Props> = ({ pipelineId }) => {
   );
 };
 
-// ── Sortable stage pill ───────────────────────────────────────────────────
+// ── Sortable stage card ───────────────────────────────────────────────────
 
-const SortableStage: React.FC<{ stage: PipelineStage; onClick: () => void }> = ({ stage, onClick }) => {
+const SortableStage: React.FC<{ stage: PipelineStage; onClick: () => void; ruleCount: number }> = ({ stage, onClick, ruleCount }) => {
   const { theme } = useTheme();
   const t = getTokens(theme);
+  const isDark = theme === 'dark';
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: stage.id });
+  const [hovered, setHovered] = React.useState(false);
+
+  const categoryLabel: Record<string, string> = {
+    open: 'Open', in_progress: 'In Progress', waiting: 'Waiting', won: 'Won', lost: 'Lost',
+  };
 
   return (
     <div
       ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.5 : 1,
-        flexShrink: 0,
-      }}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1, flexShrink: 0 }}
       {...attributes}
       {...listeners}
     >
       <button
         onClick={onClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         style={{
-          background: stage.color + '22',
-          border: `1.5px solid ${stage.color}`,
-          borderRadius: 12, padding: '10px 18px', cursor: 'pointer',
-          display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4,
-          minWidth: 120, transition: 'all 0.15s',
+          background: hovered
+            ? (isDark ? `${stage.color}18` : `${stage.color}12`)
+            : (isDark ? 'rgba(255,255,255,0.04)' : '#ffffff'),
+          border: `1.5px solid ${hovered ? stage.color + '88' : (isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.09)')}`,
+          borderRadius: 14,
+          padding: '14px 16px',
+          cursor: 'pointer',
+          display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10,
+          minWidth: 148, maxWidth: 180,
+          transition: 'all 0.18s',
+          boxShadow: hovered
+            ? `0 4px 20px ${stage.color}22, 0 0 0 1px ${stage.color}33`
+            : (isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.06)'),
+          textAlign: 'left',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: stage.color, flexShrink: 0 }} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{stage.name}</span>
-          {stage.is_default && (
-            <span style={{ fontSize: 9, fontWeight: 700, color: t.accent, background: t.accentBg, padding: '1px 5px', borderRadius: 6 }}>DEFAULT</span>
-          )}
+        {/* Top row: color dot + badges */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <div style={{
+            width: 10, height: 10, borderRadius: '50%', background: stage.color, flexShrink: 0,
+            boxShadow: `0 0 8px ${stage.color}88`,
+          }} />
+          <div style={{ display: 'flex', gap: 4 }}>
+            {stage.is_default && (
+              <span style={{ fontSize: 9, fontWeight: 700, color: t.accent, background: t.accentBg, padding: '2px 6px', borderRadius: 6, letterSpacing: '0.3px' }}>DEFAULT</span>
+            )}
+            {stage.is_closed_won && (
+              <span style={{ fontSize: 9, fontWeight: 700, color: t.green, background: t.greenBg, padding: '2px 6px', borderRadius: 6 }}>WON</span>
+            )}
+            {stage.is_closed_lost && (
+              <span style={{ fontSize: 9, fontWeight: 700, color: t.red, background: t.redBg, padding: '2px 6px', borderRadius: 6 }}>LOST</span>
+            )}
+          </div>
         </div>
-        <div style={{ fontSize: 10, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-          {stage.category}{stage.is_closed_won ? ' · Won' : stage.is_closed_lost ? ' · Lost' : ''}
+
+        {/* Stage name */}
+        <div style={{ fontSize: 14, fontWeight: 700, color: t.text, letterSpacing: '-0.2px', lineHeight: 1.2 }}>
+          {stage.name}
+        </div>
+
+        {/* Bottom row: category + action count */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <span style={{
+            fontSize: 10, fontWeight: 600, color: t.textFaint,
+            textTransform: 'uppercase', letterSpacing: '0.5px',
+          }}>
+            {categoryLabel[stage.category] ?? stage.category}
+          </span>
+          {ruleCount > 0 && (
+            <span style={{
+              fontSize: 10, fontWeight: 700,
+              color: t.accent, background: t.accentBg,
+              padding: '2px 7px', borderRadius: 20,
+              letterSpacing: '0.2px',
+            }}>
+              {ruleCount} {ruleCount === 1 ? 'action' : 'actions'}
+            </span>
+          )}
         </div>
       </button>
     </div>
