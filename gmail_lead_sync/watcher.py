@@ -763,8 +763,8 @@ class GmailWatcher:
                 # Mark as processed
                 self.mark_as_processed(message_id, lead.id)
 
-                # Fire pipeline lead_created event — the pipeline handles all
-                # subsequent actions (emails, stage transitions, etc.).
+                # Fire pipeline lead_created event — the pipeline handles stage
+                # transitions and any explicitly configured action rules.
                 try:
                     from api.models.pipeline_models import BuiltInEventType
                     from api.services.lead_stage_transition_engine import fire_event
@@ -777,6 +777,65 @@ class GmailWatcher:
                 except Exception as _pe:
                     logger.warning(
                         f"Pipeline fire_event(lead_created) failed for lead {lead.id}: {_pe}",
+                        exc_info=True,
+                    )
+
+                # Send qualification form if tenant has an active BUY form and
+                # the pipeline hasn't already sent one via a send_qualification_form rule.
+                try:
+                    from gmail_lead_sync.models import Credentials, Company
+                    from gmail_lead_sync.preapproval.handlers import on_buyer_lead_email_received
+                    from gmail_lead_sync.preapproval.models_preapproval import FormTemplate, FormInvitation
+
+                    tenant_id = None
+                    if lead.agent_id:
+                        creds = (
+                            self.db_session.query(Credentials)
+                            .filter(Credentials.agent_id == lead.agent_id)
+                            .first()
+                        )
+                        if creds and creds.company_id:
+                            tenant_id = creds.company_id
+                    if not tenant_id:
+                        try:
+                            from gmail_lead_sync.agent_models import AgentUser
+                            au = self.db_session.query(AgentUser).filter(
+                                AgentUser.id == int(self.agent_id)
+                            ).first()
+                            if au and au.company_id:
+                                tenant_id = au.company_id
+                        except (ValueError, TypeError):
+                            pass
+                    if not tenant_id:
+                        first_company = self.db_session.query(Company).first()
+                        if first_company:
+                            tenant_id = first_company.id
+
+                    if tenant_id:
+                        has_form = (
+                            self.db_session.query(FormTemplate)
+                            .filter(
+                                FormTemplate.tenant_id == tenant_id,
+                                FormTemplate.intent_type == "BUY",
+                            )
+                            .first()
+                        )
+                        if has_form:
+                            already_invited = (
+                                self.db_session.query(FormInvitation)
+                                .filter(FormInvitation.lead_id == lead.id)
+                                .first()
+                            )
+                            if not already_invited:
+                                on_buyer_lead_email_received(
+                                    db=self.db_session,
+                                    tenant_id=tenant_id,
+                                    lead_id=lead.id,
+                                    parsed_metadata={},
+                                )
+                except Exception as e:
+                    logger.error(
+                        f"Error sending qualification form for lead {lead.id}: {e}",
                         exc_info=True,
                     )
             else:
