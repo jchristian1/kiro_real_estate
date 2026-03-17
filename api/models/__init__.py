@@ -17,6 +17,17 @@ from api.models.web_ui_models import (
     Setting
 )
 from api.models.error_models import ErrorResponse, ErrorDetail, ErrorCode, create_error_response
+from api.models.pipeline_models import (
+    Pipeline,
+    PipelineStage,
+    LeadStageHistory,
+    PipelineEventMapping,
+    PipelineActionRule,
+    PipelineActionRuleStep,
+    StageCategory,
+    ChangeSource,
+    BuiltInEventType,
+)
 
 __all__ = [
     # Base
@@ -40,4 +51,14 @@ __all__ = [
     'ErrorDetail',
     'ErrorCode',
     'create_error_response',
+    # Pipeline models
+    'Pipeline',
+    'PipelineStage',
+    'LeadStageHistory',
+    'PipelineEventMapping',
+    'PipelineActionRule',
+    'PipelineActionRuleStep',
+    'StageCategory',
+    'ChangeSource',
+    'BuiltInEventType',
 ]

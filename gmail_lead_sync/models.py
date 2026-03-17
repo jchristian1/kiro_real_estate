@@ -37,6 +37,11 @@ class Lead(Base):
     response_status = Column(String(50))
     agent_id = Column(String(255), nullable=True, index=True)
     
+    # Pipeline fields (nullable — leads may exist before a pipeline is configured)
+    pipeline_id = Column(Integer, ForeignKey('pipelines.id'), nullable=True, index=True)
+    current_stage_id = Column(Integer, ForeignKey('pipeline_stages.id'), nullable=True, index=True)
+    stage_entered_at = Column(DateTime, nullable=True)
+
     # Relationships
     lead_source = relationship("LeadSource", back_populates="leads")
     processing_logs = relationship("ProcessingLog", back_populates="lead")
