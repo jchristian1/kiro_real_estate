@@ -62,7 +62,7 @@ export const BuilderTab: React.FC<Props> = ({ pipelineId }) => {
         background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16,
         padding: '24px 20px', overflowX: 'auto',
       }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: t.textMuted, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: 11 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: t.textMuted, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           Stage Flow — drag to reorder
         </div>
 

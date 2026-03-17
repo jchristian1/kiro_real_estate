@@ -28,6 +28,7 @@ from api.repositories.lead_repository import LeadEventWriteRepository
 from api.repositories.watcher_repository import WatcherRepository
 from gmail_lead_sync.agent_models import AgentUser
 from api.dependencies.auth import require_role
+from api.models.pipeline_schemas import AgentLeadPipelineResponse
 from api.utils.sanitization import sanitize_string
 
 router = APIRouter(prefix="/agent", tags=["Agent Leads"], dependencies=[Depends(require_role("agent"))])
@@ -762,7 +763,7 @@ def get_lead_events(
 
 @router.get(
     "/leads/{lead_id}/pipeline",
-    response_model="AgentLeadPipelineResponse",
+    response_model=AgentLeadPipelineResponse,
     summary="Get pipeline stage info for a lead",
 )
 def get_lead_pipeline(
