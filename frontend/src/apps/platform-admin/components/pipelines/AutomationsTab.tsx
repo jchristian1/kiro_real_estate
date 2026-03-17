@@ -1,5 +1,5 @@
 /**
- * AutomationsTab — When/Then rule card builder.
+ * AutomationsTab — Zapier-style When/Then rule builder.
  * Requirements: 9.6
  */
 
@@ -14,9 +14,25 @@ import type { PipelineActionRule, PipelineStage, RuleCreate, RuleUpdate, ActionT
 
 interface Props { pipelineId: number; }
 
-const TRIGGER_TYPES = ['stage_entered', 'stage_exited', 'event_fired'];
-const CONDITION_TYPES = ['always', 'score_bucket', 'tag_present'];
-const ACTION_TYPES: ActionType[] = ['send_email', 'send_form', 'update_score', 'add_tag', 'webhook'];
+const TRIGGER_OPTIONS = [
+  { value: 'stage_entered', label: 'Lead enters a stage', icon: '→' },
+  { value: 'stage_exited',  label: 'Lead exits a stage',  icon: '←' },
+  { value: 'event_fired',   label: 'A platform event fires', icon: '⚡' },
+];
+
+const CONDITION_OPTIONS = [
+  { value: 'always',       label: 'Always (no condition)',  desc: 'Run every time the trigger fires' },
+  { value: 'score_bucket', label: 'Lead score bucket is…',  desc: 'e.g. HOT, WARM, NURTURE' },
+  { value: 'tag_present',  label: 'Lead has tag…',          desc: 'e.g. vip, urgent' },
+];
+
+const ACTION_OPTIONS: { value: ActionType; label: string; icon: string; desc: string }[] = [
+  { value: 'send_email',   label: 'Send Email',        icon: '✉️', desc: 'Send an email to the lead' },
+  { value: 'send_form',    label: 'Send Form',         icon: '📋', desc: 'Send a qualification form' },
+  { value: 'update_score', label: 'Update Score',      icon: '📊', desc: 'Adjust the lead score' },
+  { value: 'add_tag',      label: 'Add Tag',           icon: '🏷️', desc: 'Tag the lead' },
+  { value: 'webhook',      label: 'Send Webhook',      icon: '🔗', desc: 'POST to an external URL' },
+];
 
 export const AutomationsTab: React.FC<Props> = ({ pipelineId }) => {
   const { theme } = useTheme();
@@ -24,13 +40,12 @@ export const AutomationsTab: React.FC<Props> = ({ pipelineId }) => {
   const { data: rules = [], isLoading } = usePipelineRules(pipelineId);
   const { data: stages = [] } = usePipelineStages(pipelineId);
   const createRule = useCreateRule();
-
   const sorted = [...rules].sort((a, b) => a.position - b.position);
 
   const handleNewRule = async () => {
     await createRule.mutateAsync({
       pipelineId,
-      name: 'New Rule',
+      name: 'New Automation',
       trigger_type: 'stage_entered',
       condition_type: 'always',
       is_enabled: false,
@@ -39,18 +54,47 @@ export const AutomationsTab: React.FC<Props> = ({ pipelineId }) => {
     } as RuleCreate & { pipelineId: number });
   };
 
-  if (isLoading) {
-    return <div style={{ color: t.textFaint, fontSize: 14, padding: 24 }}>Loading rules…</div>;
-  }
+  if (isLoading) return <div style={{ color: t.textFaint, fontSize: 14, padding: 24 }}>Loading…</div>;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Explainer */}
+      <div style={{
+        background: t.accentBg, border: `1px solid ${t.accent}22`,
+        borderRadius: 12, padding: '14px 18px',
+        display: 'flex', alignItems: 'flex-start', gap: 12,
+      }}>
+        <span style={{ fontSize: 20 }}>⚡</span>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: t.text, marginBottom: 2 }}>Automate your pipeline</div>
+          <div style={{ fontSize: 12, color: t.textMuted }}>
+            Create rules that run automatically. Each rule has a <strong>trigger</strong> (when something happens),
+            an optional <strong>condition</strong> (only if…), and one or more <strong>actions</strong> (do this).
+          </div>
+        </div>
+      </div>
+
       {sorted.length === 0 && (
         <div style={{
-          background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14,
-          padding: '40px 24px', textAlign: 'center', color: t.textMuted, fontSize: 13,
+          background: t.bgCard, border: `1.5px dashed ${t.border}`,
+          borderRadius: 14, padding: '48px 24px', textAlign: 'center',
         }}>
-          No automation rules yet. Create one to automate actions when leads move through stages.
+          <div style={{ fontSize: 32, marginBottom: 12 }}>🤖</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: t.text, marginBottom: 6 }}>No automations yet</div>
+          <div style={{ fontSize: 13, color: t.textMuted, marginBottom: 20 }}>
+            Automations save time by taking actions automatically when leads move through your pipeline.
+          </div>
+          <button
+            onClick={handleNewRule}
+            disabled={createRule.isPending}
+            style={{
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              border: 'none', borderRadius: 9, color: '#fff',
+              fontSize: 13, fontWeight: 600, padding: '10px 22px', cursor: 'pointer',
+            }}
+          >
+            Create your first automation
+          </button>
         </div>
       )}
 
@@ -58,17 +102,19 @@ export const AutomationsTab: React.FC<Props> = ({ pipelineId }) => {
         <RuleCard key={rule.id} rule={rule} pipelineId={pipelineId} stages={stages} />
       ))}
 
-      <button
-        onClick={handleNewRule}
-        disabled={createRule.isPending}
-        style={{
-          background: t.accentBg, border: `1.5px dashed ${t.accent}`, borderRadius: 12,
-          color: t.accent, fontSize: 13, fontWeight: 600, padding: '12px',
-          cursor: 'pointer', transition: 'all 0.15s',
-        }}
-      >
-        {createRule.isPending ? 'Creating…' : '+ New Rule'}
-      </button>
+      {sorted.length > 0 && (
+        <button
+          onClick={handleNewRule}
+          disabled={createRule.isPending}
+          style={{
+            background: t.bgCard, border: `1.5px dashed ${t.border}`,
+            borderRadius: 12, color: t.textMuted, fontSize: 13, fontWeight: 600,
+            padding: '12px', cursor: 'pointer', transition: 'all 0.15s',
+          }}
+        >
+          {createRule.isPending ? 'Creating…' : '+ Add Automation'}
+        </button>
+      )}
     </div>
   );
 };
@@ -80,7 +126,7 @@ const RuleCard: React.FC<{ rule: PipelineActionRule; pipelineId: number; stages:
   const t = getTokens(theme);
   const updateRule = useUpdateRule();
   const deleteRule = useDeleteRule();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(!rule.name || rule.name === 'New Automation');
   const [draft, setDraft] = useState<RuleUpdate>({
     name: rule.name,
     trigger_type: rule.trigger_type,
@@ -91,6 +137,10 @@ const RuleCard: React.FC<{ rule: PipelineActionRule; pipelineId: number; stages:
     is_enabled: rule.is_enabled,
     steps: rule.steps.map(s => ({ action_type: s.action_type, action_config_json: s.action_config_json, position: s.position })),
   });
+
+  const triggerLabel = TRIGGER_OPTIONS.find(o => o.value === rule.trigger_type)?.label ?? rule.trigger_type;
+  const stageName = stages.find(s => s.id === rule.trigger_stage_id)?.name;
+  const summary = stageName ? `${triggerLabel}: ${stageName}` : triggerLabel;
 
   const handleSave = async () => {
     await updateRule.mutateAsync({ pipelineId, ruleId: rule.id, ...draft });
@@ -112,134 +162,260 @@ const RuleCard: React.FC<{ rule: PipelineActionRule; pipelineId: number; stages:
     setDraft(d => ({ ...d, steps: (d.steps ?? []).filter((_, i) => i !== idx) }));
   };
 
-  const inputStyle: React.CSSProperties = {
+  const sel: React.CSSProperties = {
     background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 8,
-    color: t.text, fontSize: 13, padding: '7px 10px',
-  };
-
-  const labelStyle: React.CSSProperties = {
-    fontSize: 11, fontWeight: 600, color: t.textFaint,
-    textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4, display: 'block',
+    color: t.text, fontSize: 13, padding: '8px 12px', width: '100%', boxSizing: 'border-box' as const,
   };
 
   return (
-    <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, overflow: 'hidden' }}>
-      {/* Card header */}
+    <div style={{
+      background: t.bgCard, border: `1px solid ${t.border}`,
+      borderRadius: 14, overflow: 'hidden',
+      opacity: rule.is_enabled ? 1 : 0.75,
+    }}>
+      {/* Header */}
       <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <button
           onClick={() => setExpanded(e => !e)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, fontSize: 14, padding: 0, lineHeight: 1 }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, fontSize: 14, padding: 0, flexShrink: 0 }}
         >
           {expanded ? '▾' : '▸'}
         </button>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{rule.name}</div>
-          <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>
-            WHEN {rule.trigger_type.replace(/_/g, ' ')} · {rule.steps.length} action{rule.steps.length !== 1 ? 's' : ''}
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: t.text, marginBottom: 2 }}>{rule.name}</div>
+          <div style={{ fontSize: 12, color: t.textMuted, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ background: t.accentBg, color: t.accent, padding: '1px 7px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>WHEN</span>
+            <span>{summary}</span>
+            {rule.steps.length > 0 && (
+              <>
+                <span style={{ color: t.textFaint }}>→</span>
+                <span style={{ background: '#16a34a22', color: '#16a34a', padding: '1px 7px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>THEN</span>
+                <span>{rule.steps.length} action{rule.steps.length !== 1 ? 's' : ''}</span>
+              </>
+            )}
           </div>
         </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-          <input type="checkbox" checked={rule.is_enabled} onChange={handleToggle} style={{ width: 15, height: 15, cursor: 'pointer' }} />
-          <span style={{ fontSize: 12, color: rule.is_enabled ? t.green : t.textMuted }}>
-            {rule.is_enabled ? 'On' : 'Off'}
-          </span>
-        </label>
+
+        {/* Toggle */}
+        <button
+          onClick={handleToggle}
+          style={{
+            background: rule.is_enabled ? '#16a34a22' : t.bgCardHover,
+            border: `1px solid ${rule.is_enabled ? '#16a34a44' : t.border}`,
+            borderRadius: 20, padding: '4px 12px', cursor: 'pointer',
+            fontSize: 12, fontWeight: 600,
+            color: rule.is_enabled ? '#16a34a' : t.textMuted,
+            flexShrink: 0,
+          }}
+        >
+          {rule.is_enabled ? '● On' : '○ Off'}
+        </button>
+
         <button
           onClick={() => deleteRule.mutate({ pipelineId, ruleId: rule.id })}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textFaint, fontSize: 16, padding: '0 4px' }}
-          title="Delete rule"
-        >
-          ×
-        </button>
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textFaint, fontSize: 18, padding: '0 2px', flexShrink: 0, lineHeight: 1 }}
+          title="Delete"
+        >×</button>
       </div>
 
       {/* Expanded editor */}
       {expanded && (
-        <div style={{ borderTop: `1px solid ${t.border}`, padding: '18px 18px 14px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ borderTop: `1px solid ${t.border}`, padding: '20px 18px', display: 'flex', flexDirection: 'column', gap: 4 }}>
           {/* Name */}
-          <div>
-            <label style={labelStyle}>Rule Name</label>
-            <input value={draft.name ?? ''} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} style={{ ...inputStyle, width: '100%', boxSizing: 'border-box' }} />
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 6 }}>
+              Automation Name
+            </label>
+            <input
+              value={draft.name ?? ''}
+              onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+              style={sel}
+              placeholder="e.g. Send welcome email on new lead"
+            />
           </div>
 
-          {/* WHEN */}
-          <div style={{ background: t.bgCardHover, borderRadius: 10, padding: '14px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: t.accent, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>WHEN</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {/* WHEN block */}
+          <ZapBlock
+            color="#6366f1"
+            label="WHEN"
+            icon="⚡"
+            description="This automation runs when…"
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div>
-                <label style={labelStyle}>Trigger</label>
-                <select value={draft.trigger_type ?? ''} onChange={e => setDraft(d => ({ ...d, trigger_type: e.target.value }))} style={inputStyle}>
-                  {TRIGGER_TYPES.map(tt => <option key={tt} value={tt}>{tt.replace(/_/g, ' ')}</option>)}
+                <label style={{ fontSize: 11, color: t.textFaint, display: 'block', marginBottom: 4 }}>Trigger event</label>
+                <select value={draft.trigger_type ?? ''} onChange={e => setDraft(d => ({ ...d, trigger_type: e.target.value }))} style={sel}>
+                  {TRIGGER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.icon} {o.label}</option>)}
                 </select>
               </div>
               {(draft.trigger_type === 'stage_entered' || draft.trigger_type === 'stage_exited') && (
                 <div>
-                  <label style={labelStyle}>Stage</label>
-                  <select value={draft.trigger_stage_id ?? ''} onChange={e => setDraft(d => ({ ...d, trigger_stage_id: e.target.value ? Number(e.target.value) : undefined }))} style={inputStyle}>
+                  <label style={{ fontSize: 11, color: t.textFaint, display: 'block', marginBottom: 4 }}>Which stage?</label>
+                  <select value={draft.trigger_stage_id ?? ''} onChange={e => setDraft(d => ({ ...d, trigger_stage_id: e.target.value ? Number(e.target.value) : undefined }))} style={sel}>
                     <option value="">Any stage</option>
-                    {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    {[...stages].sort((a, b) => a.position - b.position).map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
                   </select>
                 </div>
               )}
             </div>
-          </div>
+          </ZapBlock>
 
-          {/* AND condition */}
-          <div style={{ background: t.bgCardHover, borderRadius: 10, padding: '14px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>AND (condition)</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <Connector />
+
+          {/* IF block */}
+          <ZapBlock color="#f59e0b" label="IF" icon="🔍" description="But only if…">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div>
-                <label style={labelStyle}>Condition</label>
-                <select value={draft.condition_type ?? ''} onChange={e => setDraft(d => ({ ...d, condition_type: e.target.value }))} style={inputStyle}>
-                  {CONDITION_TYPES.map(ct => <option key={ct} value={ct}>{ct.replace(/_/g, ' ')}</option>)}
+                <label style={{ fontSize: 11, color: t.textFaint, display: 'block', marginBottom: 4 }}>Condition</label>
+                <select value={draft.condition_type ?? 'always'} onChange={e => setDraft(d => ({ ...d, condition_type: e.target.value }))} style={sel}>
+                  {CONDITION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
+                <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>
+                  {CONDITION_OPTIONS.find(o => o.value === draft.condition_type)?.desc}
+                </div>
               </div>
               {draft.condition_type !== 'always' && (
                 <div>
-                  <label style={labelStyle}>Value</label>
-                  <input value={draft.condition_value ?? ''} onChange={e => setDraft(d => ({ ...d, condition_value: e.target.value }))} style={inputStyle} placeholder="e.g. HOT" />
+                  <label style={{ fontSize: 11, color: t.textFaint, display: 'block', marginBottom: 4 }}>Value</label>
+                  <input
+                    value={draft.condition_value ?? ''}
+                    onChange={e => setDraft(d => ({ ...d, condition_value: e.target.value }))}
+                    style={sel}
+                    placeholder={draft.condition_type === 'score_bucket' ? 'HOT, WARM, or NURTURE' : 'tag name'}
+                  />
                 </div>
               )}
             </div>
-          </div>
+          </ZapBlock>
 
-          {/* THEN steps */}
-          <div style={{ background: t.bgCardHover, borderRadius: 10, padding: '14px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: t.green, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>THEN</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Connector />
+
+          {/* THEN block */}
+          <ZapBlock color="#16a34a" label="THEN" icon="✅" description="Do these actions…">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {(draft.steps ?? []).length === 0 && (
+                <div style={{ fontSize: 12, color: t.textFaint, fontStyle: 'italic' }}>No actions yet — add one below.</div>
+              )}
               {(draft.steps ?? []).map((step, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <select
-                    value={step.action_type}
-                    onChange={e => setDraft(d => ({ ...d, steps: (d.steps ?? []).map((s, i) => i === idx ? { ...s, action_type: e.target.value as ActionType } : s) }))}
-                    style={{ ...inputStyle, flex: 1 }}
-                  >
-                    {ACTION_TYPES.map(at => <option key={at} value={at}>{at.replace(/_/g, ' ')}</option>)}
-                  </select>
-                  <input
-                    value={step.action_config_json}
-                    onChange={e => setDraft(d => ({ ...d, steps: (d.steps ?? []).map((s, i) => i === idx ? { ...s, action_config_json: e.target.value } : s) }))}
-                    placeholder='{"key":"value"}'
-                    style={{ ...inputStyle, flex: 2, fontFamily: 'monospace', fontSize: 12 }}
-                  />
-                  <button onClick={() => removeStep(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.red, fontSize: 16, padding: '0 4px' }}>×</button>
-                </div>
+                <ActionRow
+                  key={idx}
+                  step={step}
+                  idx={idx}
+                  onUpdate={(updated) => setDraft(d => ({ ...d, steps: (d.steps ?? []).map((s, i) => i === idx ? updated : s) }))}
+                  onRemove={() => removeStep(idx)}
+                />
               ))}
-              <button onClick={addStep} style={{ background: 'none', border: `1px dashed ${t.border}`, borderRadius: 8, color: t.textMuted, fontSize: 12, padding: '7px', cursor: 'pointer' }}>
-                + Add step
+              <button
+                onClick={addStep}
+                style={{
+                  background: 'none', border: `1.5px dashed ${t.border}`,
+                  borderRadius: 8, color: t.textMuted, fontSize: 12,
+                  padding: '8px', cursor: 'pointer', textAlign: 'center',
+                }}
+              >
+                + Add action
               </button>
             </div>
-          </div>
+          </ZapBlock>
 
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
             <button onClick={() => setExpanded(false)} style={{ background: 'none', border: `1px solid ${t.border}`, borderRadius: 8, color: t.textMuted, fontSize: 13, padding: '8px 16px', cursor: 'pointer' }}>
               Cancel
             </button>
-            <button onClick={handleSave} disabled={updateRule.isPending} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, padding: '8px 18px', cursor: 'pointer' }}>
-              {updateRule.isPending ? 'Saving…' : 'Save Rule'}
+            <button onClick={handleSave} disabled={updateRule.isPending} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, padding: '8px 20px', cursor: 'pointer' }}>
+              {updateRule.isPending ? 'Saving…' : 'Save Automation'}
             </button>
           </div>
         </div>
+      )}
+    </div>
+  );
+};
+
+// ── Zap block ─────────────────────────────────────────────────────────────
+
+const ZapBlock: React.FC<{ color: string; label: string; icon: string; description: string; children: React.ReactNode }> = ({ color, label, icon, description, children }) => {
+  const { theme } = useTheme();
+  const t = getTokens(theme);
+  return (
+    <div style={{ border: `1.5px solid ${color}33`, borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ background: `${color}18`, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: `1px solid ${color}22` }}>
+        <span style={{ fontSize: 16 }}>{icon}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color, letterSpacing: '0.8px' }}>{label}</span>
+        <span style={{ fontSize: 12, color: t.textMuted }}>{description}</span>
+      </div>
+      <div style={{ padding: '14px' }}>{children}</div>
+    </div>
+  );
+};
+
+// ── Connector arrow ───────────────────────────────────────────────────────
+
+const Connector: React.FC = () => {
+  const { theme } = useTheme();
+  const t = getTokens(theme);
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0', color: t.textFaint, fontSize: 18 }}>↓</div>
+  );
+};
+
+// ── Action row ────────────────────────────────────────────────────────────
+
+const ActionRow: React.FC<{
+  step: { action_type: ActionType; action_config_json: string; position: number };
+  idx: number;
+  onUpdate: (s: { action_type: ActionType; action_config_json: string; position: number }) => void;
+  onRemove: () => void;
+}> = ({ step, idx, onUpdate, onRemove }) => {
+  const { theme } = useTheme();
+  const t = getTokens(theme);
+  const opt = ACTION_OPTIONS.find(o => o.value === step.action_type);
+
+  // Parse config for friendly display
+  let config: Record<string, string> = {};
+  try { config = JSON.parse(step.action_config_json); } catch { /* ignore */ }
+
+  const sel: React.CSSProperties = {
+    background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 8,
+    color: t.text, fontSize: 13, padding: '7px 10px', width: '100%', boxSizing: 'border-box' as const,
+  };
+
+  return (
+    <div style={{ background: t.bgCardHover, border: `1px solid ${t.border}`, borderRadius: 10, padding: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 16 }}>{opt?.icon ?? '▶'}</span>
+        <select
+          value={step.action_type}
+          onChange={e => onUpdate({ ...step, action_type: e.target.value as ActionType })}
+          style={{ ...sel, flex: 1 }}
+        >
+          {ACTION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.icon} {o.label}</option>)}
+        </select>
+        <button onClick={onRemove} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textFaint, fontSize: 18, padding: '0 2px', lineHeight: 1 }}>×</button>
+      </div>
+      {opt && <div style={{ fontSize: 11, color: t.textFaint, marginBottom: 8 }}>{opt.desc}</div>}
+
+      {/* Friendly config fields per action type */}
+      {step.action_type === 'send_email' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <input placeholder="Subject line" value={config.subject ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, subject: e.target.value }) })} style={sel} />
+          <input placeholder="Template ID (optional)" value={config.template_id ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, template_id: e.target.value }) })} style={sel} />
+        </div>
+      )}
+      {step.action_type === 'send_form' && (
+        <input placeholder="Form ID" value={config.form_id ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, form_id: e.target.value }) })} style={sel} />
+      )}
+      {step.action_type === 'update_score' && (
+        <input placeholder="Score delta (e.g. +10 or -5)" value={config.delta ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, delta: e.target.value }) })} style={sel} />
+      )}
+      {step.action_type === 'add_tag' && (
+        <input placeholder="Tag name (e.g. vip)" value={config.tag ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, tag: e.target.value }) })} style={sel} />
+      )}
+      {step.action_type === 'webhook' && (
+        <input placeholder="Webhook URL (https://…)" value={config.url ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, url: e.target.value }) })} style={sel} />
       )}
     </div>
   );

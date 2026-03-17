@@ -56,14 +56,42 @@ export const BuilderTab: React.FC<Props> = ({ pipelineId }) => {
   }
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* How-to guide */}
+      {sorted.length === 0 && (
+        <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: '20px 24px' }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: t.text, marginBottom: 14 }}>How to set up your pipeline</div>
+          <div style={{ display: 'flex', gap: 0, flexWrap: 'wrap' }}>
+            {[
+              { step: '1', icon: '🏗️', title: 'Add stages',       desc: 'Create the stages a lead moves through, e.g. New → Contacted → Won' },
+              { step: '2', icon: '🔌', title: 'Map events',        desc: 'Go to Built-in Rules to auto-move leads when platform events fire' },
+              { step: '3', icon: '⚡', title: 'Add automations',   desc: 'Go to Automations to trigger emails or actions when leads change stage' },
+              { step: '4', icon: '✅', title: 'Activate',          desc: 'Click "Set Active" to make this the live pipeline for your company' },
+            ].map((item, idx, arr) => (
+              <div key={item.step} style={{ display: 'flex', alignItems: 'flex-start', gap: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 160, padding: '0 8px' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: t.accentBg, border: `2px solid ${t.accent}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, marginBottom: 8 }}>
+                    {item.icon}
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: t.text, marginBottom: 4, textAlign: 'center' }}>{item.title}</div>
+                  <div style={{ fontSize: 11, color: t.textFaint, textAlign: 'center', lineHeight: 1.4 }}>{item.desc}</div>
+                </div>
+                {idx < arr.length - 1 && (
+                  <div style={{ color: t.textFaint, fontSize: 20, paddingTop: 8, flexShrink: 0 }}>→</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Stage flow */}
       <div style={{
         background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16,
         padding: '24px 20px', overflowX: 'auto',
       }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: t.textMuted, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          Stage Flow — drag to reorder
+          Stage Flow — drag to reorder · click to edit
         </div>
 
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
