@@ -20,14 +20,7 @@ import { LeadsPage } from './pages/LeadsPage';
 import { AuditLogsPage } from './pages/AuditLogsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { PipelinesPage } from './pages/PipelinesPage';
-import { BuyerLeadsLayout } from './pages/buyer-leads/BuyerLeadsLayout';
-import { BuyerFormTab } from './pages/buyer-leads/BuyerFormTab';
-import { BuyerScoringTab } from './pages/buyer-leads/BuyerScoringTab';
-import { LeadStatesTab } from './pages/buyer-leads/LeadStatesTab';
-import { SimulationTab } from './pages/buyer-leads/SimulationTab';
-import { BuyerAuditTab } from './pages/buyer-leads/BuyerAuditTab';
-import { FormVersionEditor } from './pages/buyer-leads/FormVersionEditor';
-import { TemplateVersionEditor } from './pages/buyer-leads/TemplateVersionEditor';
+import { FormsPage } from './pages/FormsPage';
 import { PublicFormPage } from './pages/PublicFormPage';
 
 const queryClient = new QueryClient();
@@ -62,20 +55,11 @@ export const PlatformAdminApp: React.FC = () => (
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/pipelines" element={<PipelinesPage />} />
 
-          {/* Forms (formerly Buyer Automation) — no tenantId in URL */}
-          <Route path="/forms" element={<BuyerLeadsLayout />}>
-            <Route index element={<BuyerFormTab />} />
-            <Route path="qualification" element={<BuyerFormTab />} />
-            <Route path="qualification/:formId" element={<FormVersionEditor />} />
-            <Route path="scoring" element={<BuyerScoringTab />} />
-            <Route path="states" element={<LeadStatesTab />} />
-            <Route path="simulate" element={<SimulationTab />} />
-            <Route path="audit" element={<BuyerAuditTab />} />
-          </Route>
+          {/* Forms (formerly Buyer Automation) */}
+          <Route path="/forms" element={<FormsPage />} />
 
           {/* Legacy redirects */}
           <Route path="/buyer-leads/:tenantId/*" element={<Navigate to="/forms" replace />} />
-          <Route path="/qualification-templates/:tenantId/message-templates/:templateId" element={<TemplateVersionEditor />} />
         </Route>
 
         {/* Catch-all redirect to dashboard */}
