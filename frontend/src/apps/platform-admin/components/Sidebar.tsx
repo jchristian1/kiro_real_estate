@@ -9,18 +9,34 @@ import { useTheme } from '../../../shared/contexts/ThemeContext';
 import { getTokens } from '../../../shared/utils/theme';
 
 interface NavItem { to: string; label: string; icon: string; }
+interface NavGroup { label: string; items: NavItem[]; }
 
-const NAV_ITEMS: NavItem[] = [
-  { to: '/dashboard',     label: 'Dashboard',        icon: '◈' },
-  { to: '/leads',         label: 'Leads',            icon: '◎' },
-  { to: '/buyer-leads/1', label: 'Buyer Automation', icon: '⟳' },
-  { to: '/agents',        label: 'Agents',           icon: '◉' },
-  { to: '/companies',     label: 'Companies',        icon: '▣' },
-  { to: '/lead-sources',  label: 'Lead Sources',     icon: '⬡' },
-  { to: '/templates',     label: 'Templates',        icon: '◧' },
-  { to: '/audit-logs',    label: 'Audit Logs',       icon: '≡' },
-  { to: '/pipelines',     label: 'Pipelines',        icon: '⟶' },
-  { to: '/settings',      label: 'Settings',         icon: '⚙' },
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Overview',
+    items: [
+      { to: '/dashboard', label: 'Dashboard',    icon: '◈' },
+      { to: '/leads',     label: 'Leads',        icon: '◎' },
+    ],
+  },
+  {
+    label: 'Configuration',
+    items: [
+      { to: '/pipelines',    label: 'Pipelines',    icon: '⟶' },
+      { to: '/templates',    label: 'Templates',    icon: '◧' },
+      { to: '/forms',        label: 'Forms',        icon: '⊞' },
+      { to: '/lead-sources', label: 'Lead Sources', icon: '⬡' },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { to: '/agents',     label: 'Agents',     icon: '◉' },
+      { to: '/companies',  label: 'Companies',  icon: '▣' },
+      { to: '/audit-logs', label: 'Audit Logs', icon: '≡' },
+      { to: '/settings',   label: 'Settings',   icon: '⚙' },
+    ],
+  },
 ];
 
 export const Sidebar: React.FC = () => {
@@ -66,43 +82,54 @@ export const Sidebar: React.FC = () => {
 
       {/* Nav */}
       <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
-        {NAV_ITEMS.map(item => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            style={({ isActive }) => ({
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '8px 10px',
-              borderRadius: 9,
-              marginBottom: 1,
-              fontSize: 13,
-              fontWeight: isActive ? 600 : 400,
-              color: isActive ? (theme === 'dark' ? '#fff' : '#6366f1') : t.textMuted,
-              background: isActive ? t.accentBg : 'transparent',
-              textDecoration: 'none',
-              transition: 'all 0.12s',
-              letterSpacing: '-0.1px',
-            })}
-            onMouseEnter={e => {
-              const el = e.currentTarget as HTMLAnchorElement;
-              if (!el.getAttribute('aria-current')) {
-                el.style.background = t.bgCardHover;
-                el.style.color = t.textSecondary;
-              }
-            }}
-            onMouseLeave={e => {
-              const el = e.currentTarget as HTMLAnchorElement;
-              if (!el.getAttribute('aria-current')) {
-                el.style.background = 'transparent';
-                el.style.color = t.textMuted;
-              }
-            }}
-          >
-            <span style={{ fontSize: 13, width: 18, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
-            {item.label}
-          </NavLink>
+        {NAV_GROUPS.map((group, gi) => (
+          <div key={group.label} style={{ marginBottom: gi < NAV_GROUPS.length - 1 ? 16 : 0 }}>
+            <div style={{
+              fontSize: 9, fontWeight: 700, color: t.textFaint,
+              textTransform: 'uppercase', letterSpacing: '0.9px',
+              padding: '0 10px', marginBottom: 4,
+            }}>
+              {group.label}
+            </div>
+            {group.items.map(item => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                style={({ isActive }) => ({
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '8px 10px',
+                  borderRadius: 9,
+                  marginBottom: 1,
+                  fontSize: 13,
+                  fontWeight: isActive ? 600 : 400,
+                  color: isActive ? (theme === 'dark' ? '#fff' : '#6366f1') : t.textMuted,
+                  background: isActive ? t.accentBg : 'transparent',
+                  textDecoration: 'none',
+                  transition: 'all 0.12s',
+                  letterSpacing: '-0.1px',
+                })}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLAnchorElement;
+                  if (!el.getAttribute('aria-current')) {
+                    el.style.background = t.bgCardHover;
+                    el.style.color = t.textSecondary;
+                  }
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLAnchorElement;
+                  if (!el.getAttribute('aria-current')) {
+                    el.style.background = 'transparent';
+                    el.style.color = t.textMuted;
+                  }
+                }}
+              >
+                <span style={{ fontSize: 13, width: 18, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
 

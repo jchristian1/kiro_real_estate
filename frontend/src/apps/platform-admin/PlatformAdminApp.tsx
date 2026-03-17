@@ -60,17 +60,20 @@ export const PlatformAdminApp: React.FC = () => (
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/pipelines" element={<PipelinesPage />} />
 
-          <Route path="/qualification-templates/:tenantId/message-templates/:templateId" element={<TemplateVersionEditor />} />
-
-          <Route path="/buyer-leads/:tenantId" element={<BuyerLeadsLayout />}>
+          {/* Forms (formerly Buyer Automation) — no tenantId in URL */}
+          <Route path="/forms" element={<BuyerLeadsLayout />}>
             <Route index element={<BuyerFormTab />} />
-            <Route path="forms" element={<BuyerFormTab />} />
-            <Route path="forms/:formId" element={<FormVersionEditor />} />
+            <Route path="qualification" element={<BuyerFormTab />} />
+            <Route path="qualification/:formId" element={<FormVersionEditor />} />
             <Route path="scoring" element={<BuyerScoringTab />} />
             <Route path="states" element={<LeadStatesTab />} />
             <Route path="simulate" element={<SimulationTab />} />
             <Route path="audit" element={<BuyerAuditTab />} />
           </Route>
+
+          {/* Legacy redirects */}
+          <Route path="/buyer-leads/:tenantId/*" element={<Navigate to="/forms" replace />} />
+          <Route path="/qualification-templates/:tenantId/message-templates/:templateId" element={<TemplateVersionEditor />} />
         </Route>
 
         {/* Catch-all redirect to dashboard */}
