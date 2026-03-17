@@ -96,6 +96,77 @@ def _get_default_stage(db: Session, pipeline_id: int) -> Optional[PipelineStage]
     )
 
 
+def _get_lead_and_tenant(db: Session, lead_id: int):
+    """Return (lead, tenant_id) or raise ValueError if lead not found."""
+    from gmail_lead_sync.models import Lead
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if lead is None:
+        raise ValueError(f"Lead {lead_id} not found")
+    tenant_id = _get_company_id(db, lead_id)
+    if tenant_id is None:
+        raise ValueError(f"Cannot resolve company_id for lead {lead_id}")
+    return lead, tenant_id
+
+
+def _get_smtp_creds(db: Session, tenant_id: int):
+    """Return (from_email, app_password) for tenant, or raise ValueError."""
+    import os as _os
+    from gmail_lead_sync.models import Credentials
+    creds = db.query(Credentials).filter(Credentials.company_id == tenant_id).first()
+    if creds is None:
+        raise ValueError(f"No SMTP credentials for tenant {tenant_id}")
+    encryption_key = _os.environ.get("ENCRYPTION_KEY")
+    if encryption_key:
+        from gmail_lead_sync.credentials import EncryptedDBCredentialsStore
+        store = EncryptedDBCredentialsStore(db, encryption_key)
+        return store.get_credentials(creds.agent_id)
+    return creds.email_encrypted, creds.app_password_encrypted
+
+
+def _send_email_via_smtp(to_address: str, subject: str, body: str, from_address: str, app_password: str) -> None:
+    """Send email via Gmail SMTP using AutoResponder."""
+    from gmail_lead_sync.responder import AutoResponder
+    responder = object.__new__(AutoResponder)
+    ok = responder.send_email(
+        to_address=to_address,
+        subject=subject,
+        body=body,
+        from_address=from_address,
+        app_password=app_password,
+    )
+    if not ok:
+        raise RuntimeError(f"SMTP send failed to {to_address}")
+
+
+def _render_admin_template(db: Session, template_id, lead, tenant_id: int) -> tuple[str, str]:
+    """Fetch an AdminTemplate by ID and render it with lead/agent placeholders."""
+    from api.repositories.template_repository import AdminTemplateRepository
+    from gmail_lead_sync.agent_models import AgentUser
+    import os as _os
+
+    repo = AdminTemplateRepository(db)
+    tpl = repo.get_by_id(int(template_id))
+    if tpl is None:
+        raise ValueError(f"AdminTemplate {template_id} not found")
+
+    agent = db.query(AgentUser).filter(AgentUser.company_id == tenant_id).first()
+    base_url = _os.environ.get("PUBLIC_BASE_URL", "http://localhost:5173").rstrip("/")
+
+    mapping = {
+        "{lead_name}": lead.name or "",
+        "{agent_name}": (agent.full_name if agent else "") or "",
+        "{agent_phone}": (agent.phone if agent else "") or "",
+        "{agent_email}": (agent.email if agent else "") or "",
+        "{form_link}": f"{base_url}/public/buyer-qualification",
+    }
+    subject = tpl.subject
+    body = tpl.body
+    for placeholder, value in mapping.items():
+        subject = subject.replace(placeholder, value)
+        body = body.replace(placeholder, value)
+    return subject, body
+
+
 def _execute_step(
     db: Session,
     lead_id: int,
@@ -105,7 +176,7 @@ def _execute_step(
     context: dict,
 ) -> None:
     """
-    Execute a single automation rule step, delegating to the appropriate service.
+    Execute a single automation rule step.
 
     Raises an exception on failure so the caller can catch and log it.
     """
@@ -120,53 +191,74 @@ def _execute_step(
         template_id = config.get("template_id")
         if template_id is None:
             raise ValueError("send_email_template: missing template_id in action_config_json")
-        try:
-            from gmail_lead_sync.preapproval.handlers import on_buyer_lead_email_received  # noqa: F401
-            # Delegate to the existing email service if available.
-            # The actual email dispatch is handled by the watcher/handler layer.
-            # Here we log the intent and let the existing service handle delivery.
-            logger.info(
-                "Pipeline action: send_email_template lead_id=%s template_id=%s",
-                lead_id,
-                template_id,
-            )
-        except ImportError:
-            logger.warning(
-                "send_email_template: email service not available, skipping lead_id=%s",
-                lead_id,
-            )
+
+        lead, tenant_id = _get_lead_and_tenant(db, lead_id)
+        subject, body = _render_admin_template(db, template_id, lead, tenant_id)
+        from_email, app_password = _get_smtp_creds(db, tenant_id)
+        _send_email_via_smtp(lead.source_email, subject, body, from_email, app_password)
+        logger.info(
+            "Pipeline action: send_email_template sent lead_id=%s template_id=%s",
+            lead_id, template_id,
+        )
 
     elif action_type == "send_qualification_form":
-        form_id = config.get("form_id") or config.get("form_version_id")
+        lead, tenant_id = _get_lead_and_tenant(db, lead_id)
+        # Delegate to the existing on_buyer_lead_email_received handler which
+        # creates the invitation, renders the template, and sends the email.
         try:
-            from gmail_lead_sync.preapproval.invitation_service import FormInvitationService  # noqa: F401
+            from gmail_lead_sync.preapproval.handlers import on_buyer_lead_email_received
+            on_buyer_lead_email_received(
+                db=db,
+                tenant_id=tenant_id,
+                lead_id=lead_id,
+                parsed_metadata=context,
+            )
             logger.info(
-                "Pipeline action: send_qualification_form lead_id=%s form_id=%s",
-                lead_id,
-                form_id,
+                "Pipeline action: send_qualification_form sent lead_id=%s tenant_id=%s",
+                lead_id, tenant_id,
             )
-        except ImportError:
-            logger.warning(
-                "send_qualification_form: form service not available, skipping lead_id=%s",
-                lead_id,
-            )
+        except Exception as exc:
+            raise RuntimeError(f"send_qualification_form failed for lead {lead_id}: {exc}") from exc
 
     elif action_type == "send_bucket_followup_email":
-        from gmail_lead_sync.models import Lead as _Lead
-        _lead = db.query(_Lead).filter(_Lead.id == lead_id).first()
-        bucket = config.get("bucket") or getattr(_lead, "score_bucket", None)
-        try:
-            from api.services.scoring_engine import score_lead  # noqa: F401
-            logger.info(
-                "Pipeline action: send_bucket_followup_email lead_id=%s bucket=%s",
-                lead_id,
-                bucket,
+        template_id = config.get("template_id")
+        lead, tenant_id = _get_lead_and_tenant(db, lead_id)
+
+        if template_id:
+            # Use the explicitly configured template
+            subject, body = _render_admin_template(db, template_id, lead, tenant_id)
+        else:
+            # Fall back to the bucket-specific AgentTemplate (POST_HOT / POST_WARM / POST_NURTURE)
+            bucket = getattr(lead, "score_bucket", None)
+            if bucket is None:
+                raise ValueError(f"send_bucket_followup_email: lead {lead_id} has no score_bucket")
+            from gmail_lead_sync.preapproval.handlers import (
+                _resolve_agent_template, _render_agent_template, _build_form_url,
             )
-        except ImportError:
-            logger.warning(
-                "send_bucket_followup_email: scoring/email service not available, skipping lead_id=%s",
-                lead_id,
-            )
+            from gmail_lead_sync.agent_models import AgentUser
+            _bucket_to_type = {"HOT": "POST_HOT", "WARM": "POST_WARM", "NURTURE": "POST_NURTURE"}
+            tpl_type = _bucket_to_type.get(bucket.upper())
+            if tpl_type is None:
+                raise ValueError(f"send_bucket_followup_email: unknown bucket '{bucket}'")
+            agent_tpl = _resolve_agent_template(db, tenant_id, tpl_type)
+            if agent_tpl is None:
+                raise ValueError(f"No active {tpl_type} AgentTemplate for tenant {tenant_id}")
+            agent = db.query(AgentUser).filter(AgentUser.company_id == tenant_id).first()
+            agent_context = {
+                "lead_name": lead.name or "",
+                "agent_name": (agent.full_name if agent else "") or "",
+                "agent_phone": (agent.phone if agent else "") or "",
+                "agent_email": (agent.email if agent else "") or "",
+                "form_link": "",
+            }
+            subject, body = _render_agent_template(agent_tpl[0], agent_tpl[1], agent_context)
+
+        from_email, app_password = _get_smtp_creds(db, tenant_id)
+        _send_email_via_smtp(lead.source_email, subject, body, from_email, app_password)
+        logger.info(
+            "Pipeline action: send_bucket_followup_email sent lead_id=%s",
+            lead_id,
+        )
 
     elif action_type == "move_to_stage":
         stage_id = config.get("stage_id")
@@ -175,16 +267,13 @@ def _execute_step(
         move_stage(db, lead_id, int(stage_id), ChangeSource.automation)
         logger.info(
             "Pipeline action: move_to_stage lead_id=%s stage_id=%s",
-            lead_id,
-            stage_id,
+            lead_id, stage_id,
         )
 
     else:
         logger.warning(
             "Unknown action_type '%s' for step %s in rule %s — skipping",
-            action_type,
-            step.id,
-            rule_id,
+            action_type, step.id, rule_id,
         )
 
 
