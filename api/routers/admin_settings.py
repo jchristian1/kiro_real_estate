@@ -15,7 +15,7 @@ from api.services.audit_log import record_audit_log
 from api.repositories.settings_repository import SettingsRepository
 from api.dependencies.auth import require_role
 
-router = APIRouter(dependencies=[Depends(require_role("platform_admin"))])
+router = APIRouter(dependencies=[Depends(require_role("company_admin"))])
 
 DEFAULT_SETTINGS = {
     'sync_interval_seconds': '300',

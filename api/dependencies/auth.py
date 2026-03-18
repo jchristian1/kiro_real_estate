@@ -78,7 +78,7 @@ def get_current_admin(
             code=ErrorCode.AUTH_SESSION_EXPIRED,
         )
 
-    if user.role not in ("admin", "platform_admin"):
+    if user.role not in ("admin", "platform_admin", "company_admin"):
         raise AuthorizationException(
             message="Admin access required",
             code=ErrorCode.AUTH_FORBIDDEN,
@@ -108,7 +108,7 @@ def require_role(role: str) -> Callable:
     Requirements: 7.4, 11.2, 11.3
     """
 
-    if role in ("platform_admin", "admin"):
+    if role in ("platform_admin", "admin", "company_admin"):
 
         def _require_admin(
             request: Request,
@@ -165,4 +165,4 @@ def require_role(role: str) -> Callable:
         return _require_agent
 
     else:
-        raise ValueError(f"Unknown role: {role!r}. Expected 'platform_admin', 'admin', or 'agent'.")
+        raise ValueError(f"Unknown role: {role!r}. Expected 'platform_admin', 'admin', 'company_admin', or 'agent'.")

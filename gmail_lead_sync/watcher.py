@@ -22,7 +22,6 @@ from sqlalchemy.exc import IntegrityError
 from gmail_lead_sync.credentials import CredentialsStore
 from gmail_lead_sync.models import ProcessedMessage
 from gmail_lead_sync.parser import LeadParser
-from gmail_lead_sync.responder import AutoResponder
 from gmail_lead_sync.rate_limiter import RateLimiter
 
 
@@ -331,7 +330,6 @@ class GmailWatcher:
         self.agent_id = agent_id
         self.connection = IMAPConnection(credentials_store, agent_id)
         self.parser = LeadParser(db_session)
-        self.responder = AutoResponder(credentials_store, db_session, agent_id)
         # Initialize rate limiter: 100 requests per minute
         self.rate_limiter = RateLimiter(max_requests=100, time_window=60)
     
@@ -764,85 +762,21 @@ class GmailWatcher:
 
                 # Mark as processed
                 self.mark_as_processed(message_id, lead.id)
-                
-                # Trigger buyer lead preapproval pipeline if tenant is configured
+
+                # Fire pipeline lead_created event — the pipeline handles all
+                # subsequent actions (emails, stage transitions, etc.).
                 try:
-                    from gmail_lead_sync.models import Credentials, Company
-                    from gmail_lead_sync.preapproval.handlers import on_buyer_lead_email_received
-                    from gmail_lead_sync.preapproval.models_preapproval import FormTemplate
-
-                    # Resolve tenant_id: try Credentials.company_id first,
-                    # then AgentUser.company_id, then fall back to first company.
-                    tenant_id = None
-                    if lead.agent_id:
-                        creds = (
-                            self.db_session.query(Credentials)
-                            .filter(Credentials.agent_id == lead.agent_id)
-                            .first()
-                        )
-                        if creds and creds.company_id:
-                            tenant_id = creds.company_id
-
-                    # Fallback: check AgentUser.company_id (agent app agents)
-                    if not tenant_id:
-                        try:
-                            numeric_id = int(self.agent_id)
-                            from gmail_lead_sync.agent_models import AgentUser
-                            au = self.db_session.query(AgentUser).filter(
-                                AgentUser.id == numeric_id
-                            ).first()
-                            if au and au.company_id:
-                                tenant_id = au.company_id
-                        except (ValueError, TypeError):
-                            pass
-
-                    # Last resort: use the first available company
-                    if not tenant_id:
-                        first_company = self.db_session.query(Company).first()
-                        if first_company:
-                            tenant_id = first_company.id
-                            logger.info(
-                                f"No company set for agent {self.agent_id}, "
-                                f"using default company {tenant_id}"
-                            )
-
-                    if tenant_id:
-                        # Only trigger if tenant has an active BUY form
-                        has_form = (
-                            self.db_session.query(FormTemplate)
-                            .filter(
-                                FormTemplate.tenant_id == tenant_id,
-                                FormTemplate.intent_type == "BUY",
-                            )
-                            .first()
-                        )
-                        if has_form:
-                            logger.info(
-                                f"Triggering preapproval pipeline for lead {lead.id} "
-                                f"(tenant={tenant_id})"
-                            )
-                            on_buyer_lead_email_received(
-                                db=self.db_session,
-                                tenant_id=tenant_id,
-                                lead_id=lead.id,
-                                parsed_metadata={},
-                            )
-                        else:
-                            logger.debug(
-                                f"No BUY form for tenant {tenant_id}, skipping preapproval"
-                            )
-                            # Fall back to simple acknowledgment
-                            self._send_acknowledgment_if_enabled(lead)
-                    else:
-                        logger.debug(
-                            f"Cannot resolve tenant for lead {lead.id} "
-                            f"(agent_id={lead.agent_id}), skipping preapproval"
-                        )
-                        # Fall back to simple acknowledgment
-                        self._send_acknowledgment_if_enabled(lead)
-                except Exception as e:
-                    logger.error(
-                        f"Error triggering preapproval pipeline for lead {lead.id}: {e}",
+                    from api.models.pipeline_models import BuiltInEventType
+                    from api.services.lead_stage_transition_engine import fire_event
+                    fire_event(
+                        self.db_session,
+                        lead.id,
+                        BuiltInEventType.lead_created,
+                        {"source_email": sender, "gmail_uid": gmail_uid},
+                    )
+                except Exception as _pe:
+                    logger.warning(
+                        f"Pipeline fire_event(lead_created) failed for lead {lead.id}: {_pe}",
                         exc_info=True,
                     )
             else:
@@ -863,19 +797,6 @@ class GmailWatcher:
             )
             self.db_session.rollback()
     
-    def _send_acknowledgment_if_enabled(self, lead) -> None:
-        """Send acknowledgment email if auto-respond is enabled for the lead source."""
-        try:
-            self.db_session.refresh(lead)
-            lead_source = lead.lead_source
-            if lead_source and lead_source.auto_respond_enabled:
-                logger.info(f"Sending acknowledgment for lead {lead.id} (no preapproval pipeline)")
-                self.responder.send_acknowledgment(lead, lead_source)
-            else:
-                logger.debug(f"Auto-response disabled for lead source, skipping acknowledgment")
-        except Exception as e:
-            logger.error(f"Error sending acknowledgment for lead {lead.id}: {e}", exc_info=True)
-
     def start_monitoring(self) -> None:
         """
         Start IDLE mode monitoring for new emails.

@@ -5,10 +5,12 @@
 
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { DashboardLayout } from './components/DashboardLayout';
 import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { AgentsPage } from './pages/AgentsPage';
 import { CompaniesPage } from './pages/CompaniesPage';
@@ -17,58 +19,52 @@ import { TemplatesPage } from './pages/TemplatesPage';
 import { LeadsPage } from './pages/LeadsPage';
 import { AuditLogsPage } from './pages/AuditLogsPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { BuyerLeadsLayout } from './pages/buyer-leads/BuyerLeadsLayout';
-import { BuyerFormTab } from './pages/buyer-leads/BuyerFormTab';
-import { BuyerScoringTab } from './pages/buyer-leads/BuyerScoringTab';
-import { LeadStatesTab } from './pages/buyer-leads/LeadStatesTab';
-import { SimulationTab } from './pages/buyer-leads/SimulationTab';
-import { BuyerAuditTab } from './pages/buyer-leads/BuyerAuditTab';
-import { FormVersionEditor } from './pages/buyer-leads/FormVersionEditor';
-import { TemplateVersionEditor } from './pages/buyer-leads/TemplateVersionEditor';
+import { PipelinesPage } from './pages/PipelinesPage';
+import { FormsPage } from './pages/FormsPage';
 import { PublicFormPage } from './pages/PublicFormPage';
 
+const queryClient = new QueryClient();
+
 export const PlatformAdminApp: React.FC = () => (
-  <AuthProvider>
-    <Routes>
-      {/* Public routes */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/public/buyer-qualification/:token" element={<PublicFormPage />} />
+  <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <Routes>
+        {/* Public routes */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/public/buyer-qualification/:token" element={<PublicFormPage />} />
 
-      {/* Redirect root to dashboard */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* Redirect root to dashboard */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-      {/* Protected routes */}
-      <Route
-        element={
-          <ProtectedRoute>
-            <DashboardLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/agents" element={<AgentsPage />} />
-        <Route path="/companies" element={<CompaniesPage />} />
-        <Route path="/lead-sources" element={<LeadSourcesPage />} />
-        <Route path="/templates" element={<TemplatesPage />} />
-        <Route path="/leads" element={<LeadsPage />} />
-        <Route path="/audit-logs" element={<AuditLogsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
+        {/* Protected routes */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/agents" element={<AgentsPage />} />
+          <Route path="/companies" element={<CompaniesPage />} />
+          <Route path="/lead-sources" element={<LeadSourcesPage />} />
+          <Route path="/templates" element={<TemplatesPage />} />
+          <Route path="/leads" element={<LeadsPage />} />
+          <Route path="/audit-logs" element={<AuditLogsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/pipelines" element={<PipelinesPage />} />
 
-        <Route path="/qualification-templates/:tenantId/message-templates/:templateId" element={<TemplateVersionEditor />} />
+          {/* Forms (formerly Buyer Automation) */}
+          <Route path="/forms" element={<FormsPage />} />
 
-        <Route path="/buyer-leads/:tenantId" element={<BuyerLeadsLayout />}>
-          <Route index element={<BuyerFormTab />} />
-          <Route path="forms" element={<BuyerFormTab />} />
-          <Route path="forms/:formId" element={<FormVersionEditor />} />
-          <Route path="scoring" element={<BuyerScoringTab />} />
-          <Route path="states" element={<LeadStatesTab />} />
-          <Route path="simulate" element={<SimulationTab />} />
-          <Route path="audit" element={<BuyerAuditTab />} />
+          {/* Legacy redirects */}
+          <Route path="/buyer-leads/:tenantId/*" element={<Navigate to="/forms" replace />} />
         </Route>
-      </Route>
 
-      {/* Catch-all redirect to dashboard */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
-  </AuthProvider>
+        {/* Catch-all redirect to dashboard */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </AuthProvider>
+  </QueryClientProvider>
 );
