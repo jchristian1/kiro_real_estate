@@ -39,7 +39,7 @@ from api.repositories.lead_source_repository import (
 )
 from api.dependencies.auth import require_role
 
-router = APIRouter(dependencies=[Depends(require_role("platform_admin"))])
+router = APIRouter(dependencies=[Depends(require_role("company_admin"))])
 
 
 def _get_regex_timeout_ms() -> int:

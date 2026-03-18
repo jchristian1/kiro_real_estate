@@ -1,90 +1,233 @@
 # Real Estate Lead Management SaaS
 
-[![CI](https://github.com/your-org/your-repo/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/your-repo/actions/workflows/ci.yml)
+A multi-tenant SaaS platform for real estate agents and law firms that monitors Gmail accounts via IMAP, extracts and qualifies leads, manages automated responses, and provides a full-featured admin panel — deployable with a single command.
 
-A multi-tenant SaaS platform for real estate agents that monitors Gmail accounts via IMAP, extracts and scores leads, manages automated responses, and provides a full-featured admin panel — all deployable with a single command.
+---
 
-## Overview
+## What it does
 
-The system consists of:
+When a lead email arrives in a connected Gmail inbox, the system automatically:
 
-- **FastAPI backend** (`api/`) — platform-admin and agent-app REST API with 4-layer architecture
-- **Gmail IMAP watcher** (`gmail_lead_sync/`) — per-agent background worker that ingests leads from Gmail
-- **React/TypeScript frontend** (`frontend/src/`) — platform-admin panel and agent-facing app
-- **SQLite + Alembic** — database with automatic migrations on startup
-- **Docker Compose** — single-command containerized deployment
+1. Detects the email using configurable sender + keyword rules
+2. Extracts the lead's name and phone number using regex patterns
+3. Sends a personalized response email using a pre-built template
+4. Records the lead in the database with full audit trail
+5. (Optional) Sends the lead a qualification form link and scores their responses
 
-## Prerequisites
+Everything is managed through two separate web interfaces — one for platform operators and one for agents.
 
-| Tool | Minimum version |
-|------|----------------|
-| Python | 3.11+ |
-| Node.js | 18+ |
-| Docker | 24+ |
-| Docker Compose | v2 (bundled with Docker Desktop) |
+---
+
+## Features
+
+### Platform Admin Panel (`/admin`)
+
+**Dashboard**
+- Live system health status
+- Active watcher count and per-agent status
+- Error count over the last 24 hours
+- Quick-access links to all management sections
+
+**Agent Management**
+- Create, update, and delete agents
+- Store Gmail credentials encrypted at rest (Fernet AES-128)
+- Start, stop, and manually trigger Gmail watchers per agent
+- View watcher status (running / stopped / failed) with last heartbeat
+
+**Lead Management**
+- Paginated lead list with filters by agent, date range, and response status
+- Lead detail view with full processing history
+- CSV export with the same filters as the list view
+
+**Lead Sources**
+- Define parsing rules per Gmail sender address
+- Configure identifier snippet, name regex, and phone regex
+- Live regex tester — paste sample email text and see what gets extracted
+- Version history with one-click rollback
+
+**Email Templates**
+- Create and manage response email templates
+- Supported placeholders: `{lead_name}`, `{agent_name}`, `{agent_phone}`, `{agent_email}`
+- Live preview with sample data
+- Version history with one-click rollback
+
+**Buyer Lead Qualification** (law firm / buyer intake)
+- Form builder — create multi-question intake forms with single-choice questions and custom options
+- Form versioning — publish new versions without breaking existing links
+- Scoring engine — configure point-based rules per answer, set HOT/WARM/NURTURE thresholds
+- Email templates — configure the invite email (with form link) and post-submission email per bucket (HOT/WARM/NURTURE)
+- Lead state tracking — view each lead's progression through qualification states
+- Simulation tab — test scoring rules against sample answers before going live
+- Audit log — full history of all form and scoring changes
+
+**Company Management**
+- Create and manage companies (tenants)
+- Assign an active qualification form version per company
+
+**Settings**
+- Configure sync interval, regex timeout, session timeout, max leads per page, auto-restart behavior
+
+**Audit Logs**
+- Immutable log of all admin actions with timestamp, user, action type, and affected resource
+
+---
+
+### Agent App (`/agent`)
+
+**Onboarding Wizard** (7-step guided setup)
+1. Create account
+2. Set up profile (name, phone, display info)
+3. Connect Gmail (email + app password)
+4. Configure lead sources
+5. Set up automation preferences
+6. Configure email templates
+7. Go live — start the watcher
+
+**Dashboard**
+- Summary of recent leads
+- Watcher status indicator
+- Quick stats (leads today, response rate)
+
+**Leads**
+- Paginated lead list with search and filters
+- Lead detail page with full timeline of events
+- Manual response trigger
+
+**Reports**
+- Lead volume over time
+- Response rate metrics
+- Source breakdown
+
+**Settings**
+- Account settings (profile, password)
+- Automation settings (watcher on/off, sync interval)
+- Lead source management
+- Template management
+
+---
+
+### Public Qualification Form (`/qualify/{token}`)
+
+- Token-based public URL sent to leads via email
+- Renders the active form version for the company
+- Collects answers and submits to the backend
+- Triggers automatic scoring and sends a bucket-appropriate follow-up email
+- Shows a "we'll be in touch" confirmation — no score or internal data exposed
+
+---
+
+### Backend & Infrastructure
+
+**Gmail IMAP Watcher**
+- Per-agent asyncio background task running inside the FastAPI process
+- Polls Gmail IMAP on a configurable interval (default 5 minutes)
+- Idempotency via SHA-256 hash of `Message-ID` header — duplicate emails are silently skipped
+- Exponential backoff on connection failures (5s → 10s → 20s → 40s → 80s, max 5 attempts)
+- Auto-restart after failure with 60-second cooldown (configurable)
+- Graceful shutdown — all watchers stop cleanly on app exit
+
+**Security**
+- Gmail credentials encrypted at rest with Fernet (AES-128-CBC + HMAC-SHA256)
+- Session tokens stored as secure HTTP-only cookies
+- bcrypt password hashing
+- Rate limiting on all auth endpoints (slowapi)
+- Security headers on all responses (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`)
+- Input sanitization — HTML stripped from all user-supplied fields
+- Regex timeout protection — patterns that run longer than `REGEX_TIMEOUT_MS` are rejected
+
+**Observability**
+- Structured JSON logging on all requests and background tasks
+- Prometheus metrics endpoint (`/metrics`) — request count, duration, error count, active watchers, leads processed
+- Health endpoint (`/api/v1/health`) — database connectivity, active watcher count, 24h error count
+
+**Database**
+- SQLite with Alembic migrations
+- Migrations run automatically on startup
+- Seed data runs automatically on first boot (idempotent)
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Python 3.11, FastAPI, SQLAlchemy, Alembic |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS |
+| Database | SQLite |
+| Auth | Session cookies, bcrypt, Fernet encryption |
+| Monitoring | Prometheus, structured JSON logs |
+| Deployment | Docker, Docker Compose, nginx |
+
+---
 
 ## Quick Start
 
 ```bash
-# 1. Clone the repository
-git clone <repository-url>
-cd <repo-directory>
+# 1. Clone
+git clone https://github.com/jchristian1/kiro_real_estate.git
+cd kiro_real_estate
+git checkout final-user-ui
 
-# 2. Copy the example env file and generate secrets
+# 2. Copy env and generate secrets
 cp .env.example .env
-make generate-secrets
+# Fill in ENCRYPTION_KEY and SECRET_KEY in .env (see docs/FIRST_START.md)
 
-# 3. Start all services (API + frontend + migrations)
-make up
-
-# 4. Verify the system is healthy
-curl http://localhost:8000/api/v1/health
+# 3. Start everything
+docker compose up --build
 ```
 
-The health endpoint returns `{"status": "healthy", ...}` when everything is running. The frontend is served at `http://localhost:80` (production) or `http://localhost:5173` (dev).
+Frontend: http://localhost:80 — API: http://localhost:8000
+
+For local development (without Docker) see [docs/FIRST_START.md](docs/FIRST_START.md) — covers macOS, Linux, and Windows.
+
+---
+
+## Default Login
+
+| Role | Username | Password | URL |
+|------|----------|----------|-----|
+| Platform Admin | `admin` | `admin123` | http://localhost:5173/admin |
+| Agent | sign up via UI | — | http://localhost:5173/agent |
+
+---
+
+## Project Structure
+
+```
+├── api/                    # FastAPI backend (routers, services, repositories, models)
+├── gmail_lead_sync/        # Gmail IMAP watcher + preapproval qualification engine
+├── frontend/               # React/TypeScript frontend (platform-admin + agent apps)
+├── migrations/             # Alembic database migrations
+├── scripts/                # Seed data and utility scripts
+├── docs/                   # Architecture, API reference, first-start guide
+├── docker-compose.yml
+├── Dockerfile
+└── .env.example
+```
+
+---
+
+## Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [docs/FIRST_START.md](docs/FIRST_START.md) | Step-by-step setup for macOS, Linux, and Windows |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System topology, backend layers, DB schema, watcher flow |
+| [docs/API.md](docs/API.md) | API endpoint reference with request/response examples |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to run tests, add endpoints, branching process |
+| [SECURITY.md](SECURITY.md) | Secrets management, credential encryption, vulnerability reporting |
+
+---
 
 ## Makefile Targets
 
-| Target | Description |
-|--------|-------------|
-| `make up` | Build images and start all services in the background |
-| `make down` | Stop and remove all containers |
-| `make migrate` | Run pending Alembic database migrations |
-| `make test` | Run the full test suite (unit + integration + property) |
-| `make lint` | Run `ruff` (Python) and `eslint` (TypeScript) |
-| `make typecheck` | Run `mypy` (Python) and `tsc --noEmit` (TypeScript) |
-| `make build` | Build the production frontend bundle |
-| `make generate-secrets` | Generate secure `ENCRYPTION_KEY` and `SECRET_KEY` in `.env` |
-
-## Environment Variables
-
-Copy `.env.example` to `.env` and fill in the values. Run `make generate-secrets` to auto-generate the required secret keys.
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `DATABASE_URL` | yes | — | SQLite path, e.g. `sqlite:///./gmail_lead_sync.db` |
-| `ENCRYPTION_KEY` | yes | — | Fernet key ≥ 32 chars for credential encryption at rest |
-| `SECRET_KEY` | yes | — | Session signing key ≥ 32 chars |
-| `API_HOST` | no | `0.0.0.0` | Host address the API server binds to |
-| `API_PORT` | no | `8000` | Port the API server listens on |
-| `CORS_ORIGINS` | no | `http://localhost:5173` | Comma-separated allowed CORS origins |
-| `CORS_ALLOW_CREDENTIALS` | no | `true` | Allow cookies/auth headers in cross-origin requests |
-| `SESSION_TIMEOUT_HOURS` | no | `24` | How long a user session remains valid (hours) |
-| `SYNC_INTERVAL_SECONDS` | no | `300` | How often the Gmail watcher polls for new emails |
-| `REGEX_TIMEOUT_MS` | no | `1000` | Max milliseconds allowed for regex pattern execution |
-| `ENABLE_AUTO_RESTART` | no | `true` | Auto-restart failed watchers after 60s cooldown |
-| `ENVIRONMENT` | no | `development` | Set to `production` to enable secure cookies |
-| `LOG_LEVEL` | no | `INFO` | Python log level: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
-| `MAX_LEADS_PER_PAGE` | no | `50` | Maximum leads returned per paginated API response |
-| `STATIC_FILES_DIR` | no | `../frontend/dist` | Path to compiled frontend static files |
-
-> The backend refuses to start if `ENCRYPTION_KEY` or `SECRET_KEY` is absent or shorter than 32 characters.
-
-## Further Documentation
-
-- [Architecture](docs/ARCHITECTURE.md) — backend layers, frontend structure, database schema, watcher flow
-- [API Reference](docs/API.md) — endpoint documentation with request/response examples
-- [Contributing](CONTRIBUTING.md) — how to run tests, add endpoints, add pages, branching process
-- [Security](SECURITY.md) — secrets management, credential encryption, vulnerability reporting
-- [Testing Gaps](docs/TESTING_GAPS.md) — known untested modules and rationale
-- [Clean Clone Validation](docs/CLEAN_CLONE_VALIDATION.md) — verified one-command startup result
+```bash
+make up               # Build and start all services (Docker)
+make down             # Stop all services
+make migrate          # Run pending Alembic migrations
+make test             # Run full test suite
+make lint             # Lint Python (ruff) and TypeScript (eslint)
+make typecheck        # Type-check Python (mypy) and TypeScript (tsc)
+make build            # Build the production frontend bundle
+make generate-secrets # Generate ENCRYPTION_KEY and SECRET_KEY in .env
+```

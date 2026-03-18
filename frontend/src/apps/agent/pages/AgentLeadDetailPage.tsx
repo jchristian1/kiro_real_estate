@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../../../shared/contexts/ThemeContext';
 import { getTokens } from '../../../shared/utils/theme';
-import { useAgentLead, useUpdateLeadStatus, useAddLeadNote } from '../hooks/useAgentQueries';
+import { useAgentLead, useUpdateLeadStatus, useAddLeadNote, useLeadPipeline } from '../hooks/useAgentQueries';
 import { getAgentErrorMessage } from '../api/agentApi';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -44,11 +44,12 @@ export const AgentLeadDetailPage: React.FC = () => {
   const { data: detail, isLoading, error } = useAgentLead(Number(id));
   const updateStatus = useUpdateLeadStatus();
   const addNote = useAddLeadNote();
+  const { data: pipeline } = useLeadPipeline(Number(id));
 
   const [noteText, setNoteText] = useState('');
   const [noteLoading, setNoteLoading] = useState(false);
   const [statusError, setStatusError] = useState('');
-  const [activeTab, setActiveTab] = useState<'scoring' | 'timeline' | 'emails' | 'notes'>('scoring');
+  const [activeTab, setActiveTab] = useState<'scoring' | 'timeline' | 'emails' | 'notes' | 'pipeline'>('scoring');
 
   if (isLoading) {
     return <div style={{ padding: 40, textAlign: 'center', color: t.textMuted, fontSize: 14 }}>Loading lead…</div>;
@@ -181,7 +182,7 @@ export const AgentLeadDetailPage: React.FC = () => {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        {(['scoring', 'timeline', 'emails', 'notes'] as const).map(tab => (
+        {(['scoring', 'timeline', 'emails', 'notes', 'pipeline'] as const).map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)} style={tabStyle(activeTab === tab)}>
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
@@ -271,9 +272,112 @@ export const AgentLeadDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* Notes */}
-      {activeTab === 'notes' && (
+      {/* Pipeline */}
+      {activeTab === 'pipeline' && (
         <div>
+          {!pipeline ? (
+            <div style={{ ...cardStyle, fontSize: 13, color: t.textMuted }}>No pipeline assigned to this lead.</div>
+          ) : (
+            <>
+              {/* Current stage */}
+              <div style={cardStyle}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
+                  {pipeline.pipeline_name}
+                </div>
+                {pipeline.current_stage ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: pipeline.current_stage.color, flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: t.text }}>{pipeline.current_stage.name}</div>
+                      {pipeline.stage_entered_at && (
+                        <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>
+                          Entered {timeAgo(pipeline.stage_entered_at)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 13, color: t.textMuted }}>Not yet assigned to a stage.</div>
+                )}
+              </div>
+
+              {/* Stage progress */}
+              {pipeline.stages.length > 0 && (
+                <div style={cardStyle}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: t.text, marginBottom: 14 }}>Stage Progress</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 0, overflowX: 'auto' }}>
+                    {[...pipeline.stages].sort((a, b) => a.position - b.position).map((stage, idx, arr) => {
+                      const isCurrent = stage.id === pipeline.current_stage?.id;
+                      const isPast = pipeline.stage_history.some(h => h.to_stage_id === stage.id);
+                      return (
+                        <React.Fragment key={stage.id}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                            <div style={{
+                              width: 14, height: 14, borderRadius: '50%',
+                              background: isCurrent ? stage.color : isPast ? t.green : t.border,
+                              border: isCurrent ? `2px solid ${stage.color}` : 'none',
+                              boxShadow: isCurrent ? `0 0 8px ${stage.color}80` : 'none',
+                            }} />
+                            <div style={{ fontSize: 10, color: isCurrent ? t.text : t.textFaint, fontWeight: isCurrent ? 600 : 400, whiteSpace: 'nowrap', maxWidth: 70, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {stage.name}
+                            </div>
+                          </div>
+                          {idx < arr.length - 1 && (
+                            <div style={{ flex: 1, height: 1, background: t.border, minWidth: 16, marginBottom: 18 }} />
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Lifecycle events */}
+              {pipeline.lifecycle.length > 0 && (
+                <div style={cardStyle}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: t.text, marginBottom: 12 }}>Lifecycle Events</div>
+                  {pipeline.lifecycle.map((ev, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < pipeline.lifecycle.length - 1 ? `1px solid ${t.border}` : 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ color: t.green, fontSize: 12 }}>✓</span>
+                        <span style={{ fontSize: 13, color: t.text }}>{ev.event_type.replace(/_/g, ' ')}</span>
+                      </div>
+                      <span style={{ fontSize: 11, color: t.textFaint }}>{timeAgo(ev.occurred_at)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Quick actions */}
+              <div style={{ ...cardStyle, display: 'flex', gap: 10 }}>
+                {[
+                  { label: '📞 Call', disabled: false },
+                  { label: '✉ Email', disabled: false },
+                  { label: '💬 Text', disabled: true, note: 'coming soon' },
+                ].map(action => (
+                  <button
+                    key={action.label}
+                    disabled={action.disabled}
+                    title={action.note}
+                    style={{
+                      flex: 1, padding: '10px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                      background: action.disabled ? t.bgBadge : t.accentBg,
+                      border: `1px solid ${action.disabled ? t.border : t.accent}`,
+                      color: action.disabled ? t.textFaint : t.accent,
+                      cursor: action.disabled ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Notes */}
+      {activeTab === 'notes' && (        <div>
           <form onSubmit={handleAddNote} style={{ ...cardStyle, display: 'flex', gap: 10 }}>
             <input
               value={noteText}

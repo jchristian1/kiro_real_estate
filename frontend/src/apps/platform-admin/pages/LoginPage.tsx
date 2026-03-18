@@ -3,7 +3,7 @@
  */
 
 import React, { useState, FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../../../shared/contexts/ThemeContext';
 import { getTokens } from '../../../shared/utils/theme';
@@ -144,6 +144,13 @@ export const LoginPage: React.FC = () => {
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
+
+        <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: t.textFaint }}>
+          New company?{' '}
+          <Link to="/register" style={{ color: t.accent, textDecoration: 'none', fontWeight: 500 }}>
+            Create an account
+          </Link>
+        </div>
       </div>
     </div>
   );

@@ -21,7 +21,7 @@ from api.utils.validation import sanitize_string, MAX_BODY_LENGTH
 
 
 # Supported template placeholders
-SUPPORTED_PLACEHOLDERS = {'{lead_name}', '{agent_name}', '{agent_phone}', '{agent_email}'}
+SUPPORTED_PLACEHOLDERS = {'{lead_name}', '{agent_name}', '{agent_phone}', '{agent_email}', '{form_link}'}
 
 
 class TemplateCreateRequest(BaseModel):

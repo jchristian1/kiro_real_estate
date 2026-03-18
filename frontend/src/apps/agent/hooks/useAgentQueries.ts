@@ -100,6 +100,7 @@ export const agentKeys = {
   automation: () => ['agent', 'automation'] as const,
   gmail:      () => ['agent', 'gmail'] as const,
   reports:    (period: string) => ['agent', 'reports', period] as const,
+  leadPipeline: (id: number) => ['agent', 'lead', id, 'pipeline'] as const,
 };
 
 // ── Queries ──────────────────────────────────────────────────────────────────
@@ -127,6 +128,34 @@ export const useAgentGmail = () =>
 
 export const useAgentReports = (period: string) =>
   useQuery({ queryKey: agentKeys.reports(period), queryFn: () => agentApi.get<ReportsSummary>('/agent/reports/summary', { period }) });
+
+// ── Pipeline types ────────────────────────────────────────────────────────
+
+export interface AgentPipelineStage {
+  id: number; name: string; key: string; color: string;
+  category: string; position: number;
+  is_default: boolean; is_closed_won: boolean; is_closed_lost: boolean;
+}
+
+export interface AgentLeadPipeline {
+  pipeline_name: string;
+  current_stage?: AgentPipelineStage;
+  stage_entered_at?: string;
+  stages: AgentPipelineStage[];
+  lifecycle: Array<{ event_type: string; occurred_at: string }>;
+  stage_history: Array<{
+    id: number; lead_id: number;
+    from_stage_id?: number; to_stage_id: number;
+    change_source: string; change_reason?: string; created_at: string;
+  }>;
+}
+
+export const useLeadPipeline = (leadId: number) =>
+  useQuery({
+    queryKey: agentKeys.leadPipeline(leadId),
+    queryFn: () => agentApi.get<AgentLeadPipeline>(`/agent/leads/${leadId}/pipeline`),
+    enabled: !!leadId,
+  });
 
 // ── Mutations ────────────────────────────────────────────────────────────────
 

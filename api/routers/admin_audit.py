@@ -19,7 +19,7 @@ from api.repositories.audit_repository import AuditRepository
 from api.dependencies.auth import require_role
 
 
-router = APIRouter(dependencies=[Depends(require_role("platform_admin"))])
+router = APIRouter(dependencies=[Depends(require_role("company_admin"))])
 
 
 def get_db_dependency():

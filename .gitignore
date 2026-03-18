@@ -12,6 +12,7 @@ develop-eggs/
 dist/
 downloads/
 eggs/
+.kiro/hooks
 .eggs/
 lib/
 lib64/
