@@ -218,92 +218,43 @@ def _execute_step(
         template_id = config.get("template_id")
         if template_id is None:
             raise ValueError("send_email_template: missing template_id in action_config_json")
-
         lead, tenant_id = _get_lead_and_tenant(db, lead_id)
         subject, body = _render_admin_template(db, template_id, lead, tenant_id)
         from_email, app_password = _get_smtp_creds(db, tenant_id)
         _send_email_via_smtp(lead.source_email, subject, body, from_email, app_password)
-        logger.info(
-            "Pipeline action: send_email_template sent lead_id=%s template_id=%s",
-            lead_id, template_id,
-        )
+        logger.info("Pipeline action: send_email_template sent lead_id=%s template_id=%s", lead_id, template_id)
 
     elif action_type == "send_qualification_form":
         lead, tenant_id = _get_lead_and_tenant(db, lead_id)
-        # Delegate to the existing on_buyer_lead_email_received handler which
-        # creates the invitation, renders the template, and sends the email.
-        try:
-            from gmail_lead_sync.preapproval.handlers import on_buyer_lead_email_received
-            on_buyer_lead_email_received(
-                db=db,
-                tenant_id=tenant_id,
-                lead_id=lead_id,
-                parsed_metadata=context,
-                skip_pipeline_events=True,  # prevent recursive pipeline event firing
-            )
-            logger.info(
-                "Pipeline action: send_qualification_form sent lead_id=%s tenant_id=%s",
-                lead_id, tenant_id,
-            )
-        except Exception as exc:
-            raise RuntimeError(f"send_qualification_form failed for lead {lead_id}: {exc}") from exc
+        from gmail_lead_sync.preapproval.handlers import on_buyer_lead_email_received
+        on_buyer_lead_email_received(
+            db=db,
+            tenant_id=tenant_id,
+            lead_id=lead_id,
+            parsed_metadata=context,
+        )
+        logger.info("Pipeline action: send_qualification_form sent lead_id=%s tenant_id=%s", lead_id, tenant_id)
 
     elif action_type == "send_bucket_followup_email":
         template_id = config.get("template_id")
+        if template_id is None:
+            raise ValueError("send_bucket_followup_email: missing template_id in action_config_json")
         lead, tenant_id = _get_lead_and_tenant(db, lead_id)
-
-        if template_id:
-            # Use the explicitly configured template
-            subject, body = _render_admin_template(db, template_id, lead, tenant_id)
-        else:
-            # Fall back to the bucket-specific AgentTemplate (POST_HOT / POST_WARM / POST_NURTURE)
-            bucket = getattr(lead, "score_bucket", None)
-            if bucket is None:
-                raise ValueError(f"send_bucket_followup_email: lead {lead_id} has no score_bucket")
-            from gmail_lead_sync.preapproval.handlers import (
-                _resolve_agent_template, _render_agent_template, _build_form_url,
-            )
-            from gmail_lead_sync.agent_models import AgentUser
-            _bucket_to_type = {"HOT": "POST_HOT", "WARM": "POST_WARM", "NURTURE": "POST_NURTURE"}
-            tpl_type = _bucket_to_type.get(bucket.upper())
-            if tpl_type is None:
-                raise ValueError(f"send_bucket_followup_email: unknown bucket '{bucket}'")
-            agent_tpl = _resolve_agent_template(db, tenant_id, tpl_type)
-            if agent_tpl is None:
-                raise ValueError(f"No active {tpl_type} AgentTemplate for tenant {tenant_id}")
-            agent = db.query(AgentUser).filter(AgentUser.company_id == tenant_id).first()
-            agent_context = {
-                "lead_name": lead.name or "",
-                "agent_name": (agent.full_name if agent else "") or "",
-                "agent_phone": (agent.phone if agent else "") or "",
-                "agent_email": (agent.email if agent else "") or "",
-                "form_link": "",
-            }
-            subject, body = _render_agent_template(agent_tpl[0], agent_tpl[1], agent_context)
-
+        subject, body = _render_admin_template(db, template_id, lead, tenant_id)
         from_email, app_password = _get_smtp_creds(db, tenant_id)
         _send_email_via_smtp(lead.source_email, subject, body, from_email, app_password)
-        logger.info(
-            "Pipeline action: send_bucket_followup_email sent lead_id=%s",
-            lead_id,
-        )
+        logger.info("Pipeline action: send_bucket_followup_email sent lead_id=%s template_id=%s", lead_id, template_id)
 
     elif action_type == "move_to_stage":
         stage_id = config.get("stage_id")
         if stage_id is None:
             raise ValueError("move_to_stage: missing stage_id in action_config_json")
         move_stage(db, lead_id, int(stage_id), ChangeSource.automation)
-        logger.info(
-            "Pipeline action: move_to_stage lead_id=%s stage_id=%s",
-            lead_id, stage_id,
-        )
+        logger.info("Pipeline action: move_to_stage lead_id=%s stage_id=%s", lead_id, stage_id)
         return int(stage_id)
 
     else:
-        logger.warning(
-            "Unknown action_type '%s' for step %s in rule %s — skipping",
-            action_type, step.id, rule_id,
-        )
+        logger.warning("Unknown action_type '%s' for step %s in rule %s — skipping", action_type, step.id, rule_id)
 
     return None
 
