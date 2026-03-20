@@ -206,10 +206,13 @@ def fire_event(
         if entered_stage_id is None:
             continue
         db.refresh(lead)
-        stage_enter_rules = evaluate_rules(
-            db, pipeline_id, event_type.value, lead,
-            stage_just_entered_id=entered_stage_id,
-        )
+        stage_enter_rules = [
+            r for r in evaluate_rules(
+                db, pipeline_id, event_type.value, lead,
+                stage_just_entered_id=entered_stage_id,
+            )
+            if r.trigger_type == "on_stage_enter"
+        ]
         for rule in stage_enter_rules:
             steps = sorted(rule.steps, key=lambda s: s.position)
             for step in steps:
