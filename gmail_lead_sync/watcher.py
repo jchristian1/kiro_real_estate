@@ -763,20 +763,18 @@ class GmailWatcher:
                 # Mark as processed
                 self.mark_as_processed(message_id, lead.id)
 
-                # Fire pipeline lead_created event — the pipeline handles all
-                # subsequent actions (emails, stage transitions, etc.).
+                # Notify the orchestrator — it fires the pipeline lead_created
+                # event and handles all subsequent actions.
                 try:
-                    from api.models.pipeline_models import BuiltInEventType
-                    from api.services.lead_stage_transition_engine import fire_event
-                    fire_event(
+                    from api.services.lead_lifecycle_orchestrator import notify_lead_created
+                    notify_lead_created(
                         self.db_session,
                         lead.id,
-                        BuiltInEventType.lead_created,
                         {"source_email": sender, "gmail_uid": gmail_uid},
                     )
                 except Exception as _pe:
                     logger.warning(
-                        f"Pipeline fire_event(lead_created) failed for lead {lead.id}: {_pe}",
+                        f"notify_lead_created failed for lead {lead.id}: {_pe}",
                         exc_info=True,
                     )
             else:

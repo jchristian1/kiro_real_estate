@@ -433,21 +433,6 @@ def on_buyer_form_submitted(
 
 
 def _fire_post_submission_events(db: Session, lead_id: int, tenant_id: int, bucket: str | None) -> None:
-    """Fire qualification_form_submitted + bucket pipeline events."""
-    try:
-        from api.models.pipeline_models import BuiltInEventType
-        from api.services.lead_stage_transition_engine import fire_event
-
-        fire_event(db, lead_id, BuiltInEventType.qualification_form_submitted, {"tenant_id": tenant_id})
-
-        if bucket is not None:
-            bucket_event_map = {
-                "HOT": BuiltInEventType.qualification_bucket_hot,
-                "WARM": BuiltInEventType.qualification_bucket_warm,
-                "NURTURE": BuiltInEventType.qualification_bucket_nurture,
-            }
-            bucket_event = bucket_event_map.get(bucket)
-            if bucket_event:
-                fire_event(db, lead_id, bucket_event, {"tenant_id": tenant_id})
-    except Exception as exc:
-        logger.warning("Pipeline fire_event failed after form submitted for lead %d: %s", lead_id, exc, exc_info=True)
+    """Delegate post-submission pipeline events to the orchestrator."""
+    from api.services.lead_lifecycle_orchestrator import fire_post_submission_events
+    fire_post_submission_events(db, lead_id, tenant_id, bucket)
