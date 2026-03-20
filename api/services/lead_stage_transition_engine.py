@@ -31,11 +31,6 @@ from api.models.pipeline_models import (
     PipelineStage,
 )
 from api.services.audit_log import record_audit_log
-from api.services.communications import (
-    get_smtp_credentials,
-    render_admin_template,
-    send_email,
-)
 from api.services.lead_stage_service import assign_initial_stage, move_stage
 from api.services.pipeline_action_rule_service import evaluate_rules
 from api.services.pipeline_event_mapping_service import get_mapping
@@ -102,6 +97,98 @@ def _get_lead_and_tenant(db: Session, lead_id: int):
     return lead, tenant_id
 
 
+def _get_smtp_credentials(db: Session, tenant_id: int) -> tuple[str, str]:
+    """Return (from_email, app_password) for tenant, or raise ValueError."""
+    import os as _os
+    from gmail_lead_sync.models import Credentials
+
+    creds = db.query(Credentials).filter(Credentials.company_id == tenant_id).first()
+    if creds is None:
+        raise ValueError(f"No SMTP credentials for tenant {tenant_id}")
+    encryption_key = _os.environ.get("ENCRYPTION_KEY")
+    if encryption_key:
+        from gmail_lead_sync.credentials import EncryptedDBCredentialsStore
+        store = EncryptedDBCredentialsStore(db, encryption_key)
+        return store.get_credentials(creds.agent_id)
+    return creds.email_encrypted, creds.app_password_encrypted
+
+
+def _send_email_via_smtp(
+    to_address: str, subject: str, body: str, from_address: str, app_password: str
+) -> None:
+    """Send email via Gmail SMTP. Raises RuntimeError on failure."""
+    from gmail_lead_sync.responder import AutoResponder
+
+    responder = object.__new__(AutoResponder)
+    ok = responder.send_email(
+        to_address=to_address,
+        subject=subject,
+        body=body,
+        from_address=from_address,
+        app_password=app_password,
+    )
+    if not ok:
+        raise RuntimeError(f"SMTP send failed to {to_address}")
+
+
+def _render_admin_template(
+    db: Session, template_id, lead, tenant_id: int
+) -> tuple[str, str]:
+    """Fetch AdminTemplate by ID and render it with lead/agent placeholders.
+
+    Handles {form_link} by creating a real FormInvitation token URL.
+    Returns (subject, body). Raises ValueError if template not found.
+    """
+    import os as _os
+    from api.repositories.template_repository import AdminTemplateRepository
+    from gmail_lead_sync.agent_models import AgentUser
+
+    repo = AdminTemplateRepository(db)
+    tpl = repo.get_by_id(int(template_id))
+    if tpl is None:
+        raise ValueError(f"AdminTemplate {template_id} not found")
+
+    agent = db.query(AgentUser).filter(AgentUser.company_id == tenant_id).first()
+    base_url = _os.environ.get("PUBLIC_BASE_URL", "http://localhost:5173").rstrip("/")
+
+    form_link = f"{base_url}/public/buyer-qualification"
+    if "{form_link}" in tpl.subject or "{form_link}" in tpl.body:
+        try:
+            from gmail_lead_sync.preapproval.handlers import (
+                _resolve_active_form_version,
+                _build_form_url,
+            )
+            from gmail_lead_sync.preapproval.invitation_service import FormInvitationService
+            from gmail_lead_sync.preapproval.models_preapproval import IntentType
+
+            form_version = _resolve_active_form_version(db, tenant_id, IntentType.BUY)
+            if form_version is not None:
+                raw_token, _ = FormInvitationService().create_invitation(
+                    db, tenant_id=tenant_id, lead_id=lead.id,
+                    form_version_id=form_version.id,
+                )
+                form_link = _build_form_url(raw_token)
+        except Exception as _fe:
+            logger.warning(
+                "Could not create form invitation for lead %s tenant %s: %s",
+                lead.id, tenant_id, _fe,
+            )
+
+    placeholders = {
+        "{lead_name}": lead.name or "",
+        "{agent_name}": (agent.full_name if agent else "") or "",
+        "{agent_phone}": (agent.phone if agent else "") or "",
+        "{agent_email}": (agent.email if agent else "") or "",
+        "{form_link}": form_link,
+    }
+    subject = tpl.subject
+    body = tpl.body
+    for key, value in placeholders.items():
+        subject = subject.replace(key, value)
+        body = body.replace(key, value)
+    return subject, body
+
+
 # ---------------------------------------------------------------------------
 # Step execution
 # ---------------------------------------------------------------------------
@@ -136,9 +223,9 @@ def _execute_step(
         if template_id is None:
             raise ValueError(f"{action_type}: missing template_id in action_config_json")
         lead, tenant_id = _get_lead_and_tenant(db, lead_id)
-        subject, body = render_admin_template(db, template_id, lead, tenant_id)
-        from_email, app_password = get_smtp_credentials(db, tenant_id)
-        send_email(lead.source_email, subject, body, from_email, app_password)
+        subject, body = _render_admin_template(db, template_id, lead, tenant_id)
+        from_email, app_password = _get_smtp_credentials(db, tenant_id)
+        _send_email_via_smtp(lead.source_email, subject, body, from_email, app_password)
         logger.info(
             "Pipeline action: %s sent lead_id=%s template_id=%s",
             action_type, lead_id, template_id,
