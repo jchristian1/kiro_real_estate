@@ -2,8 +2,20 @@
 LeadStageTransitionEngine — Pipeline execution engine.
 
 Receives BuiltInEventType events, resolves event-to-stage mappings, evaluates
-automation rules, and executes action steps.  This is the single coordination
-point for pipeline stage transitions and rule execution.
+automation rules, and dispatches action steps to the pipeline executor.
+
+This module owns:
+- Lead/company resolution
+- Active pipeline lookup
+- Initial stage assignment
+- Event mapping application
+- Rule evaluation and ordered step dispatch
+- Audit logging for all transitions and actions
+
+It does NOT own:
+- How emails are sent (→ api/pipelines/handlers/send_email.py)
+- How qualification forms are dispatched (→ api/pipelines/handlers/send_form.py)
+- How stage mutations work (→ api/pipelines/handlers/move_stage.py)
 
 Business rules:
 - If no active pipeline exists for the lead's company, return silently (Req 6.2).
@@ -19,7 +31,6 @@ Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 12.3, 12.4
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Optional
 
@@ -60,15 +71,15 @@ def _get_company_id(db: Session, lead_id: int) -> Optional[int]:
 
     lead_source = getattr(lead, "lead_source", None)
     if lead_source is not None:
-        source_company_id = getattr(lead_source, "company_id", None)
-        if source_company_id:
-            return source_company_id
+        cid = getattr(lead_source, "company_id", None)
+        if cid:
+            return cid
 
     agent_user = getattr(lead, "agent_user", None)
     if agent_user is not None:
-        agent_company_id = getattr(agent_user, "company_id", None)
-        if agent_company_id:
-            return agent_company_id
+        cid = getattr(agent_user, "company_id", None)
+        if cid:
+            return cid
 
     return None
 
@@ -82,187 +93,6 @@ def _get_default_stage(db: Session, pipeline_id: int) -> Optional[PipelineStage]
         )
         .first()
     )
-
-
-def _get_lead_and_tenant(db: Session, lead_id: int):
-    """Return (lead, tenant_id) or raise ValueError."""
-    from gmail_lead_sync.models import Lead
-
-    lead = db.query(Lead).filter(Lead.id == lead_id).first()
-    if lead is None:
-        raise ValueError(f"Lead {lead_id} not found")
-    tenant_id = _get_company_id(db, lead_id)
-    if tenant_id is None:
-        raise ValueError(f"Cannot resolve company_id for lead {lead_id}")
-    return lead, tenant_id
-
-
-def _get_smtp_credentials(db: Session, tenant_id: int) -> tuple[str, str]:
-    """Return (from_email, app_password) for tenant, or raise ValueError."""
-    import os as _os
-    from gmail_lead_sync.models import Credentials
-
-    creds = db.query(Credentials).filter(Credentials.company_id == tenant_id).first()
-    if creds is None:
-        raise ValueError(f"No SMTP credentials for tenant {tenant_id}")
-    encryption_key = _os.environ.get("ENCRYPTION_KEY")
-    if encryption_key:
-        from gmail_lead_sync.credentials import EncryptedDBCredentialsStore
-        store = EncryptedDBCredentialsStore(db, encryption_key)
-        return store.get_credentials(creds.agent_id)
-    return creds.email_encrypted, creds.app_password_encrypted
-
-
-def _send_email_via_smtp(
-    to_address: str, subject: str, body: str, from_address: str, app_password: str
-) -> None:
-    """Send email via Gmail SMTP. Raises RuntimeError on failure."""
-    from gmail_lead_sync.responder import AutoResponder
-
-    responder = object.__new__(AutoResponder)
-    ok = responder.send_email(
-        to_address=to_address,
-        subject=subject,
-        body=body,
-        from_address=from_address,
-        app_password=app_password,
-    )
-    if not ok:
-        raise RuntimeError(f"SMTP send failed to {to_address}")
-
-
-def _render_admin_template(
-    db: Session, template_id, lead, tenant_id: int
-) -> tuple[str, str]:
-    """Fetch AdminTemplate by ID and render it with lead/agent placeholders.
-
-    Handles {form_link} by creating a real FormInvitation token URL.
-    Returns (subject, body). Raises ValueError if template not found.
-    """
-    import os as _os
-    from api.repositories.template_repository import AdminTemplateRepository
-    from gmail_lead_sync.agent_models import AgentUser
-
-    repo = AdminTemplateRepository(db)
-    tpl = repo.get_by_id(int(template_id))
-    if tpl is None:
-        raise ValueError(f"AdminTemplate {template_id} not found")
-
-    agent = db.query(AgentUser).filter(AgentUser.company_id == tenant_id).first()
-    base_url = _os.environ.get("PUBLIC_BASE_URL", "http://localhost:5173").rstrip("/")
-
-    form_link = f"{base_url}/public/buyer-qualification"
-    if "{form_link}" in tpl.subject or "{form_link}" in tpl.body:
-        try:
-            from gmail_lead_sync.preapproval.handlers import (
-                _resolve_active_form_version,
-                _build_form_url,
-            )
-            from gmail_lead_sync.preapproval.invitation_service import FormInvitationService
-            from gmail_lead_sync.preapproval.models_preapproval import IntentType
-
-            form_version = _resolve_active_form_version(db, tenant_id, IntentType.BUY)
-            if form_version is not None:
-                raw_token, _ = FormInvitationService().create_invitation(
-                    db, tenant_id=tenant_id, lead_id=lead.id,
-                    form_version_id=form_version.id,
-                )
-                form_link = _build_form_url(raw_token)
-        except Exception as _fe:
-            logger.warning(
-                "Could not create form invitation for lead %s tenant %s: %s",
-                lead.id, tenant_id, _fe,
-            )
-
-    placeholders = {
-        "{lead_name}": lead.name or "",
-        "{agent_name}": (agent.full_name if agent else "") or "",
-        "{agent_phone}": (agent.phone if agent else "") or "",
-        "{agent_email}": (agent.email if agent else "") or "",
-        "{form_link}": form_link,
-    }
-    subject = tpl.subject
-    body = tpl.body
-    for key, value in placeholders.items():
-        subject = subject.replace(key, value)
-        body = body.replace(key, value)
-    return subject, body
-
-
-# ---------------------------------------------------------------------------
-# Step execution
-# ---------------------------------------------------------------------------
-
-
-def _execute_step(
-    db: Session,
-    lead_id: int,
-    pipeline_id: int,
-    rule_id: int,
-    step,
-    context: dict,
-) -> Optional[int]:
-    """Execute a single automation rule step.
-
-    Returns the new stage_id if a move_to_stage action was performed, else None.
-    Raises on failure so the caller can catch and log it.
-    """
-    action_type = (
-        step.action_type.value
-        if hasattr(step.action_type, "value")
-        else step.action_type
-    )
-    config: dict = {}
-    try:
-        config = json.loads(step.action_config_json)
-    except (json.JSONDecodeError, TypeError):
-        pass
-
-    if action_type in ("send_email_template", "send_bucket_followup_email"):
-        template_id = config.get("template_id")
-        if template_id is None:
-            raise ValueError(f"{action_type}: missing template_id in action_config_json")
-        lead, tenant_id = _get_lead_and_tenant(db, lead_id)
-        subject, body = _render_admin_template(db, template_id, lead, tenant_id)
-        from_email, app_password = _get_smtp_credentials(db, tenant_id)
-        _send_email_via_smtp(lead.source_email, subject, body, from_email, app_password)
-        logger.info(
-            "Pipeline action: %s sent lead_id=%s template_id=%s",
-            action_type, lead_id, template_id,
-        )
-
-    elif action_type == "send_qualification_form":
-        lead, tenant_id = _get_lead_and_tenant(db, lead_id)
-        from gmail_lead_sync.preapproval.handlers import on_buyer_lead_email_received
-        on_buyer_lead_email_received(
-            db=db,
-            tenant_id=tenant_id,
-            lead_id=lead_id,
-            parsed_metadata=context,
-        )
-        logger.info(
-            "Pipeline action: send_qualification_form sent lead_id=%s tenant_id=%s",
-            lead_id, tenant_id,
-        )
-
-    elif action_type == "move_to_stage":
-        stage_id = config.get("stage_id")
-        if stage_id is None:
-            raise ValueError("move_to_stage: missing stage_id in action_config_json")
-        move_stage(db, lead_id, int(stage_id), ChangeSource.automation)
-        logger.info(
-            "Pipeline action: move_to_stage lead_id=%s stage_id=%s",
-            lead_id, stage_id,
-        )
-        return int(stage_id)
-
-    else:
-        logger.warning(
-            "Unknown action_type '%s' for step %s in rule %s — skipping",
-            action_type, step.id, rule_id,
-        )
-
-    return None
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +113,7 @@ def fire_event(
     2. Look up the active pipeline; return silently if none (Req 6.2).
     3. If lead has no current_stage_id, assign the default stage (Req 6.7).
     4. Apply event mapping if enabled (Req 6.3/6.4).
-    5. Evaluate and execute automation rules (Req 6.5).
+    5. Evaluate and execute automation rules via the pipeline executor (Req 6.5).
     6. On step failure: log to audit log and continue (Req 6.6, 12.3, 12.4).
     7. Write audit log entries for all transitions and actions (Req 6.8).
     """
@@ -366,25 +196,10 @@ def fire_event(
     for rule in on_event_rules:
         steps = sorted(rule.steps, key=lambda s: s.position)
         for step in steps:
-            try:
-                new_stage = _execute_step(db, lead_id, pipeline_id, rule.id, step, context)
-                record_audit_log(
-                    db_session=db,
-                    user_id=_SYSTEM_USER_ID,
-                    action="pipeline_action_executed",
-                    resource_type="pipeline_action_rule_step",
-                    resource_id=step.id,
-                    details=(
-                        f"Rule {rule.id} ('{rule.name}') step {step.id} "
-                        f"action_type='{step.action_type.value if hasattr(step.action_type, 'value') else step.action_type}' "
-                        f"executed for lead {lead_id} on event '{event_type.value}'"
-                    ),
-                )
-                if new_stage is not None and new_stage not in processed_stage_enters:
-                    processed_stage_enters.add(new_stage)
-                    stages_to_process.append(new_stage)
-            except Exception as exc:
-                _log_step_failure(db, rule, step, lead_id, event_type.value, str(exc))
+            result = _dispatch_step(db, lead_id, pipeline_id, rule, step, context, event_type.value)
+            if result.new_stage_id is not None and result.new_stage_id not in processed_stage_enters:
+                processed_stage_enters.add(result.new_stage_id)
+                stages_to_process.append(result.new_stage_id)
 
     # on_stage_enter rules for each stage entered this cycle (including chained moves)
     for entered_stage_id in stages_to_process:
@@ -398,50 +213,55 @@ def fire_event(
         for rule in stage_enter_rules:
             steps = sorted(rule.steps, key=lambda s: s.position)
             for step in steps:
-                try:
-                    new_stage = _execute_step(
-                        db, lead_id, pipeline_id, rule.id, step, context
-                    )
-                    record_audit_log(
-                        db_session=db,
-                        user_id=_SYSTEM_USER_ID,
-                        action="pipeline_action_executed",
-                        resource_type="pipeline_action_rule_step",
-                        resource_id=step.id,
-                        details=(
-                            f"Rule {rule.id} ('{rule.name}') step {step.id} "
-                            f"action_type='{step.action_type.value if hasattr(step.action_type, 'value') else step.action_type}' "
-                            f"executed for lead {lead_id} on stage_enter {entered_stage_id}"
-                        ),
-                    )
-                    if new_stage is not None and new_stage not in processed_stage_enters:
-                        processed_stage_enters.add(new_stage)
-                        stages_to_process.append(new_stage)
-                except Exception as exc:
-                    _log_step_failure(
-                        db, rule, step, lead_id,
-                        f"stage_enter:{entered_stage_id}", str(exc),
-                    )
+                result = _dispatch_step(
+                    db, lead_id, pipeline_id, rule, step, context,
+                    f"stage_enter:{entered_stage_id}",
+                )
+                if result.new_stage_id is not None and result.new_stage_id not in processed_stage_enters:
+                    processed_stage_enters.add(result.new_stage_id)
+                    stages_to_process.append(result.new_stage_id)
 
 
-def _log_step_failure(db, rule, step, lead_id, trigger_label, error_msg):
+def _dispatch_step(db, lead_id, pipeline_id, rule, step, context, trigger_label):
+    """Dispatch one step to the executor and handle audit logging."""
+    from api.pipelines.executor import execute_step
+
     action_type_label = (
         step.action_type.value
         if hasattr(step.action_type, "value")
-        else step.action_type
+        else str(step.action_type)
     )
-    logger.error(
-        "Pipeline action step failed: rule_id=%s step_id=%s lead_id=%s error=%s",
-        rule.id, step.id, lead_id, error_msg,
-    )
-    record_audit_log(
-        db_session=db,
-        user_id=_SYSTEM_USER_ID,
-        action="pipeline_action_failed",
-        resource_type="pipeline_action_rule_step",
-        resource_id=step.id,
-        details=(
-            f"Rule {rule.id} step {step.id} (action_type='{action_type_label}') "
-            f"FAILED for lead {lead_id} on {trigger_label}: {error_msg}"
-        ),
-    )
+
+    result = execute_step(db, lead_id, pipeline_id, rule.id, step, context)
+
+    if result.success:
+        record_audit_log(
+            db_session=db,
+            user_id=_SYSTEM_USER_ID,
+            action="pipeline_action_executed",
+            resource_type="pipeline_action_rule_step",
+            resource_id=step.id,
+            details=(
+                f"Rule {rule.id} ('{rule.name}') step {step.id} "
+                f"action_type='{action_type_label}' "
+                f"executed for lead {lead_id} on {trigger_label}"
+            ),
+        )
+    else:
+        logger.error(
+            "Pipeline action step failed: rule_id=%s step_id=%s lead_id=%s error=%s",
+            rule.id, step.id, lead_id, result.error,
+        )
+        record_audit_log(
+            db_session=db,
+            user_id=_SYSTEM_USER_ID,
+            action="pipeline_action_failed",
+            resource_type="pipeline_action_rule_step",
+            resource_id=step.id,
+            details=(
+                f"Rule {rule.id} step {step.id} (action_type='{action_type_label}') "
+                f"FAILED for lead {lead_id} on {trigger_label}: {result.error}"
+            ),
+        )
+
+    return result
