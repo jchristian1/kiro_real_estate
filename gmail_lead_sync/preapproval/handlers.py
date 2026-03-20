@@ -434,5 +434,5 @@ def on_buyer_form_submitted(
 
 def _fire_post_submission_events(db: Session, lead_id: int, tenant_id: int, bucket: str | None) -> None:
     """Delegate post-submission pipeline events to the orchestrator."""
-    from api.services.lead_lifecycle_orchestrator import fire_post_submission_events
+    from api.orchestration.lead_lifecycle_orchestrator import fire_post_submission_events
     fire_post_submission_events(db, lead_id, tenant_id, bucket)

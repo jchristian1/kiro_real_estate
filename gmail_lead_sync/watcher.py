@@ -766,7 +766,7 @@ class GmailWatcher:
                 # Notify the orchestrator — it fires the pipeline lead_created
                 # event and handles all subsequent actions.
                 try:
-                    from api.services.lead_lifecycle_orchestrator import notify_lead_created
+                    from api.orchestration.lead_lifecycle_orchestrator import notify_lead_created
                     notify_lead_created(
                         self.db_session,
                         lead.id,

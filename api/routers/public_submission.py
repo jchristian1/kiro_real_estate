@@ -30,7 +30,7 @@ from gmail_lead_sync.preapproval.invitation_service import (
     TokenNotFoundError,
     TokenUsedError,
 )
-from api.services.lead_lifecycle_orchestrator import notify_form_submitted
+from api.orchestration.lead_lifecycle_orchestrator import notify_form_submitted
 from api.repositories.buyer_leads_repository import FormInvitationRepository
 
 logger = logging.getLogger(__name__)
