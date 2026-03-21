@@ -3,6 +3,7 @@ Base types for pipeline action handlers.
 
 ActionResult — structured return value from every handler.
 ActionHandler — Protocol that all concrete handlers must satisfy.
+resolve_lead_company_id — shared helper used by all handlers.
 
 Adding a new action type:
 1. Create api/pipelines/handlers/<name>.py implementing ActionHandler.
@@ -12,7 +13,7 @@ Adding a new action type:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Optional, Protocol
 
 from sqlalchemy.orm import Session
 
@@ -55,3 +56,30 @@ class ActionHandler(Protocol):
             ActionResult — never raises; errors are captured in result.error.
         """
         ...
+
+
+def resolve_lead_company_id(db: Session, lead_id: int) -> Optional[int]:
+    """Resolve company_id for a lead via direct column, lead_source, or agent_user.
+
+    Shared by all action handlers — do not duplicate this logic in individual
+    handler files.
+    """
+    from gmail_lead_sync.models import Lead
+
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if lead is None:
+        return None
+    company_id = getattr(lead, "company_id", None)
+    if company_id:
+        return company_id
+    lead_source = getattr(lead, "lead_source", None)
+    if lead_source is not None:
+        cid = getattr(lead_source, "company_id", None)
+        if cid:
+            return cid
+    agent_user = getattr(lead, "agent_user", None)
+    if agent_user is not None:
+        cid = getattr(agent_user, "company_id", None)
+        if cid:
+            return cid
+    return None

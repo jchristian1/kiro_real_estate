@@ -110,7 +110,7 @@ class TestSendEmailTemplateHandler:
         db.query.return_value.filter.return_value.first.return_value = mock_lead
 
         with (
-            patch("api.pipelines.handlers.send_email._resolve_company_id", return_value=10),
+            patch("api.pipelines.handlers.send_email.resolve_lead_company_id", return_value=10),
             patch("api.pipelines.handlers.send_email._render_admin_template", return_value=("Subject", "Body")),
             patch("api.pipelines.handlers.send_email._get_smtp_credentials", return_value=("from@x.com", "pw")),
             patch("api.pipelines.handlers.send_email._send_via_smtp"),
@@ -128,7 +128,7 @@ class TestSendEmailTemplateHandler:
         db.query.return_value.filter.return_value.first.return_value = mock_lead
 
         with (
-            patch("api.pipelines.handlers.send_email._resolve_company_id", return_value=10),
+            patch("api.pipelines.handlers.send_email.resolve_lead_company_id", return_value=10),
             patch("api.pipelines.handlers.send_email._render_admin_template", return_value=("S", "B")),
             patch("api.pipelines.handlers.send_email._get_smtp_credentials", return_value=("f@x.com", "pw")),
             patch("api.pipelines.handlers.send_email._send_via_smtp", side_effect=RuntimeError("SMTP failed")),
@@ -148,7 +148,7 @@ class TestSendQualificationFormHandler:
     def test_unresolvable_company_returns_failure(self):
         handler = SendQualificationFormHandler()
         db = MagicMock()
-        with patch("api.pipelines.handlers.send_form._resolve_company_id", return_value=None):
+        with patch("api.pipelines.handlers.send_form.resolve_lead_company_id", return_value=None):
             result = handler.execute(db, lead_id=1, config={}, context={})
         assert result.success is False
         assert "company_id" in result.error
@@ -157,7 +157,7 @@ class TestSendQualificationFormHandler:
         handler = SendQualificationFormHandler()
         db = MagicMock()
         with (
-            patch("api.pipelines.handlers.send_form._resolve_company_id", return_value=5),
+            patch("api.pipelines.handlers.send_form.resolve_lead_company_id", return_value=5),
             patch("api.pipelines.handlers.send_form.on_buyer_lead_email_received") as mock_handler,
         ):
             result = handler.execute(db, lead_id=1, config={}, context={"key": "val"})
@@ -171,7 +171,7 @@ class TestSendQualificationFormHandler:
         handler = SendQualificationFormHandler()
         db = MagicMock()
         with (
-            patch("api.pipelines.handlers.send_form._resolve_company_id", return_value=5),
+            patch("api.pipelines.handlers.send_form.resolve_lead_company_id", return_value=5),
             patch(
                 "api.pipelines.handlers.send_form.on_buyer_lead_email_received",
                 side_effect=RuntimeError("form error"),

@@ -15,7 +15,7 @@ import os
 
 from sqlalchemy.orm import Session
 
-from api.pipelines.handlers.base import ActionResult
+from api.pipelines.handlers.base import ActionResult, resolve_lead_company_id
 
 logger = logging.getLogger(__name__)
 
@@ -23,28 +23,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Internal helpers (owned by this handler — not shared with the engine)
 # ---------------------------------------------------------------------------
-
-
-def _resolve_company_id(db: Session, lead_id: int) -> int | None:
-    from gmail_lead_sync.models import Lead
-
-    lead = db.query(Lead).filter(Lead.id == lead_id).first()
-    if lead is None:
-        return None
-    company_id = getattr(lead, "company_id", None)
-    if company_id:
-        return company_id
-    lead_source = getattr(lead, "lead_source", None)
-    if lead_source is not None:
-        cid = getattr(lead_source, "company_id", None)
-        if cid:
-            return cid
-    agent_user = getattr(lead, "agent_user", None)
-    if agent_user is not None:
-        cid = getattr(agent_user, "company_id", None)
-        if cid:
-            return cid
-    return None
 
 
 def _get_smtp_credentials(db: Session, tenant_id: int) -> tuple[str, str]:
@@ -66,7 +44,8 @@ def _render_admin_template(
 ) -> tuple[str, str]:
     """Render AdminTemplate with lead/agent placeholders.
 
-    Handles {form_link} by creating a real FormInvitation token URL.
+    Handles {form_link} by creating a real FormInvitation token URL via the
+    qualification module's public interface.
     Returns (subject, body). Raises ValueError if template not found.
     """
     from api.repositories.template_repository import AdminTemplateRepository
@@ -84,13 +63,13 @@ def _render_admin_template(
     if "{form_link}" in tpl.subject or "{form_link}" in tpl.body:
         try:
             from gmail_lead_sync.preapproval.handlers import (
-                _build_form_url,
-                _resolve_active_form_version,
+                build_form_url,
+                resolve_active_form_version,
             )
             from gmail_lead_sync.preapproval.invitation_service import FormInvitationService
             from gmail_lead_sync.preapproval.models_preapproval import IntentType
 
-            form_version = _resolve_active_form_version(db, tenant_id, IntentType.BUY)
+            form_version = resolve_active_form_version(db, tenant_id, IntentType.BUY)
             if form_version is not None:
                 raw_token, _ = FormInvitationService().create_invitation(
                     db,
@@ -98,7 +77,7 @@ def _render_admin_template(
                     lead_id=lead.id,
                     form_version_id=form_version.id,
                 )
-                form_link = _build_form_url(raw_token)
+                form_link = build_form_url(raw_token)
         except Exception as exc:
             logger.warning(
                 "Could not create form invitation for lead %s tenant %s: %s",
@@ -177,7 +156,7 @@ class SendEmailTemplateHandler:
             if lead is None:
                 return ActionResult(success=False, error=f"Lead {lead_id} not found")
 
-            tenant_id = _resolve_company_id(db, lead_id)
+            tenant_id = resolve_lead_company_id(db, lead_id)
             if tenant_id is None:
                 return ActionResult(
                     success=False,

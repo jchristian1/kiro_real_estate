@@ -54,12 +54,15 @@ _scoring_engine = ScoringEngine()
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _build_form_url(raw_token: str) -> str:
+def build_form_url(raw_token: str) -> str:
     base = os.environ.get("PUBLIC_BASE_URL", "http://localhost:5173").rstrip("/")
     return f"{base}/public/buyer-qualification/{raw_token}"
 
+# Keep underscore alias for internal callers that haven't been updated yet
+_build_form_url = build_form_url
 
-def _resolve_active_form_version(
+
+def resolve_active_form_version(
     db: Session,
     tenant_id: int,
     intent_type: IntentType = IntentType.BUY,
@@ -74,6 +77,9 @@ def _resolve_active_form_version(
         )
         .first()
     )
+
+# Keep underscore alias for internal callers that haven't been updated yet
+_resolve_active_form_version = resolve_active_form_version
 
 
 def _resolve_active_message_template(
@@ -214,7 +220,7 @@ def on_buyer_lead_email_received(
     6. Record outbound LeadInteraction.
     """
     # 1. Resolve active FormVersion
-    form_version = _resolve_active_form_version(db, tenant_id, IntentType.BUY)
+    form_version = resolve_active_form_version(db, tenant_id, IntentType.BUY)
     if form_version is None:
         logger.warning("No active BUY form for tenant %d, skipping invite (lead_id=%d)", tenant_id, lead_id)
         return
@@ -246,7 +252,7 @@ def on_buyer_lead_email_received(
                 "agent_name": (_agent.full_name if _agent else tenant_name) or "",
                 "agent_phone": (_agent.phone if _agent else "") or "",
                 "agent_email": (_agent.email if _agent else "") or "",
-                "form_link": _build_form_url(raw_token),
+                "form_link": build_form_url(raw_token),
             },
         )
     else:
@@ -272,7 +278,7 @@ def on_buyer_lead_email_received(
             {
                 "lead.first_name": first_name,
                 "lead.email": lead.source_email,
-                "form.link": _build_form_url(raw_token),
+                "form.link": build_form_url(raw_token),
                 "tenant.name": tenant_name,
                 **parsed_metadata,
             },
