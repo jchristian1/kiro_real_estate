@@ -201,7 +201,23 @@ const Btn: React.FC<{
 
 // ── Stepper track (scrollable, arrow-navigable) ───────────────────────────────
 
-const STAGE_W = 80; // px per stage slot
+const STAGE_W = 104; // px per stage slot — bigger, more presence
+
+// Inject pulse keyframe once
+if (typeof document !== 'undefined' && !document.getElementById('stepper-css')) {
+  const s = document.createElement('style');
+  s.id = 'stepper-css';
+  s.textContent = `
+    @keyframes stepper-pulse {
+      0%   { box-shadow: 0 0 0 0 var(--sp-c), 0 0 14px var(--sp-c); }
+      50%  { box-shadow: 0 0 0 8px transparent, 0 0 26px var(--sp-c); }
+      100% { box-shadow: 0 0 0 0 var(--sp-c), 0 0 14px var(--sp-c); }
+    }
+    .stepper-cur { animation: stepper-pulse 2.2s ease-in-out infinite; }
+    .stepper-scroll::-webkit-scrollbar { display: none; }
+  `;
+  document.head.appendChild(s);
+}
 
 const StepperTrack: React.FC<{
   stages: NonNullable<ReturnType<typeof useLeadPipeline>['data']>['stages'];
@@ -221,7 +237,6 @@ const StepperTrack: React.FC<{
     setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
   };
 
-  // Auto-scroll to current stage on mount / when curIdx changes
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || curIdx < 0) return;
@@ -229,6 +244,8 @@ const StepperTrack: React.FC<{
     el.scrollTo({ left: Math.max(0, targetX), behavior: 'smooth' });
     setTimeout(updateArrows, 350);
   }, [curIdx]);
+
+  useEffect(() => { setTimeout(updateArrows, 100); }, [stages.length]);
 
   const scroll = (dir: 'left' | 'right') => {
     const el = scrollRef.current;
@@ -238,28 +255,28 @@ const StepperTrack: React.FC<{
   };
 
   const totalW = stages.length * STAGE_W;
-  const needsScroll = stages.length > 5;
+  const needsScroll = stages.length > 4;
 
   return (
-    <div style={{ padding: '0 18px 16px', position: 'relative' }}>
-      {/* Left fade + arrow */}
+    <div style={{ padding: '4px 0 20px', position: 'relative' }}>
+      {/* Left arrow + fade */}
       {needsScroll && canLeft && (
         <button onClick={() => scroll('left')} style={{
-          position: 'absolute', left: 18, top: 0, bottom: 16, width: 32,
-          background: `linear-gradient(90deg, ${t.bgCard} 60%, transparent)`,
-          border: 'none', cursor: 'pointer', zIndex: 2,
+          position: 'absolute', left: 0, top: 0, bottom: 0, width: 44, zIndex: 3,
+          background: `linear-gradient(90deg, ${t.bgCard} 50%, transparent)`,
+          border: 'none', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
-          paddingLeft: 2, color: t.textMuted, fontSize: 14,
+          paddingLeft: 6, color: t.textSecondary, fontSize: 22, fontWeight: 300,
         }}>‹</button>
       )}
-      {/* Right fade + arrow */}
+      {/* Right arrow + fade */}
       {needsScroll && canRight && (
         <button onClick={() => scroll('right')} style={{
-          position: 'absolute', right: 18, top: 0, bottom: 16, width: 32,
-          background: `linear-gradient(270deg, ${t.bgCard} 60%, transparent)`,
-          border: 'none', cursor: 'pointer', zIndex: 2,
+          position: 'absolute', right: 0, top: 0, bottom: 0, width: 44, zIndex: 3,
+          background: `linear-gradient(270deg, ${t.bgCard} 50%, transparent)`,
+          border: 'none', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
-          paddingRight: 2, color: t.textMuted, fontSize: 14,
+          paddingRight: 6, color: t.textSecondary, fontSize: 22, fontWeight: 300,
         }}>›</button>
       )}
 
@@ -267,65 +284,97 @@ const StepperTrack: React.FC<{
       <div
         ref={scrollRef}
         onScroll={updateArrows}
-        style={{
-          overflowX: 'auto',
-          scrollbarWidth: 'none',
-          // hide webkit scrollbar
-          msOverflowStyle: 'none',
-        }}
+        className="stepper-scroll"
+        style={{ overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         <div style={{
-          display: 'flex', alignItems: 'flex-start',
+          display: 'flex', alignItems: 'center',
           width: totalW, minWidth: totalW,
+          padding: '10px 0 6px',
         }}>
           {stages.map((stage, idx) => {
             const isCur = stage.id === cur?.id;
             const isPast = curIdx >= 0 && idx < curIdx;
             const isFuture = curIdx >= 0 && idx > curIdx;
-            const nodeColor = isCur ? stage.color : isPast ? t.green : t.border;
             const lineColor = isPast ? t.green : t.border;
 
             return (
               <React.Fragment key={stage.id}>
+                {/* Stage node column */}
                 <div style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  gap: 6, flexShrink: 0, width: STAGE_W,
-                  opacity: isFuture ? 0.45 : 1,
-                  transition: 'opacity 0.2s',
+                  gap: 7, flexShrink: 0, width: STAGE_W,
+                  opacity: isFuture ? 0.38 : 1,
+                  transition: 'opacity 0.25s',
                 }}>
-                  <div style={{
-                    width: isCur ? 20 : 14, height: isCur ? 20 : 14,
-                    borderRadius: '50%',
-                    background: isCur ? stage.color : isPast ? t.green : t.bgBadge,
-                    border: `2px solid ${nodeColor}`,
-                    boxShadow: isCur ? `0 0 10px ${stage.color}60, 0 0 0 4px ${stage.color}18` : 'none',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 8, color: '#fff', fontWeight: 800,
-                    transition: 'all 0.2s', flexShrink: 0,
-                  }}>
-                    {isPast ? '✓' : ''}
+                  {/* Dot */}
+                  <div
+                    className={isCur ? 'stepper-cur' : undefined}
+                    style={{
+                      '--sp-c': stage.color,
+                      width: isCur ? 28 : isPast ? 22 : 16,
+                      height: isCur ? 28 : isPast ? 22 : 16,
+                      borderRadius: '50%',
+                      background: isCur
+                        ? `radial-gradient(circle at 38% 32%, ${stage.color}dd, ${stage.color})`
+                        : isPast ? t.green : t.bgBadge,
+                      border: isCur
+                        ? `2.5px solid ${stage.color}`
+                        : isPast ? `2px solid ${t.green}` : `2px solid ${t.border}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: isCur ? 12 : 9,
+                      color: isCur || isPast ? '#fff' : t.textFaint,
+                      fontWeight: 800,
+                      transition: 'width 0.2s, height 0.2s',
+                      flexShrink: 0,
+                    } as React.CSSProperties}
+                  >
+                    {isPast ? '✓' : isCur ? '●' : ''}
                   </div>
+
+                  {/* Stage name */}
                   <div style={{
-                    fontSize: 9, textAlign: 'center', width: STAGE_W - 8, lineHeight: 1.3,
-                    color: isCur ? t.text : isPast ? t.textSecondary : t.textFaint,
-                    fontWeight: isCur ? 700 : isPast ? 500 : 400,
+                    fontSize: isCur ? 11 : 10,
+                    textAlign: 'center',
+                    width: STAGE_W - 8,
+                    lineHeight: 1.35,
+                    color: isCur ? stage.color : isPast ? t.textSecondary : t.textFaint,
+                    fontWeight: isCur ? 800 : isPast ? 600 : 400,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     padding: '0 4px',
+                    transition: 'color 0.2s',
                   }}>
                     {stage.is_closed_won ? '✓ ' : stage.is_closed_lost ? '✗ ' : ''}{stage.name}
                   </div>
+
+                  {/* HERE pill */}
+                  {isCur && (
+                    <div style={{
+                      fontSize: 8, fontWeight: 800, letterSpacing: '0.09em',
+                      padding: '2px 7px', borderRadius: 4,
+                      background: `${stage.color}22`,
+                      color: stage.color,
+                      border: `1px solid ${stage.color}45`,
+                      marginTop: -3,
+                    }}>HERE</div>
+                  )}
                 </div>
+
+                {/* Connector line */}
                 {idx < stages.length - 1 && (
                   <div style={{
-                    flex: 1, height: 2, marginTop: 9, minWidth: 4,
-                    background: lineColor, transition: 'background 0.3s',
-                    position: 'relative',
+                    flex: 1, height: 3,
+                    marginBottom: isCur ? 32 : isPast ? 16 : 16,
+                    minWidth: 6, borderRadius: 2,
+                    background: lineColor,
+                    transition: 'background 0.3s',
+                    position: 'relative', overflow: 'hidden',
                   }}>
                     {idx === curIdx && (
                       <div style={{
                         position: 'absolute', top: 0, left: 0,
-                        height: '100%', width: '45%',
-                        background: `linear-gradient(90deg, ${stage.color}, transparent)`,
+                        height: '100%', width: '50%',
+                        background: `linear-gradient(90deg, ${stage.color}cc, transparent)`,
                         borderRadius: 2,
                       }} />
                     )}
