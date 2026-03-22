@@ -20,15 +20,51 @@ if (typeof document !== 'undefined' && !document.getElementById('ld-css')) {
   const s = document.createElement('style');
   s.id = 'ld-css';
   s.textContent = `
+    /* Two-column desktop layout */
     .ld-body  { display: flex; gap: 14px; align-items: flex-start; }
     .ld-main  { flex: 1; min-width: 0; }
     .ld-aside { width: 244px; flex-shrink: 0; }
+    /* Hero meta row */
+    .ld-hero-meta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    /* Desktop action bar — horizontal */
     .ld-acts  { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
-    .ld-hero-meta { display: flex; gap: 14px; flex-wrap: wrap; }
+    /* Sticky bottom bar — hidden on desktop */
+    .ld-sticky-bar { display: none; }
+
     @media (max-width: 767px) {
+      /* Stack layout */
       .ld-body  { flex-direction: column; }
       .ld-aside { width: 100%; }
-      .ld-acts  { gap: 6px; }
+
+      /* Inline action bar hidden on mobile — replaced by sticky bar */
+      .ld-acts-wrap { display: none; }
+
+      /* Sticky bottom action bar */
+      .ld-sticky-bar {
+        display: flex;
+        position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+        padding: 10px 12px 14px;
+        gap: 8px;
+        background: var(--ld-bar-bg, #13141a);
+        border-top: 1px solid var(--ld-bar-border, rgba(255,255,255,0.08));
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        box-shadow: 0 -4px 24px rgba(0,0,0,0.35);
+      }
+      .ld-sticky-bar .ld-bar-btn {
+        flex: 1;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 3px; padding: 10px 4px;
+        border-radius: 12px; border: none; cursor: pointer;
+        font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+        min-height: 56px; min-width: 0;
+        transition: background 0.15s, transform 0.1s;
+      }
+      .ld-sticky-bar .ld-bar-btn:active { transform: scale(0.95); }
+      .ld-sticky-bar .ld-bar-btn .ld-bar-icon { font-size: 18px; line-height: 1; }
+
+      /* Extra bottom padding so content isn't hidden behind sticky bar */
+      .ld-page { padding-bottom: 90px !important; }
     }
   `;
   document.head.appendChild(s);
@@ -966,27 +1002,30 @@ export function AgentLeadDetailPage() {
   // Accent color for the hero strip — bucket color or a neutral
   const accentColor = bc?.color ?? t.accent;
 
-  return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '16px 14px 48px' }}>
+  // CSS variable values for sticky bar theming
+  const barBg = theme === 'dark' ? '#13141a' : '#ffffff';
+  const barBorder = theme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)';
 
+  return (
+    <div
+      className="ld-page"
+      style={{ maxWidth: 1100, margin: '0 auto', padding: '16px 14px 48px' }}
+    >
       {/* Back link */}
       <button onClick={() => navigate(-1)} style={{
         background: 'none', border: 'none', cursor: 'pointer',
         color: t.textFaint, fontSize: 12, padding: '0 0 12px',
         display: 'inline-flex', alignItems: 'center', gap: 5,
         letterSpacing: '0.02em', fontWeight: 500,
+        minHeight: 36,
       }}>
         <span style={{ fontSize: 14 }}>←</span> All Leads
       </button>
 
       {/* ── Hero card ── */}
       <div style={{
-        background: t.bgCard,
-        border: `1px solid ${t.border}`,
-        borderRadius: 18,
-        marginBottom: 8,
-        overflow: 'hidden',
-        position: 'relative',
+        background: t.bgCard, border: `1px solid ${t.border}`,
+        borderRadius: 18, marginBottom: 8, overflow: 'hidden',
       }}>
         {/* Colored top accent bar */}
         <div style={{
@@ -995,60 +1034,48 @@ export function AgentLeadDetailPage() {
             ? `linear-gradient(90deg, ${bc.color}, ${bc.color}88)`
             : `linear-gradient(90deg, ${t.accent}, ${t.accent}55)`,
         }} />
-
-        <div style={{ padding: '20px 22px 18px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-
+        <div style={{ padding: '18px 16px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
             {/* Avatar */}
             <div style={{
-              width: 58, height: 58, borderRadius: 16, flexShrink: 0,
+              width: 54, height: 54, borderRadius: 15, flexShrink: 0,
               background: avatarGrad(lead.name),
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20, fontWeight: 800, color: '#fff',
-              letterSpacing: '-0.5px',
-              boxShadow: `0 4px 16px ${accentColor}30`,
+              fontSize: 19, fontWeight: 800, color: '#fff', letterSpacing: '-0.5px',
+              boxShadow: `0 4px 14px ${accentColor}30`,
             }}>
               {initials(lead.name)}
             </div>
 
             {/* Identity block */}
             <div style={{ flex: 1, minWidth: 0 }}>
-
-              {/* Name row */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
-                <h1 style={{
-                  margin: 0, fontSize: 22, fontWeight: 800,
-                  color: t.text, lineHeight: 1.15, letterSpacing: '-0.3px',
-                }}>
+              {/* Name + aging */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 5 }}>
+                <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: t.text, lineHeight: 1.15, letterSpacing: '-0.3px' }}>
                   {lead.name}
                 </h1>
                 {isAging && (
                   <span style={{
                     fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
                     background: 'rgba(251,146,60,0.15)', color: '#fb923c',
-                    border: '1px solid rgba(251,146,60,0.35)',
-                    letterSpacing: '0.04em',
+                    border: '1px solid rgba(251,146,60,0.35)', letterSpacing: '0.04em',
                   }}>⏱ AGING</span>
                 )}
               </div>
 
               {/* Contact row */}
-              <div className="ld-hero-meta" style={{ marginBottom: 12 }}>
+              <div className="ld-hero-meta" style={{ marginBottom: 10 }}>
                 {lead.phone && (
                   <a href={`tel:${lead.phone}`} style={{
                     fontSize: 13, fontWeight: 600, color: t.accent,
-                    textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5,
-                  }}>
-                    <span style={{ fontSize: 12 }}>📞</span>{lead.phone}
-                  </a>
+                    textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4,
+                  }}>📞 {lead.phone}</a>
                 )}
                 {lead.email && (
                   <a href={`mailto:${lead.email}`} style={{
                     fontSize: 13, color: t.textSecondary,
-                    textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5,
-                  }}>
-                    <span style={{ fontSize: 12 }}>✉</span>{lead.email}
-                  </a>
+                    textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4,
+                  }}>✉ {lead.email}</a>
                 )}
                 {lead.source && (
                   <span style={{ fontSize: 12, color: t.textFaint }}>
@@ -1073,23 +1100,18 @@ export function AgentLeadDetailPage() {
                     background: t.bgBadge, color: t.textSecondary, border: `1px solid ${t.border}`,
                   }}>⭐ {lead.score} pts</span>
                 )}
-                {/* Stage badge — colored if pipeline data available */}
                 {pipeline?.current_stage ? (
                   <span style={{
                     fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 7,
                     background: `${pipeline.current_stage.color}18`,
                     color: pipeline.current_stage.color,
                     border: `1.5px solid ${pipeline.current_stage.color}40`,
-                  }}>
-                    📍 {pipeline.current_stage.name}
-                  </span>
+                  }}>📍 {pipeline.current_stage.name}</span>
                 ) : (
                   <span style={{
                     fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 7,
                     background: t.bgBadge, color: t.textMuted, border: `1px solid ${t.border}`,
-                  }}>
-                    🔄 {currentState.replace(/_/g, ' ')}
-                  </span>
+                  }}>🔄 {currentState.replace(/_/g, ' ')}</span>
                 )}
               </div>
             </div>
@@ -1097,22 +1119,20 @@ export function AgentLeadDetailPage() {
         </div>
       </div>
 
-      {/* ── Next Action callout — above the action bar so it's the first thing seen ── */}
+      {/* ── Next Action callout ── */}
       {nextAction && (
         <div style={{
           marginBottom: 8,
           background: bc ? bc.bg : `${t.accent}0d`,
           border: `1.5px solid ${bc ? bc.border : t.accent + '30'}`,
-          borderRadius: 14,
-          padding: '14px 18px',
-          display: 'flex', alignItems: 'center', gap: 14,
+          borderRadius: 14, padding: '13px 16px',
+          display: 'flex', alignItems: 'center', gap: 13,
         }}>
           <div style={{
             width: 40, height: 40, borderRadius: 11, flexShrink: 0,
             background: bc ? `${bc.color}20` : `${t.accent}18`,
             border: `1.5px solid ${bc ? bc.border : t.accent + '35'}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 18,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
           }}>⚡</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
@@ -1127,40 +1147,21 @@ export function AgentLeadDetailPage() {
         </div>
       )}
 
-      {/* ── Action bar ── */}
-      <div style={{
-        background: t.bgCard,
-        border: `1px solid ${t.border}`,
-        borderRadius: 14,
-        padding: '13px 16px',
-        marginBottom: 12,
+      {/* ── Desktop action bar (hidden on mobile — replaced by sticky bar) ── */}
+      <div className="ld-acts-wrap" style={{
+        background: t.bgCard, border: `1px solid ${t.border}`,
+        borderRadius: 14, padding: '12px 16px', marginBottom: 12,
       }}>
         <div className="ld-acts">
-          {/* Primary CTA */}
-          {lead.phone && (
-            <Btn icon="📞" label="Call" href={`tel:${lead.phone}`} variant="primary" />
-          )}
-          {lead.email && (
-            <Btn icon="✉" label="Email" href={`mailto:${lead.email}`} variant="secondary" />
-          )}
-          {lead.phone && (
-            <Btn icon={copied ? '✓' : '📋'} label={copied ? 'Copied!' : 'Copy #'} onClick={copyPhone} variant="secondary" />
-          )}
+          {lead.phone && <Btn icon="📞" label="Call" href={`tel:${lead.phone}`} variant="primary" />}
+          {lead.email && <Btn icon="✉" label="Email" href={`mailto:${lead.email}`} variant="secondary" />}
+          {lead.phone && <Btn icon={copied ? '✓' : '📋'} label={copied ? 'Copied!' : 'Copy #'} onClick={copyPhone} variant="secondary" />}
           <Btn icon="💬" label="Text" pending variant="secondary" />
-
-          {/* Stage transitions */}
           {nextStates.length > 0 && (
             <>
               <div style={{ width: 1, height: 26, background: t.border, margin: '0 6px', flexShrink: 0 }} />
               {nextStates.map(s => (
-                <Btn
-                  key={s}
-                  icon="→"
-                  label={s.replace(/_/g, ' ')}
-                  onClick={() => moveToState(s)}
-                  variant="ghost"
-                  small
-                />
+                <Btn key={s} icon="→" label={s.replace(/_/g, ' ')} onClick={() => moveToState(s)} variant="ghost" small />
               ))}
             </>
           )}
@@ -1172,7 +1173,7 @@ export function AgentLeadDetailPage() {
         )}
       </div>
 
-      {/* Two-column body */}
+      {/* ── Two-column body ── */}
       <div className="ld-body">
         <div className="ld-main">
           {pipeline && <PipelineSection pipeline={pipeline} />}
@@ -1190,6 +1191,93 @@ export function AgentLeadDetailPage() {
         <div className="ld-aside">
           <Sidebar lead={lead} detail={detail} stageName={stageName} currentState={currentState} />
         </div>
+      </div>
+
+      {/* ── Sticky mobile bottom action bar ── */}
+      <div
+        className="ld-sticky-bar"
+        style={{ '--ld-bar-bg': barBg, '--ld-bar-border': barBorder } as React.CSSProperties}
+      >
+        {/* Call */}
+        {lead.phone ? (
+          <a href={`tel:${lead.phone}`} className="ld-bar-btn" style={{
+            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            color: '#fff', textDecoration: 'none',
+            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', gap: 3, padding: '10px 4px',
+            borderRadius: 12, minHeight: 56, fontSize: 11, fontWeight: 700,
+          }}>
+            <span className="ld-bar-icon">📞</span>
+            <span>Call</span>
+          </a>
+        ) : (
+          <div className="ld-bar-btn" style={{ background: t.bgBadge, color: t.textFaint, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, padding: '10px 4px', borderRadius: 12, minHeight: 56, fontSize: 11, fontWeight: 700, opacity: 0.4 }}>
+            <span className="ld-bar-icon">📞</span><span>Call</span>
+          </div>
+        )}
+
+        {/* Email */}
+        {lead.email ? (
+          <a href={`mailto:${lead.email}`} className="ld-bar-btn" style={{
+            background: t.bgCardHover, color: t.text, textDecoration: 'none',
+            border: `1px solid ${t.border}`,
+            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', gap: 3, padding: '10px 4px',
+            borderRadius: 12, minHeight: 56, fontSize: 11, fontWeight: 700,
+          }}>
+            <span className="ld-bar-icon">✉</span>
+            <span>Email</span>
+          </a>
+        ) : (
+          <div className="ld-bar-btn" style={{ background: t.bgBadge, color: t.textFaint, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, padding: '10px 4px', borderRadius: 12, minHeight: 56, fontSize: 11, fontWeight: 700, opacity: 0.4 }}>
+            <span className="ld-bar-icon">✉</span><span>Email</span>
+          </div>
+        )}
+
+        {/* Text — backend pending */}
+        <button className="ld-bar-btn" disabled style={{
+          background: t.bgBadge, color: t.textFaint,
+          border: `1px solid ${t.border}`, opacity: 0.5,
+          flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', gap: 3, padding: '10px 4px',
+          borderRadius: 12, minHeight: 56, fontSize: 11, fontWeight: 700, cursor: 'not-allowed',
+        }}>
+          <span className="ld-bar-icon">💬</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            Text <BackendPendingBadge variant="inline" tooltip="Coming soon" />
+          </span>
+        </button>
+
+        {/* Copy phone */}
+        {lead.phone && (
+          <button className="ld-bar-btn" onClick={copyPhone} style={{
+            background: copied ? `${t.green}18` : t.bgCardHover,
+            color: copied ? t.green : t.textMuted,
+            border: `1px solid ${copied ? t.green + '40' : t.border}`,
+            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', gap: 3, padding: '10px 4px',
+            borderRadius: 12, minHeight: 56, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+          }}>
+            <span className="ld-bar-icon">{copied ? '✓' : '📋'}</span>
+            <span>{copied ? 'Copied' : 'Copy #'}</span>
+          </button>
+        )}
+
+        {/* Stage move — first available transition */}
+        {nextStates.length > 0 && (
+          <button className="ld-bar-btn" onClick={() => moveToState(nextStates[0])} style={{
+            background: t.bgCardHover, color: t.textSecondary,
+            border: `1px solid ${t.border}`,
+            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', gap: 3, padding: '10px 4px',
+            borderRadius: 12, minHeight: 56, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+          }}>
+            <span className="ld-bar-icon">→</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 56 }}>
+              {nextStates[0].replace(/_/g, ' ')}
+            </span>
+          </button>
+        )}
       </div>
 
     </div>
