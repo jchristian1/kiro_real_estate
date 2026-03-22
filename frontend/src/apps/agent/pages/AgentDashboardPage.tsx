@@ -20,23 +20,23 @@ if (typeof document !== 'undefined' && !document.getElementById('dash-css')) {
     @media(max-width:680px){ .dash-grid{ grid-template-columns:repeat(2,1fr); gap:5px; } }
 
     .dash-row {
-      display:flex; align-items:center; gap:9px;
-      padding:8px 12px; cursor:pointer;
-      transition:background 0.1s;
+      display:flex; align-items:center; gap:12px;
+      padding:12px 16px; cursor:pointer;
+      transition:background 0.15s;
       -webkit-tap-highlight-color:transparent;
     }
     .dash-row:last-child { border-bottom:none !important; }
-    @media(max-width:480px){ .dash-row{ padding:8px 10px; gap:8px; } }
+    @media(max-width:480px){ .dash-row{ padding:12px 14px; gap:10px; } }
 
     .dash-sec-hdr {
       display:flex; align-items:center; justify-content:space-between;
-      padding:8px 12px 7px;
+      padding:10px 16px 9px;
       border-bottom:1px solid var(--dash-border);
     }
     .dash-sec-btn {
       background:none; border:none; cursor:pointer;
       font-size:11px; font-weight:600;
-      padding:3px 0 3px 8px; min-height:28px;
+      padding:3px 0 3px 8px; min-height:30px;
       display:flex; align-items:center;
     }
 
@@ -85,17 +85,6 @@ function avatarGrad(name: string): string {
   return g[Math.abs(h) % g.length];
 }
 
-function stateHint(state?: string): string {
-  if (!state) return 'New lead';
-  const map: Record<string, string> = {
-    NEW: 'Reach out now', INVITE_SENT: 'Follow up on invite',
-    FORM_SUBMITTED: 'Review submission', SCORED: 'Contact scored lead',
-    CONTACTED: 'Schedule appointment', APPOINTMENT_SET: 'Confirm appointment',
-    LOST: 'Re-engage or archive', CLOSED: 'Closed',
-  };
-  return map[state] ?? state.replace(/_/g, ' ');
-}
-
 type QueueLead = {
   id: number; name: string; score?: number; score_bucket?: string;
   source?: string; lead_source_name?: string; created_at?: string;
@@ -109,7 +98,7 @@ function bucketColor(b?: string) {
   return null;
 }
 
-// ── LeadRow — compact queue row ───────────────────────────────────────────────
+// ── LeadRow — matches LeadCard visual language ────────────────────────────────
 const LeadRow: React.FC<{
   lead: QueueLead;
   badge?: React.ReactNode;
@@ -121,11 +110,11 @@ const LeadRow: React.FC<{
   const [hov, setHov] = useState(false);
   const bc = bucketColor(lead.score_bucket);
   const src = lead.lead_source_name || lead.source;
-  const hint = stateHint(lead.current_state);
+  const stageName = lead.current_state?.replace(/_/g, ' ') || 'New';
   const age = lead.created_at
     ? timeAgo(lead.created_at)
     : lead.minutes_since_created != null
-      ? `${Math.round(lead.minutes_since_created)}m`
+      ? `${Math.round(lead.minutes_since_created)}m ago`
       : null;
 
   return (
@@ -139,54 +128,55 @@ const LeadRow: React.FC<{
         borderBottom: `1px solid ${borderColor}`,
       }}
     >
-      {/* Avatar */}
+      {/* Avatar — matches LeadCard: 40px circle */}
       <div style={{
-        width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+        width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
         background: avatarGrad(lead.name || '?'),
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 10, fontWeight: 700, color: '#fff',
-        boxShadow: bc ? `0 0 0 1.5px ${bc.c}40` : 'none',
+        fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: '-0.3px',
+        boxShadow: bc ? `0 0 0 2px ${bc.c}40` : 'none',
       }}>
         {initials(lead.name || '?')}
       </div>
 
-      {/* Name + hint */}
+      {/* Name + source — matches LeadCard main info */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
           <span style={{
-            fontSize: 12, fontWeight: 700, color: t.text,
+            fontSize: 14, fontWeight: 600, color: t.text,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>{lead.name}</span>
           {badge}
         </div>
-        <div style={{ fontSize: 10, display: 'flex', gap: 4, alignItems: 'center', overflow: 'hidden' }}>
-          <span style={{ color: t.accent, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>{hint}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: t.textMuted, flexWrap: 'wrap' }}>
           {src && (
-            <span style={{ color: t.textFaint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              · {src}
-            </span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>{src}</span>
           )}
         </div>
       </div>
 
-      {/* Trailing: bucket + score + age */}
-      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+      {/* Right: bucket + score + stage + age — matches LeadCard right column */}
+      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {bc && (
             <span style={{
-              fontSize: 8, fontWeight: 800, padding: '1px 5px', borderRadius: 3,
-              background: bc.bg, color: bc.c, border: `1px solid ${bc.bd}`,
-              letterSpacing: '0.04em', whiteSpace: 'nowrap',
+              fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
+              color: bc.c, background: bc.bg, letterSpacing: '0.4px',
             }}>{lead.score_bucket}</span>
           )}
           {lead.score != null && (
-            <span style={{ fontSize: 9, fontWeight: 700, color: t.textMuted }}>{lead.score}pt</span>
+            <span style={{
+              fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 5,
+              color: t.textMuted, background: t.bgBadge,
+            }}>{lead.score}</span>
           )}
+          <span style={{
+            fontSize: 10, padding: '2px 6px', borderRadius: 5,
+            color: t.textFaint, background: t.bgBadge, whiteSpace: 'nowrap',
+          }}>{stageName}</span>
         </div>
-        {age && <span style={{ fontSize: 9, color: t.textFaint, whiteSpace: 'nowrap' }}>{age}</span>}
+        {age && <span style={{ fontSize: 11, color: t.textFaint }}>{age}</span>}
       </div>
-
-      <span style={{ fontSize: 12, color: t.textFaint, flexShrink: 0, marginLeft: 2 }}>›</span>
     </div>
   );
 };
