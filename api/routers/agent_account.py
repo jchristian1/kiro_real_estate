@@ -38,6 +38,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/agent/account", tags=["Agent Account"])
 
 
+def _decrypt_email(email_encrypted: str) -> str:
+    """Decrypt a Fernet-encrypted email address. Falls back to returning as-is
+    if decryption fails (handles legacy plaintext-stored emails)."""
+    import os
+    from cryptography.fernet import Fernet, InvalidToken
+    key = os.environ.get("ENCRYPTION_KEY", "")
+    if not key:
+        return email_encrypted
+    try:
+        f = Fernet(key.encode())
+        return f.decrypt(email_encrypted.encode()).decode()
+    except (InvalidToken, Exception):
+        # Not encrypted (legacy plaintext) — return as-is
+        return email_encrypted
+
+
 class GmailStatusResponse(BaseModel):
     connected: bool
     gmail_address: Optional[str] = None
@@ -124,7 +140,7 @@ def get_gmail_status(
 
     return GmailStatusResponse(
         connected=True,
-        gmail_address=creds.email_encrypted,
+        gmail_address=_decrypt_email(creds.email_encrypted),
         last_sync=None,
         watcher_enabled=watcher_enabled,
         watcher_admin_locked=watcher_admin_locked,
@@ -146,7 +162,8 @@ def test_gmail_connection(
         logger.error("Failed to decrypt credentials for agent %s: %s", agent.id, exc)
         return TestGmailResponse(ok=False, error="DECRYPTION_FAILED")
 
-    result = test_imap_connection(creds.email_encrypted, plaintext_password)
+    plaintext_email = _decrypt_email(creds.email_encrypted)
+    result = test_imap_connection(plaintext_email, plaintext_password)
 
     if result.get("success"):
         return TestGmailResponse(ok=True)
