@@ -147,13 +147,7 @@ const SectionLabel: React.FC<{ children: React.ReactNode; aside?: React.ReactNod
   );
 };
 
-const HR: React.FC = () => {
-  const { theme } = useTheme();
-  const t = getTokens(theme);
-  return <div style={{ height: 1, background: t.border, margin: '12px 0' }} />;
-};
 
-// ── Action button ─────────────────────────────────────────────────────────────
 
 const Btn: React.FC<{
   icon: string; label: string; href?: string;
@@ -212,96 +206,223 @@ const PipelineSection: React.FC<{
 }> = ({ pipeline }) => {
   const { theme } = useTheme();
   const t = getTokens(theme);
+
+  // No pipeline configured for this company yet
+  if (!pipeline.pipeline_name || pipeline.stages.length === 0) {
+    return (
+      <Card>
+        <SectionLabel aside={<BackendPendingBadge tooltip="No active pipeline configured for this company" />}>
+          Pipeline
+        </SectionLabel>
+        <div style={{
+          padding: '20px 0', textAlign: 'center',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+        }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 12,
+            background: t.bgBadge, border: `1px dashed ${t.border}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+          }}>⬡</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: t.textMuted }}>No pipeline assigned</div>
+          <div style={{ fontSize: 12, color: t.textFaint, maxWidth: 260 }}>
+            Configure a pipeline in the admin panel to track this lead through stages.
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
   const sorted = [...pipeline.stages].sort((a, b) => a.position - b.position);
   const curIdx = sorted.findIndex(s => s.id === pipeline.current_stage?.id);
   const cur = pipeline.current_stage;
+  const nextStage = curIdx >= 0 && curIdx < sorted.length - 1 ? sorted[curIdx + 1] : null;
+  const completedCount = curIdx > 0 ? curIdx : 0;
+  const totalCount = sorted.length;
+
+  // Category icon — reserved for future use
+  // const catIcon = ...
 
   return (
-    <Card>
-      <SectionLabel>{pipeline.pipeline_name}</SectionLabel>
+    <Card style={{ padding: 0, overflow: 'hidden' }}>
+      {/* Header */}
+      <div style={{ padding: '16px 18px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: 3 }}>
+              Pipeline
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{pipeline.pipeline_name}</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 11, color: t.textFaint }}>
+              Step <span style={{ fontWeight: 700, color: t.text }}>{curIdx >= 0 ? curIdx + 1 : '—'}</span> of {totalCount}
+            </div>
+            {completedCount > 0 && (
+              <div style={{ fontSize: 10, color: t.green, marginTop: 1 }}>{completedCount} completed</div>
+            )}
+          </div>
+        </div>
+      </div>
 
-      {/* Current stage callout */}
+      {/* Current stage hero */}
       {cur && (
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16,
-          padding: '12px 14px', borderRadius: 10,
-          background: `${cur.color}10`, border: `1px solid ${cur.color}35`,
+          margin: '0 18px 16px',
+          padding: '14px 16px',
+          borderRadius: 12,
+          background: `${cur.color}12`,
+          border: `1.5px solid ${cur.color}35`,
+          display: 'flex', alignItems: 'center', gap: 14,
         }}>
+          {/* Stage color dot + icon */}
           <div style={{
-            width: 36, height: 36, borderRadius: 9, flexShrink: 0,
-            background: `${cur.color}22`, border: `2px solid ${cur.color}55`,
+            width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+            background: `${cur.color}20`,
+            border: `2px solid ${cur.color}50`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 15, color: cur.color,
-          }}>→</div>
+            fontSize: 18, color: cur.color,
+            boxShadow: `0 0 12px ${cur.color}25`,
+          }}>
+            {cur.is_closed_won ? '✓' : cur.is_closed_lost ? '✗' : '▶'}
+          </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{cur.name}</div>
-            <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1 }}>
-              {cur.category.replace(/_/g, ' ')}
-              {pipeline.stage_entered_at && ` · entered ${timeAgo(pipeline.stage_entered_at)}`}
+            <div style={{ fontSize: 10, fontWeight: 700, color: cur.color, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 3 }}>
+              Current Stage
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: t.text, lineHeight: 1.2 }}>{cur.name}</div>
+            <div style={{ fontSize: 11, color: t.textMuted, marginTop: 3, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{
+                padding: '1px 7px', borderRadius: 4,
+                background: `${cur.color}15`, color: cur.color,
+                border: `1px solid ${cur.color}30`, fontWeight: 600,
+              }}>
+                {cur.category.replace(/_/g, ' ')}
+              </span>
+              {pipeline.stage_entered_at && (
+                <span style={{ color: t.textFaint }}>entered {timeAgo(pipeline.stage_entered_at)}</span>
+              )}
             </div>
           </div>
+          {/* Next stage hint */}
+          {nextStage && (
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: 9, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Next</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: t.textMuted }}>{nextStage.name}</div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Progress track */}
-      {sorted.length > 0 && (
-        <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', minWidth: sorted.length * 72 }}>
-            {sorted.map((stage, idx) => {
-              const isCur = stage.id === cur?.id;
-              const isPast = idx < curIdx;
-              const dotBg = isCur ? stage.color : isPast ? t.green : t.border;
-              return (
-                <React.Fragment key={stage.id}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0, minWidth: 64 }}>
-                    <div style={{
-                      width: 14, height: 14, borderRadius: '50%', background: dotBg,
-                      border: isCur ? `3px solid ${stage.color}` : 'none',
-                      boxShadow: isCur ? `0 0 7px ${stage.color}80` : 'none',
-                      outline: isCur ? `3px solid ${stage.color}18` : 'none',
-                      transition: 'all 0.2s',
-                    }} />
-                    <div style={{
-                      fontSize: 9, textAlign: 'center', maxWidth: 60,
-                      color: isCur ? t.text : isPast ? t.textMuted : t.textFaint,
-                      fontWeight: isCur ? 700 : 400,
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
-                      {stage.is_closed_won ? '✓ ' : stage.is_closed_lost ? '✗ ' : ''}{stage.name}
-                    </div>
+      {/* Stage stepper track */}
+      <div style={{ padding: '0 18px 16px', overflowX: 'auto' }}>
+        <div style={{
+          display: 'flex', alignItems: 'flex-start',
+          minWidth: sorted.length * 80,
+          gap: 0,
+        }}>
+          {sorted.map((stage, idx) => {
+            const isCur = stage.id === cur?.id;
+            const isPast = curIdx >= 0 && idx < curIdx;
+            const isFuture = curIdx >= 0 && idx > curIdx;
+
+            const nodeColor = isCur ? stage.color : isPast ? t.green : t.border;
+            const lineColor = isPast ? t.green : t.border;
+
+            return (
+              <React.Fragment key={stage.id}>
+                <div style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  gap: 6, flexShrink: 0,
+                  minWidth: 72,
+                  opacity: isFuture ? 0.5 : 1,
+                  transition: 'opacity 0.2s',
+                }}>
+                  {/* Node */}
+                  <div style={{
+                    width: isCur ? 20 : 14,
+                    height: isCur ? 20 : 14,
+                    borderRadius: '50%',
+                    background: isCur ? stage.color : isPast ? t.green : t.bgBadge,
+                    border: `2px solid ${nodeColor}`,
+                    boxShadow: isCur ? `0 0 10px ${stage.color}60, 0 0 0 4px ${stage.color}18` : 'none',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 8, color: isCur ? '#fff' : isPast ? '#fff' : t.textFaint,
+                    fontWeight: 800,
+                    transition: 'all 0.2s',
+                    flexShrink: 0,
+                  }}>
+                    {isPast ? '✓' : isCur ? '' : ''}
                   </div>
-                  {idx < sorted.length - 1 && (
-                    <div style={{ flex: 1, height: 2, marginTop: 6, minWidth: 6, background: isPast ? t.green : t.border, transition: 'background 0.2s' }} />
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </div>
+                  {/* Label */}
+                  <div style={{
+                    fontSize: 9, textAlign: 'center',
+                    maxWidth: 68, lineHeight: 1.3,
+                    color: isCur ? t.text : isPast ? t.textSecondary : t.textFaint,
+                    fontWeight: isCur ? 700 : isPast ? 500 : 400,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {stage.is_closed_won ? '✓ ' : stage.is_closed_lost ? '✗ ' : ''}{stage.name}
+                  </div>
+                </div>
+                {/* Connector line */}
+                {idx < sorted.length - 1 && (
+                  <div style={{
+                    flex: 1, height: 2, marginTop: 9, minWidth: 8,
+                    background: lineColor,
+                    transition: 'background 0.3s',
+                    position: 'relative',
+                  }}>
+                    {/* Animated fill for current→next */}
+                    {idx === curIdx && (
+                      <div style={{
+                        position: 'absolute', top: 0, left: 0,
+                        height: '100%', width: '40%',
+                        background: `linear-gradient(90deg, ${stage.color}, transparent)`,
+                        borderRadius: 2,
+                      }} />
+                    )}
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
         </div>
-      )}
+      </div>
 
       {/* Stage history */}
       {pipeline.stage_history.length > 0 && (
-        <>
-          <HR />
-          <SectionLabel>Stage History</SectionLabel>
-          {[...pipeline.stage_history].reverse().slice(0, 5).map((h, i, arr) => {
+        <div style={{ borderTop: `1px solid ${t.border}`, padding: '12px 18px' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: 10 }}>
+            Stage History
+          </div>
+          {[...pipeline.stage_history].reverse().slice(0, 4).map((h, i, arr) => {
             const st = sorted.find(s => s.id === h.to_stage_id);
             return (
               <div key={h.id} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '5px 0', borderBottom: i < arr.length - 1 ? `1px solid ${t.border}` : 'none',
+                padding: '6px 0',
+                borderBottom: i < arr.length - 1 ? `1px solid ${t.border}` : 'none',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                  {st && <div style={{ width: 6, height: 6, borderRadius: '50%', background: st.color, flexShrink: 0 }} />}
-                  <span style={{ fontSize: 12, color: t.text }}>{st?.name || `Stage ${h.to_stage_id}`}</span>
-                  <span style={{ fontSize: 10, color: t.textFaint, background: t.bgBadge, padding: '1px 5px', borderRadius: 4 }}>{h.change_source}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {st && (
+                    <div style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: st.color, flexShrink: 0,
+                      boxShadow: `0 0 4px ${st.color}60`,
+                    }} />
+                  )}
+                  <span style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{st?.name || `Stage ${h.to_stage_id}`}</span>
+                  <span style={{
+                    fontSize: 10, color: t.textFaint,
+                    background: t.bgBadge, padding: '1px 6px', borderRadius: 4,
+                    border: `1px solid ${t.border}`,
+                  }}>{h.change_source.replace(/_/g, ' ')}</span>
                 </div>
-                <span style={{ fontSize: 11, color: t.textFaint }}>{timeAgo(h.created_at)}</span>
+                <span style={{ fontSize: 11, color: t.textFaint, flexShrink: 0 }}>{timeAgo(h.created_at)}</span>
               </div>
             );
           })}
-        </>
+        </div>
       )}
     </Card>
   );
@@ -938,6 +1059,12 @@ export function AgentLeadDetailPage() {
       <div className="ld-body">
         <div className="ld-main">
           {pipeline && <PipelineSection pipeline={pipeline} />}
+          {!pipeline && (
+            <Card>
+              <SectionLabel>Pipeline</SectionLabel>
+              <div style={{ padding: '16px 0', textAlign: 'center', color: t.textFaint, fontSize: 13 }}>Loading pipeline…</div>
+            </Card>
+          )}
           <TimelineSection detail={detail} />
           <ScoringSection detail={detail} />
           <EmailsSection detail={detail} />
