@@ -30,12 +30,12 @@ if (typeof document !== 'undefined' && !document.getElementById('dash-css')) {
 
     /* Queue section panels */
     .dash-queue-panel {
-      border-radius: 14px;
+      border-radius: 12px;
       overflow: hidden;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
     .dash-queue-header {
-      padding: 12px 14px 11px;
+      padding: 9px 12px 8px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -46,44 +46,44 @@ if (typeof document !== 'undefined' && !document.getElementById('dash-css')) {
       font-size: 11px;
       font-weight: 600;
       cursor: pointer;
-      padding: 6px 0 6px 12px; /* larger tap target */
-      min-height: 36px;
+      padding: 4px 0 4px 10px;
+      min-height: 32px;
       display: flex;
       align-items: center;
     }
 
-    /* Queue items: comfortable touch targets */
+    /* Queue items */
     .dash-queue-item {
       display: flex;
       align-items: center;
-      gap: 11px;
-      padding: 12px 14px;
+      gap: 10px;
+      padding: 9px 12px;
       cursor: pointer;
       transition: background 0.12s;
       -webkit-tap-highlight-color: transparent;
     }
     @media (max-width: 480px) {
-      .dash-queue-item { padding: 11px 12px; gap: 10px; }
-      .dash-queue-header { padding: 11px 12px 10px; }
+      .dash-queue-item { padding: 9px 11px; gap: 9px; }
+      .dash-queue-header { padding: 8px 11px 7px; }
     }
 
-    /* Watcher card: stays horizontal but text wraps on tiny screens */
+    /* Watcher card */
     .dash-watcher {
       display: flex;
       align-items: center;
-      gap: 14px;
-      border-radius: 14px;
-      padding: 14px 16px;
-      margin-bottom: 10px;
+      gap: 12px;
+      border-radius: 12px;
+      padding: 10px 14px;
+      margin-bottom: 8px;
     }
     @media (max-width: 380px) {
-      .dash-watcher { gap: 10px; padding: 12px 12px; }
+      .dash-watcher { gap: 9px; padding: 9px 11px; }
     }
 
     /* Greeting */
-    .dash-greeting-name { font-size: 22px; }
+    .dash-greeting-name { font-size: 20px; }
     @media (max-width: 480px) {
-      .dash-greeting-name { font-size: 19px; }
+      .dash-greeting-name { font-size: 18px; }
     }
   `;
   document.head.appendChild(s);
@@ -193,7 +193,7 @@ const QueueItem: React.FC<{
     >
       {/* Avatar */}
       <div style={{
-        width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+        width: 30, height: 30, borderRadius: 8, flexShrink: 0,
         background: avatarGrad(lead.name || '?'),
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 12, color: '#fff', fontWeight: 700,
@@ -302,11 +302,11 @@ const WatcherCard: React.FC = () => {
       {/* Status icon + live dot */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
         <div style={{
-          width: 44, height: 44, borderRadius: 13,
+          width: 36, height: 36, borderRadius: 11,
           background: tier === 'active' ? `${t.green}15` : t.bgBadge,
           border: `1.5px solid ${tier === 'active' ? t.green + '35' : t.border}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 20,
+          fontSize: 17,
         }}>
           {tier === 'active' ? '📡' : tier === 'unconfigured' ? '🔌' : '⏸'}
         </div>
@@ -323,41 +323,42 @@ const WatcherCard: React.FC = () => {
         />
       </div>
 
-      {/* Text block */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 2 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>Inbox Watcher</span>
-          <span style={{
-            fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
-            background: tier === 'active' ? `${t.green}18` : tier === 'unconfigured' ? t.bgBadge : 'rgba(248,113,113,0.12)',
-            color: tierCfg.color,
-            border: `1px solid ${tier === 'active' ? t.green + '30' : tier === 'unconfigured' ? t.border : 'rgba(248,113,113,0.25)'}`,
-            letterSpacing: '0.04em',
-          }}>{tierCfg.label}</span>
-          {adminLocked && (
-            <span style={{ fontSize: 9, color: t.orange, fontWeight: 700, letterSpacing: '0.05em' }}>ADMIN LOCKED</span>
-          )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 1 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>Inbox Watcher</span>
+            <span style={{
+              fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+              background: tier === 'active' ? `${t.green}18` : tier === 'unconfigured' ? t.bgBadge : 'rgba(248,113,113,0.12)',
+              color: tierCfg.color,
+              border: `1px solid ${tier === 'active' ? t.green + '30' : tier === 'unconfigured' ? t.border : 'rgba(248,113,113,0.25)'}`,
+              letterSpacing: '0.04em',
+            }}>{tierCfg.label}</span>
+            {adminLocked && (
+              <span style={{ fontSize: 9, color: t.orange, fontWeight: 700, letterSpacing: '0.05em' }}>LOCKED</span>
+            )}
+          </div>
+          <div style={{ fontSize: 10, color: t.textMuted, lineHeight: 1.3, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {emailDisplay && (
+              <span style={{ fontFamily: 'monospace', color: t.textFaint }}>{emailDisplay}</span>
+            )}
+            {lastSync && tier === 'active' && (
+              <span style={{ color: t.textFaint }}>· synced {timeAgo(lastSync)}</span>
+            )}
+            {!emailDisplay && (
+              <span>{tierCfg.sub}</span>
+            )}
+          </div>
         </div>
-        <div style={{ fontSize: 11, color: t.textMuted, lineHeight: 1.4 }}>{tierCfg.sub}</div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 4, flexWrap: 'wrap' }}>
-          {emailDisplay && (
-            <span style={{ fontSize: 10, color: t.textFaint, fontFamily: 'monospace' }}>{emailDisplay}</span>
-          )}
-          {lastSync && tier === 'active' && (
-            <span style={{ fontSize: 10, color: t.textFaint }}>last sync {timeAgo(lastSync)}</span>
-          )}
-        </div>
-      </div>
 
       {/* Toggle — only when connected */}
       {connected ? (
-        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+        <div style={{ flexShrink: 0 }}>
           <button
             onClick={handleToggle}
             disabled={adminLocked || toggleWatcher.isPending}
             aria-label={watcherOn ? 'Pause watcher' : 'Enable watcher'}
             style={{
-              width: 46, height: 26, borderRadius: 13, border: 'none',
+              width: 42, height: 24, borderRadius: 12, border: 'none',
               cursor: adminLocked ? 'not-allowed' : 'pointer',
               background: watcherOn ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : t.border,
               position: 'relative', transition: 'background 0.2s',
@@ -365,14 +366,11 @@ const WatcherCard: React.FC = () => {
             }}
           >
             <div style={{
-              position: 'absolute', top: 3, left: watcherOn ? 22 : 3,
-              width: 20, height: 20, borderRadius: '50%', background: '#fff',
+              position: 'absolute', top: 3, left: watcherOn ? 20 : 3,
+              width: 18, height: 18, borderRadius: '50%', background: '#fff',
               transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
             }} />
           </button>
-          <span style={{ fontSize: 9, color: t.textFaint, fontWeight: 600 }}>
-            {watcherOn ? 'ON' : 'OFF'}
-          </span>
         </div>
       ) : (
         <button
@@ -434,7 +432,7 @@ export const AgentDashboardPage: React.FC = () => {
     <div style={{ maxWidth: 960, paddingBottom: 40 }}>
 
       {/* ── Greeting header ── */}
-      <div style={{ marginBottom: 18 }}>
+      <div style={{ marginBottom: 12 }}>
         <div className="dash-greeting-name" style={{ fontWeight: 800, color: t.text, letterSpacing: '-0.3px', lineHeight: 1.2 }}>
           {greeting(me?.full_name)}
         </div>
@@ -442,13 +440,13 @@ export const AgentDashboardPage: React.FC = () => {
       </div>
 
       {/* ── Overview strip ── */}
-      <div className="dash-overview" style={{ marginBottom: 12 }}>
+      <div className="dash-overview" style={{ marginBottom: 8 }}>
 
         {/* HOT leads */}
         <div
           onClick={() => navigate('/agent/leads?bucket=HOT')}
           style={{
-            borderRadius: 14, padding: '16px 16px 14px', cursor: 'pointer',
+            borderRadius: 12, padding: '12px 14px', cursor: 'pointer',
             background: hotCount > 0 ? 'rgba(239,68,68,0.08)' : t.bgCard,
             border: `1px solid ${hotCount > 0 ? 'rgba(239,68,68,0.28)' : t.border}`,
             transition: 'all 0.15s', position: 'relative', overflow: 'hidden',
@@ -462,14 +460,14 @@ export const AgentDashboardPage: React.FC = () => {
               background: 'linear-gradient(90deg,#ef4444,#f87171)',
             }} />
           )}
-          <div style={{ fontSize: 10, fontWeight: 700, color: hotCount > 0 ? '#f87171' : t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: hotCount > 0 ? '#f87171' : t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 5 }}>
             🔥 HOT Leads
           </div>
-          <div style={{ fontSize: 34, fontWeight: 800, color: hotCount > 0 ? '#f87171' : t.textMuted, lineHeight: 1, letterSpacing: '-1px' }}>
+          <div style={{ fontSize: 28, fontWeight: 800, color: hotCount > 0 ? '#f87171' : t.textMuted, lineHeight: 1, letterSpacing: '-1px' }}>
             {hotCount}
           </div>
-          <div style={{ fontSize: 11, color: hotCount > 0 ? 'rgba(248,113,113,0.7)' : t.textFaint, marginTop: 5 }}>
-            {hotCount === 0 ? 'none right now' : hotCount === 1 ? 'needs your attention' : 'need your attention'}
+          <div style={{ fontSize: 10, color: hotCount > 0 ? 'rgba(248,113,113,0.7)' : t.textFaint, marginTop: 4 }}>
+            {hotCount === 0 ? 'none right now' : hotCount === 1 ? 'needs attention' : 'need attention'}
           </div>
         </div>
 
@@ -477,7 +475,7 @@ export const AgentDashboardPage: React.FC = () => {
         <div
           onClick={() => navigate('/agent/leads')}
           style={{
-            borderRadius: 14, padding: '16px 16px 14px', cursor: 'pointer',
+            borderRadius: 12, padding: '12px 14px', cursor: 'pointer',
             background: agingCount > 0 ? 'rgba(251,146,60,0.08)' : t.bgCard,
             border: `1px solid ${agingCount > 0 ? 'rgba(251,146,60,0.28)' : t.border}`,
             transition: 'all 0.15s', position: 'relative', overflow: 'hidden',
@@ -491,20 +489,20 @@ export const AgentDashboardPage: React.FC = () => {
               background: 'linear-gradient(90deg,#f97316,#fb923c)',
             }} />
           )}
-          <div style={{ fontSize: 10, fontWeight: 700, color: agingCount > 0 ? '#fb923c' : t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: agingCount > 0 ? '#fb923c' : t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 5 }}>
             ⏱ Stalled
           </div>
-          <div style={{ fontSize: 34, fontWeight: 800, color: agingCount > 0 ? '#fb923c' : t.textMuted, lineHeight: 1, letterSpacing: '-1px' }}>
+          <div style={{ fontSize: 28, fontWeight: 800, color: agingCount > 0 ? '#fb923c' : t.textMuted, lineHeight: 1, letterSpacing: '-1px' }}>
             {agingCount}
           </div>
-          <div style={{ fontSize: 11, color: agingCount > 0 ? 'rgba(251,146,60,0.7)' : t.textFaint, marginTop: 5 }}>
+          <div style={{ fontSize: 10, color: agingCount > 0 ? 'rgba(251,146,60,0.7)' : t.textFaint, marginTop: 4 }}>
             {agingCount === 0 ? 'all caught up ✓' : agingCount === 1 ? 'lead stalled' : 'leads stalled'}
           </div>
         </div>
 
         {/* Response time */}
         <div style={{
-          borderRadius: 14, padding: '16px 16px 14px', position: 'relative', overflow: 'hidden',
+          borderRadius: 12, padding: '12px 14px', position: 'relative', overflow: 'hidden',
           background: t.bgCard, border: `1px solid ${t.border}`,
         }}>
           {responseTime != null && (
@@ -515,34 +513,34 @@ export const AgentDashboardPage: React.FC = () => {
                 : 'linear-gradient(90deg,#f97316,#fb923c)',
             }} />
           )}
-          <div style={{ fontSize: 10, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 5 }}>
             ⚡ Avg Response
           </div>
           <div style={{
-            fontSize: 34, fontWeight: 800, lineHeight: 1, letterSpacing: '-1px',
+            fontSize: 28, fontWeight: 800, lineHeight: 1, letterSpacing: '-1px',
             color: responseTime == null ? t.textMuted : responseTime <= 15 ? t.green : '#fb923c',
           }}>
             {responseTime != null ? `${responseTime}m` : '—'}
           </div>
-          <div style={{ fontSize: 11, marginTop: 5, color: t.textFaint }}>
+          <div style={{ fontSize: 10, marginTop: 4, color: t.textFaint }}>
             {responseTime == null ? 'no data today' : responseTime <= 15 ? 'on target ✓' : 'above 15m target'}
           </div>
         </div>
 
         {/* Conversions — backend pending */}
         <div style={{
-          borderRadius: 14, padding: '16px 16px 14px',
+          borderRadius: 12, padding: '12px 14px',
           background: t.bgCard, border: `1px dashed ${t.border}`,
           position: 'relative', overflow: 'hidden',
         }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 5 }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
               📊 Conversions
             </div>
             <BackendPendingBadge tooltip="Conversion rate tracking — coming soon" />
           </div>
-          <div style={{ fontSize: 34, fontWeight: 800, color: t.textFaint, lineHeight: 1, letterSpacing: '-1px' }}>—</div>
-          <div style={{ fontSize: 11, color: t.textFaint, marginTop: 5 }}>this month</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: t.textFaint, lineHeight: 1, letterSpacing: '-1px' }}>—</div>
+          <div style={{ fontSize: 10, color: t.textFaint, marginTop: 4 }}>this month</div>
         </div>
       </div>
 
@@ -552,7 +550,7 @@ export const AgentDashboardPage: React.FC = () => {
       {/* ── Needs attention now — always first if any aging ── */}
       {hasAttention && (
         <div style={{
-          marginBottom: 10, borderRadius: 14, overflow: 'hidden',
+          marginBottom: 8, borderRadius: 12, overflow: 'hidden',
           border: '1px solid rgba(251,146,60,0.35)',
           background: 'rgba(251,146,60,0.04)',
         }}>
@@ -590,7 +588,7 @@ export const AgentDashboardPage: React.FC = () => {
       )}
 
       {/* ── HOT leads queue ── */}
-      <div style={{ marginBottom: 10, borderRadius: 14, overflow: 'hidden', border: `1px solid ${hotLeads.length > 0 ? 'rgba(239,68,68,0.25)' : t.border}`, background: t.bgCard }}>
+      <div style={{ marginBottom: 8, borderRadius: 12, overflow: 'hidden', border: `1px solid ${hotLeads.length > 0 ? 'rgba(239,68,68,0.25)' : t.border}`, background: t.bgCard }}>
         <div className="dash-queue-header" style={{ borderBottom: `1px solid ${t.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 14 }}>🔥</span>
@@ -608,9 +606,8 @@ export const AgentDashboardPage: React.FC = () => {
           </button>
         </div>
         {hotLeads.length === 0 ? (
-          <div style={{ padding: '22px 14px', textAlign: 'center', color: t.textMuted, fontSize: 13 }}>
-            <div style={{ fontSize: 20, marginBottom: 5 }}>🎯</div>
-            No HOT leads right now — check back soon
+          <div style={{ padding: '12px 14px', color: t.textMuted, fontSize: 12 }}>
+            🎯 No HOT leads right now — check back soon
           </div>
         ) : (
           <>
@@ -638,7 +635,7 @@ export const AgentDashboardPage: React.FC = () => {
       </div>
 
       {/* ── Stalled / aging queue ── */}
-      <div style={{ marginBottom: 10, borderRadius: 14, overflow: 'hidden', border: `1px solid ${agingLeads.length > 0 ? 'rgba(251,146,60,0.22)' : t.border}`, background: t.bgCard }}>
+      <div style={{ marginBottom: 8, borderRadius: 12, overflow: 'hidden', border: `1px solid ${agingLeads.length > 0 ? 'rgba(251,146,60,0.22)' : t.border}`, background: t.bgCard }}>
         <div className="dash-queue-header" style={{ borderBottom: `1px solid ${t.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 14 }}>⏱</span>
@@ -656,10 +653,9 @@ export const AgentDashboardPage: React.FC = () => {
           </button>
         </div>
         {agingLeads.length === 0 ? (
-          <div style={{ padding: '22px 14px', textAlign: 'center' }}>
-            <div style={{ fontSize: 20, marginBottom: 5 }}>✓</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: t.green }}>All caught up</div>
-            <div style={{ fontSize: 12, color: t.textFaint, marginTop: 3 }}>No stalled leads — great response time</div>
+          <div style={{ padding: '12px 14px' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: t.green }}>✓ All caught up</span>
+            <span style={{ fontSize: 11, color: t.textFaint, marginLeft: 6 }}>No stalled leads</span>
           </div>
         ) : (
           agingLeads.slice(0, 5).map(lead => (
@@ -682,7 +678,7 @@ export const AgentDashboardPage: React.FC = () => {
       </div>
 
       {/* ── Recent leads ── */}
-      <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${t.border}`, background: t.bgCard }}>
+      <div style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid ${t.border}`, background: t.bgCard }}>
         <div className="dash-queue-header" style={{ borderBottom: `1px solid ${t.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 14 }}>🕐</span>
@@ -693,9 +689,8 @@ export const AgentDashboardPage: React.FC = () => {
           </button>
         </div>
         {hotLeads.length === 0 && agingLeads.length === 0 ? (
-          <div style={{ padding: '22px 14px', textAlign: 'center', color: t.textMuted, fontSize: 13 }}>
-            <div style={{ fontSize: 20, marginBottom: 5 }}>◎</div>
-            No leads yet — they'll appear here as they come in
+          <div style={{ padding: '12px 14px', color: t.textMuted, fontSize: 12 }}>
+            ◎ No leads yet — they'll appear here as they come in
           </div>
         ) : (
           <>
