@@ -18,14 +18,72 @@ if (typeof document !== 'undefined' && !document.getElementById('dash-css')) {
   const s = document.createElement('style');
   s.id = 'dash-css';
   s.textContent = `
-    .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .dash-overview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-    @media (max-width: 767px) {
-      .dash-grid    { grid-template-columns: 1fr; }
-      .dash-overview { grid-template-columns: repeat(2, 1fr); }
+    /* Overview strip: 4-col desktop → 2×2 mobile */
+    .dash-overview {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
     }
-    @media (max-width: 400px) {
-      .dash-overview { grid-template-columns: 1fr 1fr; }
+    @media (max-width: 767px) {
+      .dash-overview { grid-template-columns: repeat(2, 1fr); gap: 7px; }
+    }
+
+    /* Queue section panels */
+    .dash-queue-panel {
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .dash-queue-header {
+      padding: 12px 14px 11px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .dash-queue-action {
+      background: none;
+      border: none;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 6px 0 6px 12px; /* larger tap target */
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+    }
+
+    /* Queue items: comfortable touch targets */
+    .dash-queue-item {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: background 0.12s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    @media (max-width: 480px) {
+      .dash-queue-item { padding: 11px 12px; gap: 10px; }
+      .dash-queue-header { padding: 11px 12px 10px; }
+    }
+
+    /* Watcher card: stays horizontal but text wraps on tiny screens */
+    .dash-watcher {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+    @media (max-width: 380px) {
+      .dash-watcher { gap: 10px; padding: 12px 12px; }
+    }
+
+    /* Greeting */
+    .dash-greeting-name { font-size: 22px; }
+    @media (max-width: 480px) {
+      .dash-greeting-name { font-size: 19px; }
     }
   `;
   document.head.appendChild(s);
@@ -119,7 +177,6 @@ const QueueItem: React.FC<{
   const [hov, setHov] = useState(false);
   const bc = bucketCfg(lead.score_bucket);
   const src = lead.lead_source_name || lead.source;
-  const addr = lead.property_address || lead.address;
   const hint = stateHint(lead.current_state);
   const age = lead.created_at ? timeAgo(lead.created_at) : lead.minutes_since_created != null ? `${Math.round(lead.minutes_since_created)}m` : null;
 
@@ -128,11 +185,9 @@ const QueueItem: React.FC<{
       onClick={onClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
+      className="dash-queue-item"
       style={{
-        display: 'flex', alignItems: 'center', gap: 11,
-        padding: '11px 14px', cursor: 'pointer',
         background: hov ? t.bgCardHover : 'transparent',
-        transition: 'background 0.12s',
         borderBottom: `1px solid ${t.border}`,
       }}
     >
@@ -150,39 +205,42 @@ const QueueItem: React.FC<{
       {/* Main info */}
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* Row 1: name + urgency */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
             {lead.name}
           </span>
           {urgencyBadge}
         </div>
-        {/* Row 2: hint + source */}
-        <div style={{ fontSize: 11, color: t.textMuted, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ color: t.accent, fontWeight: 600 }}>{hint}</span>
-          {src && <><span style={{ color: t.textFaint }}>·</span><span style={{ color: t.textFaint }}>{src}</span></>}
-          {addr && <><span style={{ color: t.textFaint }}>·</span><span style={{ color: t.textFaint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>{addr}</span></>}
+        {/* Row 2: hint + source — truncated on mobile */}
+        <div style={{ fontSize: 11, color: t.textMuted, display: 'flex', gap: 5, alignItems: 'center', overflow: 'hidden' }}>
+          <span style={{ color: t.accent, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>{hint}</span>
+          {src && (
+            <span style={{ color: t.textFaint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              · {src}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Right: badges + age + arrow */}
+      {/* Right: badges + age */}
       <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
         <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
           {bc && (
             <span style={{
               fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
               background: bc.bg, color: bc.color, border: `1px solid ${bc.border}`,
-              letterSpacing: '0.04em',
+              letterSpacing: '0.04em', whiteSpace: 'nowrap',
             }}>{bc.label}</span>
           )}
           {lead.score != null && (
             <span style={{ fontSize: 10, fontWeight: 700, color: t.textMuted }}>{lead.score}pt</span>
           )}
         </div>
-        {age && <span style={{ fontSize: 10, color: t.textFaint }}>{age}</span>}
+        {age && <span style={{ fontSize: 10, color: t.textFaint, whiteSpace: 'nowrap' }}>{age}</span>}
       </div>
 
       {/* Open arrow */}
-      <span style={{ fontSize: 12, color: t.textFaint, flexShrink: 0, marginLeft: 2 }}>›</span>
+      <span style={{ fontSize: 14, color: t.textFaint, flexShrink: 0 }}>›</span>
     </div>
   );
 };
@@ -237,11 +295,9 @@ const WatcherCard: React.FC = () => {
   const lastSync = gmail?.last_sync;
 
   return (
-    <div style={{
+    <div className="dash-watcher" style={{
       background: tierCfg.bg,
       border: `1px solid ${tierCfg.border}`,
-      borderRadius: 14, padding: '14px 16px',
-      display: 'flex', alignItems: 'center', gap: 14,
     }}>
       {/* Status icon + live dot */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -378,8 +434,8 @@ export const AgentDashboardPage: React.FC = () => {
     <div style={{ maxWidth: 960, paddingBottom: 40 }}>
 
       {/* ── Greeting header ── */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 22, fontWeight: 800, color: t.text, letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+      <div style={{ marginBottom: 18 }}>
+        <div className="dash-greeting-name" style={{ fontWeight: 800, color: t.text, letterSpacing: '-0.3px', lineHeight: 1.2 }}>
           {greeting(me?.full_name)}
         </div>
         <div style={{ fontSize: 12, color: t.textFaint, marginTop: 3 }}>{todayStr}</div>
@@ -491,29 +547,18 @@ export const AgentDashboardPage: React.FC = () => {
       </div>
 
       {/* ── Watcher + system health ── */}
-      <div style={{ marginBottom: 12 }}>
-        <WatcherCard />
-      </div>
+      <WatcherCard />
 
       {/* ── Needs attention now — always first if any aging ── */}
       {hasAttention && (
         <div style={{
-          marginBottom: 12, borderRadius: 14, overflow: 'hidden',
+          marginBottom: 10, borderRadius: 14, overflow: 'hidden',
           border: '1px solid rgba(251,146,60,0.35)',
           background: 'rgba(251,146,60,0.04)',
         }}>
-          {/* Header */}
-          <div style={{
-            padding: '11px 14px 10px',
-            borderBottom: '1px solid rgba(251,146,60,0.2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          }}>
+          <div className="dash-queue-header" style={{ borderBottom: '1px solid rgba(251,146,60,0.2)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{
-                width: 7, height: 7, borderRadius: '50%',
-                background: '#fb923c',
-                boxShadow: '0 0 6px #fb923c',
-              }} />
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fb923c', boxShadow: '0 0 6px #fb923c' }} />
               <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>Needs Attention Now</span>
               <span style={{
                 fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 5,
@@ -521,10 +566,9 @@ export const AgentDashboardPage: React.FC = () => {
                 border: '1px solid rgba(251,146,60,0.3)',
               }}>{attentionLeads.length}</span>
             </div>
-            <button onClick={() => navigate('/agent/leads')} style={{
-              background: 'none', border: 'none', fontSize: 11, color: t.accent,
-              cursor: 'pointer', fontWeight: 600, padding: 0,
-            }}>View all →</button>
+            <button className="dash-queue-action" onClick={() => navigate('/agent/leads')} style={{ color: t.accent }}>
+              View all →
+            </button>
           </div>
           {attentionLeads.map(lead => (
             <QueueItem
@@ -546,12 +590,8 @@ export const AgentDashboardPage: React.FC = () => {
       )}
 
       {/* ── HOT leads queue ── */}
-      <div style={{ marginBottom: 12, borderRadius: 14, overflow: 'hidden', border: `1px solid ${hotLeads.length > 0 ? 'rgba(239,68,68,0.25)' : t.border}`, background: t.bgCard }}>
-        <div style={{
-          padding: '11px 14px 10px',
-          borderBottom: `1px solid ${t.border}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
+      <div style={{ marginBottom: 10, borderRadius: 14, overflow: 'hidden', border: `1px solid ${hotLeads.length > 0 ? 'rgba(239,68,68,0.25)' : t.border}`, background: t.bgCard }}>
+        <div className="dash-queue-header" style={{ borderBottom: `1px solid ${t.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 14 }}>🔥</span>
             <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>HOT Leads</span>
@@ -563,10 +603,9 @@ export const AgentDashboardPage: React.FC = () => {
               }}>{hotCount}</span>
             )}
           </div>
-          <button onClick={() => navigate('/agent/leads?bucket=HOT')} style={{
-            background: 'none', border: 'none', fontSize: 11, color: t.accent,
-            cursor: 'pointer', fontWeight: 600, padding: 0,
-          }}>View all →</button>
+          <button className="dash-queue-action" onClick={() => navigate('/agent/leads?bucket=HOT')} style={{ color: t.accent }}>
+            View all →
+          </button>
         </div>
         {hotLeads.length === 0 ? (
           <div style={{ padding: '22px 14px', textAlign: 'center', color: t.textMuted, fontSize: 13 }}>
@@ -589,10 +628,9 @@ export const AgentDashboardPage: React.FC = () => {
             ))}
             {hotLeads.length > 5 && (
               <div style={{ padding: '9px 14px', borderTop: `1px solid ${t.border}` }}>
-                <button onClick={() => navigate('/agent/leads?bucket=HOT')} style={{
-                  background: 'none', border: 'none', fontSize: 12, color: t.accent,
-                  cursor: 'pointer', fontWeight: 600, padding: 0,
-                }}>+{hotLeads.length - 5} more HOT leads →</button>
+                <button className="dash-queue-action" onClick={() => navigate('/agent/leads?bucket=HOT')} style={{ color: t.accent, padding: 0, minHeight: 'auto' }}>
+                  +{hotLeads.length - 5} more HOT leads →
+                </button>
               </div>
             )}
           </>
@@ -600,12 +638,8 @@ export const AgentDashboardPage: React.FC = () => {
       </div>
 
       {/* ── Stalled / aging queue ── */}
-      <div style={{ marginBottom: 12, borderRadius: 14, overflow: 'hidden', border: `1px solid ${agingLeads.length > 0 ? 'rgba(251,146,60,0.22)' : t.border}`, background: t.bgCard }}>
-        <div style={{
-          padding: '11px 14px 10px',
-          borderBottom: `1px solid ${t.border}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
+      <div style={{ marginBottom: 10, borderRadius: 14, overflow: 'hidden', border: `1px solid ${agingLeads.length > 0 ? 'rgba(251,146,60,0.22)' : t.border}`, background: t.bgCard }}>
+        <div className="dash-queue-header" style={{ borderBottom: `1px solid ${t.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 14 }}>⏱</span>
             <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>Stalled Leads</span>
@@ -617,10 +651,9 @@ export const AgentDashboardPage: React.FC = () => {
               }}>{agingCount}</span>
             )}
           </div>
-          <button onClick={() => refetch()} style={{
-            background: 'none', border: 'none', fontSize: 11, color: t.textFaint,
-            cursor: 'pointer', fontWeight: 600, padding: 0,
-          }}>↻ Refresh</button>
+          <button className="dash-queue-action" onClick={() => refetch()} style={{ color: t.textFaint }}>
+            ↻ Refresh
+          </button>
         </div>
         {agingLeads.length === 0 ? (
           <div style={{ padding: '22px 14px', textAlign: 'center' }}>
@@ -650,19 +683,14 @@ export const AgentDashboardPage: React.FC = () => {
 
       {/* ── Recent leads ── */}
       <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${t.border}`, background: t.bgCard }}>
-        <div style={{
-          padding: '11px 14px 10px',
-          borderBottom: `1px solid ${t.border}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
+        <div className="dash-queue-header" style={{ borderBottom: `1px solid ${t.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 14 }}>🕐</span>
             <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>Recent Leads</span>
           </div>
-          <button onClick={() => navigate('/agent/leads')} style={{
-            background: 'none', border: 'none', fontSize: 11, color: t.accent,
-            cursor: 'pointer', fontWeight: 600, padding: 0,
-          }}>All leads →</button>
+          <button className="dash-queue-action" onClick={() => navigate('/agent/leads')} style={{ color: t.accent }}>
+            All leads →
+          </button>
         </div>
         {hotLeads.length === 0 && agingLeads.length === 0 ? (
           <div style={{ padding: '22px 14px', textAlign: 'center', color: t.textMuted, fontSize: 13 }}>
@@ -688,10 +716,9 @@ export const AgentDashboardPage: React.FC = () => {
                 />
               ))}
             <div style={{ padding: '9px 14px', borderTop: `1px solid ${t.border}` }}>
-              <button onClick={() => navigate('/agent/leads')} style={{
-                background: 'none', border: 'none', fontSize: 12, color: t.accent,
-                cursor: 'pointer', fontWeight: 600, padding: 0,
-              }}>View all leads →</button>
+              <button className="dash-queue-action" onClick={() => navigate('/agent/leads')} style={{ color: t.accent, padding: 0, minHeight: 'auto' }}>
+                View all leads →
+              </button>
             </div>
           </>
         )}
