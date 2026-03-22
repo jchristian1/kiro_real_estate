@@ -725,98 +725,180 @@ export function AgentLeadDetailPage() {
     catch (e) { setStatusErr(getAgentErrorMessage(e)); }
   };
 
+  // Accent color for the hero strip — bucket color or a neutral
+  const accentColor = bc?.color ?? t.accent;
+
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '16px 14px 48px' }}>
 
       {/* Back link */}
       <button onClick={() => navigate(-1)} style={{
         background: 'none', border: 'none', cursor: 'pointer',
-        color: t.textMuted, fontSize: 13, padding: '0 0 14px', display: 'flex', alignItems: 'center', gap: 5,
+        color: t.textFaint, fontSize: 12, padding: '0 0 12px',
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        letterSpacing: '0.02em', fontWeight: 500,
       }}>
-        ← Leads
+        <span style={{ fontSize: 14 }}>←</span> All Leads
       </button>
 
-      {/* Hero */}
+      {/* ── Hero card ── */}
       <div style={{
-        background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16,
-        marginBottom: 10, overflow: 'hidden',
-        borderLeft: bc ? `4px solid ${bc.color}` : `4px solid ${t.border}`,
+        background: t.bgCard,
+        border: `1px solid ${t.border}`,
+        borderRadius: 18,
+        marginBottom: 8,
+        overflow: 'hidden',
+        position: 'relative',
       }}>
-        <div style={{ padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+        {/* Colored top accent bar */}
+        <div style={{
+          height: 4,
+          background: bc
+            ? `linear-gradient(90deg, ${bc.color}, ${bc.color}88)`
+            : `linear-gradient(90deg, ${t.accent}, ${t.accent}55)`,
+        }} />
+
+        <div style={{ padding: '20px 22px 18px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+
             {/* Avatar */}
             <div style={{
-              width: 52, height: 52, borderRadius: 14, flexShrink: 0,
+              width: 58, height: 58, borderRadius: 16, flexShrink: 0,
               background: avatarGrad(lead.name),
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 18, fontWeight: 800, color: '#fff', letterSpacing: '-0.5px',
+              fontSize: 20, fontWeight: 800, color: '#fff',
+              letterSpacing: '-0.5px',
+              boxShadow: `0 4px 16px ${accentColor}30`,
             }}>
               {initials(lead.name)}
             </div>
 
-            {/* Name + meta */}
+            {/* Identity block */}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: t.text, lineHeight: 1.2 }}>
+
+              {/* Name row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+                <h1 style={{
+                  margin: 0, fontSize: 22, fontWeight: 800,
+                  color: t.text, lineHeight: 1.15, letterSpacing: '-0.3px',
+                }}>
                   {lead.name}
                 </h1>
                 {isAging && (
                   <span style={{
-                    fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
-                    background: 'rgba(251,146,60,0.15)', color: '#fb923c', border: '1px solid rgba(251,146,60,0.3)',
+                    fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
+                    background: 'rgba(251,146,60,0.15)', color: '#fb923c',
+                    border: '1px solid rgba(251,146,60,0.35)',
+                    letterSpacing: '0.04em',
                   }}>⏱ AGING</span>
                 )}
               </div>
 
-              <div className="ld-hero-meta" style={{ marginTop: 7 }}>
+              {/* Contact row */}
+              <div className="ld-hero-meta" style={{ marginBottom: 12 }}>
                 {lead.phone && (
-                  <a href={`tel:${lead.phone}`} style={{ fontSize: 13, color: t.accent, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    📞 {lead.phone}
+                  <a href={`tel:${lead.phone}`} style={{
+                    fontSize: 13, fontWeight: 600, color: t.accent,
+                    textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5,
+                  }}>
+                    <span style={{ fontSize: 12 }}>📞</span>{lead.phone}
                   </a>
                 )}
                 {lead.email && (
-                  <a href={`mailto:${lead.email}`} style={{ fontSize: 13, color: t.textSecondary, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    ✉ {lead.email}
+                  <a href={`mailto:${lead.email}`} style={{
+                    fontSize: 13, color: t.textSecondary,
+                    textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5,
+                  }}>
+                    <span style={{ fontSize: 12 }}>✉</span>{lead.email}
                   </a>
                 )}
                 {lead.source && (
-                  <span style={{ fontSize: 12, color: t.textFaint }}>via {lead.source}</span>
+                  <span style={{ fontSize: 12, color: t.textFaint }}>
+                    via <span style={{ color: t.textMuted, fontWeight: 500 }}>{lead.source}</span>
+                  </span>
                 )}
                 <span style={{ fontSize: 12, color: t.textFaint }}>Added {timeAgo(lead.created_at)}</span>
               </div>
 
-              {/* Badges row */}
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+              {/* Badges */}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                 {bc && (
                   <span style={{
-                    fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6,
-                    background: bc.bg, color: bc.color, border: `1px solid ${bc.border}`,
+                    fontSize: 11, fontWeight: 800, padding: '4px 10px', borderRadius: 7,
+                    background: bc.bg, color: bc.color, border: `1.5px solid ${bc.border}`,
+                    letterSpacing: '0.05em',
                   }}>{bc.label}</span>
                 )}
                 {lead.score != null && (
                   <span style={{
-                    fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6,
+                    fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 7,
                     background: t.bgBadge, color: t.textSecondary, border: `1px solid ${t.border}`,
                   }}>⭐ {lead.score} pts</span>
                 )}
-                <span style={{
-                  fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 6,
-                  background: t.bgBadge, color: t.textMuted, border: `1px solid ${t.border}`,
-                }}>
-                  {stageName !== '—' ? `📍 ${stageName}` : `🔄 ${currentState.replace(/_/g, ' ')}`}
-                </span>
+                {/* Stage badge — colored if pipeline data available */}
+                {pipeline?.current_stage ? (
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 7,
+                    background: `${pipeline.current_stage.color}18`,
+                    color: pipeline.current_stage.color,
+                    border: `1.5px solid ${pipeline.current_stage.color}40`,
+                  }}>
+                    📍 {pipeline.current_stage.name}
+                  </span>
+                ) : (
+                  <span style={{
+                    fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 7,
+                    background: t.bgBadge, color: t.textMuted, border: `1px solid ${t.border}`,
+                  }}>
+                    🔄 {currentState.replace(/_/g, ' ')}
+                  </span>
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Action bar */}
+      {/* ── Next Action callout — above the action bar so it's the first thing seen ── */}
+      {nextAction && (
+        <div style={{
+          marginBottom: 8,
+          background: bc ? bc.bg : `${t.accent}0d`,
+          border: `1.5px solid ${bc ? bc.border : t.accent + '30'}`,
+          borderRadius: 14,
+          padding: '14px 18px',
+          display: 'flex', alignItems: 'center', gap: 14,
+        }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 11, flexShrink: 0,
+            background: bc ? `${bc.color}20` : `${t.accent}18`,
+            border: `1.5px solid ${bc ? bc.border : t.accent + '35'}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 18,
+          }}>⚡</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+              color: bc?.color ?? t.accent, textTransform: 'uppercase', marginBottom: 3,
+            }}>Recommended Action</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.3 }}>
+              {nextAction.label}
+            </div>
+            <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>{nextAction.detail}</div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Action bar ── */}
       <div style={{
-        background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14,
-        padding: '12px 16px', marginBottom: 10,
+        background: t.bgCard,
+        border: `1px solid ${t.border}`,
+        borderRadius: 14,
+        padding: '13px 16px',
+        marginBottom: 12,
       }}>
         <div className="ld-acts">
+          {/* Primary CTA */}
           {lead.phone && (
             <Btn icon="📞" label="Call" href={`tel:${lead.phone}`} variant="primary" />
           )}
@@ -824,18 +906,19 @@ export function AgentLeadDetailPage() {
             <Btn icon="✉" label="Email" href={`mailto:${lead.email}`} variant="secondary" />
           )}
           {lead.phone && (
-            <Btn icon={copied ? '✓' : '📋'} label={copied ? 'Copied' : 'Copy Phone'} onClick={copyPhone} variant="secondary" />
+            <Btn icon={copied ? '✓' : '📋'} label={copied ? 'Copied!' : 'Copy #'} onClick={copyPhone} variant="secondary" />
           )}
           <Btn icon="💬" label="Text" pending variant="secondary" />
 
+          {/* Stage transitions */}
           {nextStates.length > 0 && (
             <>
-              <div style={{ width: 1, height: 24, background: t.border, margin: '0 4px', flexShrink: 0 }} />
+              <div style={{ width: 1, height: 26, background: t.border, margin: '0 6px', flexShrink: 0 }} />
               {nextStates.map(s => (
                 <Btn
                   key={s}
                   icon="→"
-                  label={`Move to ${s.replace(/_/g, ' ')}`}
+                  label={s.replace(/_/g, ' ')}
                   onClick={() => moveToState(s)}
                   variant="ghost"
                   small
@@ -845,31 +928,11 @@ export function AgentLeadDetailPage() {
           )}
         </div>
         {statusErr && (
-          <div style={{ marginTop: 8, fontSize: 12, color: '#f87171' }}>⚠ {statusErr}</div>
+          <div style={{ marginTop: 8, fontSize: 12, color: '#f87171', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span>⚠</span> {statusErr}
+          </div>
         )}
       </div>
-
-      {/* Next action callout */}
-      {nextAction && (
-        <div style={{
-          background: bc ? bc.bg : t.bgCard,
-          border: `1px solid ${bc ? bc.border : t.border}`,
-          borderRadius: 14, padding: '14px 18px', marginBottom: 10,
-          display: 'flex', alignItems: 'center', gap: 14,
-        }}>
-          <div style={{
-            width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-            background: bc ? `${bc.color}18` : t.bgBadge,
-            border: `1.5px solid ${bc ? bc.border : t.border}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 17,
-          }}>⚡</div>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: bc?.color || t.text }}>{nextAction.label}</div>
-            <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>{nextAction.detail}</div>
-          </div>
-        </div>
-      )}
 
       {/* Two-column body */}
       <div className="ld-body">
