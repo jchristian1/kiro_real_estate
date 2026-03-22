@@ -918,6 +918,13 @@ export function AgentLeadDetailPage() {
 
   const [statusErr, setStatusErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   if (isLoading) {
     return (
@@ -967,9 +974,18 @@ export function AgentLeadDetailPage() {
   // Accent color for the hero strip — bucket color or a neutral
   const accentColor = bc?.color ?? t.accent;
 
-  // CSS variable values for sticky bar theming
+  // Sticky bar helpers
   const barBg = theme === 'dark' ? '#13141a' : '#ffffff';
   const barBorder = theme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)';
+
+  const barBtn = (bg: string, color: string, border?: string): React.CSSProperties => ({
+    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+    flex: 1, minHeight: 54, borderRadius: 11, padding: '8px 4px',
+    fontSize: 11, fontWeight: 700, gap: 4, cursor: 'pointer',
+    textDecoration: 'none', boxSizing: 'border-box',
+    background: bg, color, border: `1.5px solid ${border ?? 'transparent'}`,
+    WebkitTapHighlightColor: 'transparent',
+  });
 
   return (
     <div
@@ -1159,66 +1175,76 @@ export function AgentLeadDetailPage() {
       </div>
 
       {/* ── Sticky mobile bottom action bar ── */}
-      <div
-        className="ld-sticky-bar"
-        style={{ '--ld-bar-bg': barBg, '--ld-bar-border': barBorder } as React.CSSProperties}
-      >
+      {isMobile && (
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
+        display: 'flex', gap: 6, padding: '8px 10px 12px',
+        background: barBg,
+        borderTop: `1px solid ${barBorder}`,
+        boxShadow: '0 -4px 20px rgba(0,0,0,0.18)',
+      }}>
         {/* Call */}
         {lead.phone ? (
-          <a href={`tel:${lead.phone}`} className="ld-bar-btn" style={{
-            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff',
-          }}>
-            <span className="ld-bar-icon">📞</span>
+          <a href={`tel:${lead.phone}`} style={barBtn('linear-gradient(135deg,#6366f1,#8b5cf6)', '#fff')}>
+            <span style={{ fontSize: 18 }}>📞</span>
             <span>Call</span>
           </a>
         ) : (
-          <span className="ld-bar-btn" style={{ background: t.bgBadge, color: t.textFaint, opacity: 0.4 }}>
-            <span className="ld-bar-icon">📞</span><span>Call</span>
-          </span>
+          <div style={{ ...barBtn(t.bgBadge, t.textFaint), opacity: 0.4 }}>
+            <span style={{ fontSize: 18 }}>📞</span><span>Call</span>
+          </div>
         )}
 
         {/* Email */}
         {lead.email ? (
-          <a href={`mailto:${lead.email}`} className="ld-bar-btn" style={{
-            background: t.bgCardHover, color: t.text, borderColor: t.border,
-          }}>
-            <span className="ld-bar-icon">✉</span>
+          <a href={`mailto:${lead.email}`} style={barBtn(t.bgCardHover, t.text, t.border)}>
+            <span style={{ fontSize: 18 }}>✉</span>
             <span>Email</span>
           </a>
         ) : (
-          <span className="ld-bar-btn" style={{ background: t.bgBadge, color: t.textFaint, opacity: 0.4 }}>
-            <span className="ld-bar-icon">✉</span><span>Email</span>
-          </span>
+          <div style={{ ...barBtn(t.bgBadge, t.textFaint), opacity: 0.4 }}>
+            <span style={{ fontSize: 18 }}>✉</span><span>Email</span>
+          </div>
         )}
 
         {/* Text — backend pending */}
-        <span className="ld-bar-btn" style={{ background: t.bgBadge, color: t.textFaint, opacity: 0.45, cursor: 'not-allowed' }}>
-          <span className="ld-bar-icon">💬</span>
+        <div style={{ ...barBtn(t.bgBadge, t.textFaint), opacity: 0.45, cursor: 'not-allowed' }}>
+          <span style={{ fontSize: 18 }}>💬</span>
           <span>Text</span>
-        </span>
+        </div>
 
         {/* Copy phone */}
         {lead.phone && (
-          <button className="ld-bar-btn" onClick={copyPhone} style={{
-            background: copied ? `${t.green}18` : t.bgCardHover,
-            color: copied ? t.green : t.textMuted,
-            borderColor: copied ? `${t.green}40` : t.border,
-          }}>
-            <span className="ld-bar-icon">{copied ? '✓' : '📋'}</span>
+          <button
+            onClick={copyPhone}
+            style={{
+              ...barBtn(
+                copied ? `${t.green}18` : t.bgCardHover,
+                copied ? t.green : t.textMuted,
+                copied ? `${t.green}40` : t.border,
+              ),
+              border: `1.5px solid ${copied ? `${t.green}40` : t.border}`,
+            }}
+          >
+            <span style={{ fontSize: 18 }}>{copied ? '✓' : '📋'}</span>
             <span>{copied ? 'Copied' : 'Copy #'}</span>
           </button>
         )}
 
         {/* Stage move */}
         {nextStates.length > 0 && (
-          <button className="ld-bar-btn" onClick={() => moveToState(nextStates[0])} style={{
-            background: t.bgCardHover, color: t.textSecondary, borderColor: t.border,
-          }}>
-            <span className="ld-bar-icon">→</span>
-            <span>{nextStates[0].replace(/_/g, ' ')}</span>
+          <button
+            onClick={() => moveToState(nextStates[0])}
+            style={barBtn(t.bgCardHover, t.textSecondary, t.border)}
+          >
+            <span style={{ fontSize: 18 }}>→</span>
+            <span style={{ fontSize: 10, maxWidth: 56, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {nextStates[0].replace(/_/g, ' ')}
+            </span>
           </button>
         )}
       </div>
+      )}
 
     </div>
   );
