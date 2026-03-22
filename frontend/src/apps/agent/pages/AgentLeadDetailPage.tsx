@@ -1,13 +1,75 @@
 /**
- * Agent Lead Detail — scoring breakdown, timeline, email previews, notes, status controls.
+ * Agent Lead Detail — premium command center for a single lead.
  */
 
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../../../shared/contexts/ThemeContext';
 import { getTokens } from '../../../shared/utils/theme';
-import { useAgentLead, useUpdateLeadStatus, useAddLeadNote, useLeadPipeline } from '../hooks/useAgentQueries';
+import {
+  useAgentLead, useUpdateLeadStatus, useAddLeadNote, useLeadPipeline,
+} from '../hooks/useAgentQueries';
 import { getAgentErrorMessage } from '../api/agentApi';
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(' ');
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+function avatarGradient(name: string): string {
+  const gradients = [
+    'linear-gradient(135deg, #6366f1, #8b5cf6)',
+    'linear-gradient(135deg, #0ea5e9, #6366f1)',
+    'linear-gradient(135deg, #10b981, #0ea5e9)',
+    'linear-gradient(135deg, #f59e0b, #ef4444)',
+    'linear-gradient(135deg, #8b5cf6, #ec4899)',
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return gradients[Math.abs(hash) % gradients.length];
+}
+
+function bucketConfig(bucket: string | undefined) {
+  if (bucket === 'HOT') return { label: 'HOT 🔥', color: '#f87171', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.3)' };
+  if (bucket === 'WARM') return { label: 'WARM', color: '#fb923c', bg: 'rgba(251,146,60,0.12)', border: 'rgba(251,146,60,0.3)' };
+  if (bucket === 'NURTURE') return { label: 'NURTURE', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)', border: 'rgba(148,163,184,0.2)' };
+  return null;
+}
+
+function eventIcon(eventType: string): string {
+  const t = eventType.toUpperCase();
+  if (t.includes('EMAIL')) return '✉';
+  if (t.includes('FORM')) return '📋';
+  if (t.includes('SCORE') || t.includes('BUCKET')) return '⭐';
+  if (t.includes('STAGE')) return '→';
+  if (t.includes('NOTE')) return '📝';
+  if (t.includes('CREATED')) return '✦';
+  return '◎';
+}
+
+function eventColor(eventType: string, t: ReturnType<typeof getTokens>): string {
+  const ev = eventType.toUpperCase();
+  if (ev.includes('HOT') || ev.includes('SCORE')) return t.orange;
+  if (ev.includes('FORM') || ev.includes('SUBMIT')) return t.green;
+  if (ev.includes('EMAIL')) return t.accent;
+  if (ev.includes('CREATED')) return '#8b5cf6';
+  return t.textMuted;
+}
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   NEW:             ['CONTACTED'],
@@ -20,20 +82,492 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   CLOSED:          [],
 };
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
+// ── Sub-components ───────────────────────────────────────────────────────────
 
-function bucketColor(bucket: string | undefined, t: ReturnType<typeof getTokens>) {
-  if (bucket === 'HOT') return t.red;
-  if (bucket === 'WARM') return t.orange;
-  return t.textMuted;
-}
+const SectionCard: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = ({ children, style }) => {
+  const { theme } = useTheme();
+  const t = getTokens(theme);
+  return (
+    <div style={{
+      background: t.bgCard, border: `1px solid ${t.border}`,
+      borderRadius: 16, padding: '20px 22px', marginBottom: 14, ...style,
+    }}>
+      {children}
+    </div>
+  );
+};
+
+const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { theme } = useTheme();
+  const t = getTokens(theme);
+  return (
+    <div style={{ fontSize: 11, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 14 }}>
+      {children}
+    </div>
+  );
+};
+
+const ActionButton: React.FC<{
+  icon: string; label: string; href?: string;
+  disabled?: boolean; comingSoon?: boolean;
+  variant?: 'primary' | 'secondary' | 'ghost';
+  onClick?: () => void;
+}> = ({ icon, label, href, disabled, comingSoon, variant = 'secondary', onClick }) => {
+  const { theme } = useTheme();
+  const t = getTokens(theme);
+  const [hovered, setHovered] = useState(false);
+
+  const isDisabled = disabled || comingSoon;
+
+  const styles: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 7,
+    padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+    cursor: isDisabled ? 'not-allowed' : 'pointer',
+    transition: 'all 0.15s', textDecoration: 'none', border: 'none',
+    opacity: isDisabled ? 0.45 : 1,
+    ...(variant === 'primary' ? {
+      background: hovered && !isDisabled ? 'linear-gradient(135deg, #5558e8, #7c4fe0)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+      color: '#fff', boxShadow: isDisabled ? 'none' : '0 2px 10px rgba(99,102,241,0.3)',
+    } : variant === 'secondary' ? {
+      background: hovered && !isDisabled ? t.bgCardHover : t.bgCard,
+      color: t.text, border: `1px solid ${t.border}`,
+    } : {
+      background: 'transparent', color: t.textMuted,
+      border: `1px solid ${hovered && !isDisabled ? t.border : 'transparent'}`,
+    }),
+  };
+
+  const content = (
+    <>
+      <span style={{ fontSize: 15 }}>{icon}</span>
+      <span>{label}</span>
+      {comingSoon && (
+        <span style={{ fontSize: 9, fontWeight: 700, color: t.textFaint, letterSpacing: '0.4px', marginLeft: 2 }}>
+          SOON
+        </span>
+      )}
+    </>
+  );
+
+  if (href && !isDisabled) {
+    return (
+      <a href={href} style={styles} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button
+      disabled={isDisabled}
+      onClick={onClick}
+      title={comingSoon ? 'Coming soon' : undefined}
+      style={styles}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {content}
+    </button>
+  );
+};
+
+// ── Timeline Tab ─────────────────────────────────────────────────────────────
+
+const TimelineTab: React.FC<{ detail: NonNullable<ReturnType<typeof useAgentLead>['data']> }> = ({ detail }) => {
+  const { theme } = useTheme();
+  const t = getTokens(theme);
+
+  const events = [...(detail.timeline || [])].reverse();
+
+  if (!events.length) {
+    return (
+      <SectionCard>
+        <div style={{ textAlign: 'center', padding: '30px 0', color: t.textMuted, fontSize: 13 }}>
+          <div style={{ fontSize: 28, marginBottom: 10 }}>◎</div>
+          No activity recorded yet
+        </div>
+      </SectionCard>
+    );
+  }
+
+  return (
+    <SectionCard>
+      <SectionTitle>Activity Timeline</SectionTitle>
+      <div style={{ position: 'relative' }}>
+        {events.map((event, i) => {
+          const color = eventColor(event.event_type, t);
+          const icon = eventIcon(event.event_type);
+          const isLast = i === events.length - 1;
+          return (
+            <div key={event.id} style={{ display: 'flex', gap: 14, position: 'relative' }}>
+              {/* Line + dot */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, width: 28 }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                  background: `${color}18`, border: `1.5px solid ${color}50`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, color, zIndex: 1,
+                }}>
+                  {icon}
+                </div>
+                {!isLast && (
+                  <div style={{ width: 1, flex: 1, minHeight: 16, background: t.border, margin: '3px 0' }} />
+                )}
+              </div>
+              {/* Content */}
+              <div style={{ flex: 1, paddingBottom: isLast ? 0 : 16 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
+                    {event.event_type.replace(/_/g, ' ')}
+                  </span>
+                  <span style={{ fontSize: 11, color: t.textFaint, flexShrink: 0 }}>{timeAgo(event.created_at)}</span>
+                </div>
+                {event.payload && Object.keys(event.payload).length > 0 && (
+                  <div style={{ fontSize: 12, color: t.textMuted, marginTop: 3 }}>
+                    {Object.entries(event.payload).slice(0, 2).map(([k, v]) => (
+                      <span key={k} style={{ marginRight: 10 }}>{k}: <span style={{ color: t.textSecondary }}>{String(v)}</span></span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </SectionCard>
+  );
+};
+
+// ── Pipeline Tab ──────────────────────────────────────────────────────────────
+
+const PipelineTab: React.FC<{ pipeline: NonNullable<ReturnType<typeof useLeadPipeline>['data']> }> = ({ pipeline }) => {
+  const { theme } = useTheme();
+  const t = getTokens(theme);
+
+  const sortedStages = [...pipeline.stages].sort((a, b) => a.position - b.position);
+  const currentIdx = sortedStages.findIndex(s => s.id === pipeline.current_stage?.id);
+
+  return (
+    <>
+      {/* Current stage hero */}
+      <SectionCard>
+        <SectionTitle>{pipeline.pipeline_name}</SectionTitle>
+        {pipeline.current_stage ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+              background: `${pipeline.current_stage.color}20`,
+              border: `2px solid ${pipeline.current_stage.color}60`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18,
+            }}>
+              →
+            </div>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: t.text }}>{pipeline.current_stage.name}</div>
+              <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>
+                {pipeline.current_stage.category.replace(/_/g, ' ')}
+                {pipeline.stage_entered_at && ` · entered ${timeAgo(pipeline.stage_entered_at)}`}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: 13, color: t.textMuted }}>Not yet assigned to a stage.</div>
+        )}
+      </SectionCard>
+
+      {/* Stage progress track */}
+      {sortedStages.length > 0 && (
+        <SectionCard>
+          <SectionTitle>Pipeline Progress</SectionTitle>
+          <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, minWidth: sortedStages.length * 80 }}>
+              {sortedStages.map((stage, idx) => {
+                const isCurrent = stage.id === pipeline.current_stage?.id;
+                const isPast = idx < currentIdx;
+                const isWon = stage.is_closed_won;
+                const isLost = stage.is_closed_lost;
+                const dotColor = isCurrent ? stage.color : isPast ? t.green : t.border;
+                return (
+                  <React.Fragment key={stage.id}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flexShrink: 0, minWidth: 72 }}>
+                      <div style={{
+                        width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                        background: dotColor,
+                        border: isCurrent ? `3px solid ${stage.color}` : 'none',
+                        boxShadow: isCurrent ? `0 0 10px ${stage.color}60` : 'none',
+                        outline: isCurrent ? `3px solid ${stage.color}25` : 'none',
+                        transition: 'all 0.2s',
+                      }} />
+                      <div style={{
+                        fontSize: 10, textAlign: 'center', maxWidth: 68,
+                        color: isCurrent ? t.text : isPast ? t.textMuted : t.textFaint,
+                        fontWeight: isCurrent ? 700 : 400,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {isWon ? '✓ ' : isLost ? '✗ ' : ''}{stage.name}
+                      </div>
+                    </div>
+                    {idx < sortedStages.length - 1 && (
+                      <div style={{
+                        flex: 1, height: 2, marginTop: 8, minWidth: 12,
+                        background: isPast ? t.green : t.border,
+                        transition: 'background 0.2s',
+                      }} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+        </SectionCard>
+      )}
+
+      {/* Stage history */}
+      {pipeline.stage_history.length > 0 && (
+        <SectionCard>
+          <SectionTitle>Stage History</SectionTitle>
+          {[...pipeline.stage_history].reverse().map((h, i) => {
+            const toStage = sortedStages.find(s => s.id === h.to_stage_id);
+            return (
+              <div key={h.id} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '8px 0', borderBottom: i < pipeline.stage_history.length - 1 ? `1px solid ${t.border}` : 'none',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {toStage && <div style={{ width: 8, height: 8, borderRadius: '50%', background: toStage.color, flexShrink: 0 }} />}
+                  <span style={{ fontSize: 13, color: t.text }}>{toStage?.name || `Stage ${h.to_stage_id}`}</span>
+                  <span style={{ fontSize: 11, color: t.textFaint, background: t.bgBadge, padding: '2px 6px', borderRadius: 5 }}>
+                    {h.change_source}
+                  </span>
+                </div>
+                <span style={{ fontSize: 11, color: t.textFaint }}>{timeAgo(h.created_at)}</span>
+              </div>
+            );
+          })}
+        </SectionCard>
+      )}
+    </>
+  );
+};
+
+// ── Scoring Tab ───────────────────────────────────────────────────────────────
+
+const ScoringTab: React.FC<{ detail: NonNullable<ReturnType<typeof useAgentLead>['data']> }> = ({ detail }) => {
+  const { theme } = useTheme();
+  const t = getTokens(theme);
+  const lead = detail.lead;
+  const bc = bucketConfig(lead.score_bucket);
+  const breakdown = detail.scoring_breakdown;
+
+  if (!breakdown?.factors?.length) {
+    return (
+      <SectionCard>
+        <SectionTitle>Qualification Score</SectionTitle>
+        <div style={{ textAlign: 'center', padding: '24px 0' }}>
+          <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: t.text, marginBottom: 6 }}>
+            {lead.score != null ? `Score: ${lead.score}` : 'Not yet scored'}
+          </div>
+          <div style={{ fontSize: 13, color: t.textMuted }}>
+            {lead.score != null
+              ? 'Detailed breakdown not available for this lead.'
+              : 'The lead needs to submit the qualification form to receive a score.'}
+          </div>
+        </div>
+      </SectionCard>
+    );
+  }
+
+  const maxScore = breakdown.factors.reduce((sum, f) => sum + f.points, 0);
+  const pct = maxScore > 0 ? Math.round((breakdown.total / maxScore) * 100) : 0;
+
+  return (
+    <SectionCard>
+      <SectionTitle>Qualification Score</SectionTitle>
+
+      {/* Score hero */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20, padding: '16px 20px', borderRadius: 12, background: bc ? bc.bg : t.bgBadge, border: `1px solid ${bc ? bc.border : t.border}` }}>
+        <div style={{ textAlign: 'center', flexShrink: 0 }}>
+          <div style={{ fontSize: 36, fontWeight: 800, color: bc?.color || t.text, lineHeight: 1 }}>{breakdown.total}</div>
+          <div style={{ fontSize: 11, color: t.textFaint, marginTop: 2 }}>/ {maxScore} pts</div>
+        </div>
+        <div style={{ flex: 1 }}>
+          {bc && (
+            <div style={{ fontSize: 14, fontWeight: 700, color: bc.color, marginBottom: 6 }}>{bc.label}</div>
+          )}
+          <div style={{ height: 6, borderRadius: 3, background: t.border, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', borderRadius: 3, transition: 'width 0.5s ease',
+              width: `${pct}%`,
+              background: bc?.color || t.accent,
+            }} />
+          </div>
+          <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>{pct}% of max score</div>
+        </div>
+      </div>
+
+      {/* Factor breakdown */}
+      {breakdown.factors.map((factor, i) => (
+        <div key={i} style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '11px 0', borderBottom: i < breakdown.factors.length - 1 ? `1px solid ${t.border}` : 'none',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+              background: factor.met ? t.greenBg : t.bgBadge,
+              border: `1.5px solid ${factor.met ? t.green : t.border}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 11, color: factor.met ? t.green : t.textFaint,
+            }}>
+              {factor.met ? '✓' : '○'}
+            </div>
+            <span style={{ fontSize: 13, color: factor.met ? t.text : t.textMuted }}>{factor.label}</span>
+          </div>
+          <span style={{
+            fontSize: 13, fontWeight: 700,
+            color: factor.met ? t.green : t.textFaint,
+            background: factor.met ? t.greenBg : 'transparent',
+            padding: '3px 10px', borderRadius: 6,
+          }}>
+            {factor.met ? `+${factor.points}` : '—'}
+          </span>
+        </div>
+      ))}
+    </SectionCard>
+  );
+};
+
+// ── Emails Tab ────────────────────────────────────────────────────────────────
+
+const EmailsTab: React.FC<{ detail: NonNullable<ReturnType<typeof useAgentLead>['data']> }> = ({ detail }) => {
+  const { theme } = useTheme();
+  const t = getTokens(theme);
+  const [expanded, setExpanded] = useState<number | null>(0);
+
+  if (!detail.rendered_emails?.length) {
+    return (
+      <SectionCard>
+        <div style={{ textAlign: 'center', padding: '30px 0', color: t.textMuted, fontSize: 13 }}>
+          <div style={{ fontSize: 28, marginBottom: 10 }}>✉</div>
+          No emails generated yet
+        </div>
+      </SectionCard>
+    );
+  }
+
+  return (
+    <>
+      {detail.rendered_emails.map((email, i) => (
+        <SectionCard key={i} style={{ padding: 0, overflow: 'hidden' }}>
+          <button
+            onClick={() => setExpanded(expanded === i ? null : i)}
+            style={{
+              width: '100%', padding: '16px 20px', background: 'none', border: 'none',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <span style={{ fontSize: 16 }}>✉</span>
+              <div style={{ minWidth: 0, textAlign: 'left' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {email.subject}
+                </div>
+                <div style={{ fontSize: 11, color: t.textFaint, marginTop: 2 }}>
+                  {email.type.replace(/_/g, ' ')}
+                  {email.sent_at && ` · sent ${timeAgo(email.sent_at)}`}
+                </div>
+              </div>
+            </div>
+            <span style={{ color: t.textFaint, fontSize: 12, flexShrink: 0 }}>{expanded === i ? '▲' : '▼'}</span>
+          </button>
+          {expanded === i && (
+            <div style={{ padding: '0 20px 18px', borderTop: `1px solid ${t.border}` }}>
+              <div style={{ paddingTop: 14, fontSize: 13, color: t.textSecondary, whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                {email.body}
+              </div>
+            </div>
+          )}
+        </SectionCard>
+      ))}
+    </>
+  );
+};
+
+// ── Notes Tab ─────────────────────────────────────────────────────────────────
+
+const NotesTab: React.FC<{
+  detail: NonNullable<ReturnType<typeof useAgentLead>['data']>;
+  leadId: number;
+}> = ({ detail, leadId }) => {
+  const { theme } = useTheme();
+  const t = getTokens(theme);
+  const addNote = useAddLeadNote();
+  const [noteText, setNoteText] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!noteText.trim()) return;
+    setLoading(true);
+    try {
+      await addNote.mutateAsync({ id: leadId, content: noteText });
+      setNoteText('');
+    } catch { /* ignore */ } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <SectionCard>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 10 }}>
+          <textarea
+            value={noteText}
+            onChange={e => setNoteText(e.target.value)}
+            placeholder="Add a note about this lead…"
+            rows={2}
+            style={{
+              flex: 1, padding: '10px 14px', background: t.bgInput,
+              border: `1.5px solid ${t.border}`, borderRadius: 10,
+              fontSize: 13, color: t.text, outline: 'none', resize: 'vertical',
+              fontFamily: 'inherit', lineHeight: 1.5,
+            }}
+            onFocus={e => (e.target.style.borderColor = t.borderFocus)}
+            onBlur={e => (e.target.style.borderColor = t.border)}
+          />
+          <button type="submit" disabled={loading || !noteText.trim()} style={{
+            padding: '10px 18px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff',
+            cursor: loading || !noteText.trim() ? 'not-allowed' : 'pointer',
+            opacity: loading || !noteText.trim() ? 0.6 : 1, alignSelf: 'flex-start',
+          }}>
+            {loading ? '…' : 'Add'}
+          </button>
+        </form>
+      </SectionCard>
+
+      {!detail.notes?.length ? (
+        <SectionCard>
+          <div style={{ textAlign: 'center', padding: '20px 0', color: t.textMuted, fontSize: 13 }}>
+            <div style={{ fontSize: 24, marginBottom: 8 }}>📝</div>
+            No notes yet
+          </div>
+        </SectionCard>
+      ) : (
+        [...detail.notes].reverse().map((note, i) => (
+          <SectionCard key={i}>
+            <div style={{ fontSize: 13, color: t.text, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{note.text}</div>
+            <div style={{ fontSize: 11, color: t.textFaint, marginTop: 10 }}>{timeAgo(note.created_at)}</div>
+          </SectionCard>
+        ))
+      )}
+    </>
+  );
+};
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 
 export const AgentLeadDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -43,30 +577,36 @@ export const AgentLeadDetailPage: React.FC = () => {
 
   const { data: detail, isLoading, error } = useAgentLead(Number(id));
   const updateStatus = useUpdateLeadStatus();
-  const addNote = useAddLeadNote();
   const { data: pipeline } = useLeadPipeline(Number(id));
 
-  const [noteText, setNoteText] = useState('');
-  const [noteLoading, setNoteLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'timeline' | 'pipeline' | 'scoring' | 'emails' | 'notes'>('timeline');
   const [statusError, setStatusError] = useState('');
-  const [activeTab, setActiveTab] = useState<'scoring' | 'timeline' | 'emails' | 'notes' | 'pipeline'>('scoring');
+  const [copied, setCopied] = useState(false);
 
   if (isLoading) {
-    return <div style={{ padding: 40, textAlign: 'center', color: t.textMuted, fontSize: 14 }}>Loading lead…</div>;
+    return (
+      <div style={{ padding: 60, textAlign: 'center', color: t.textMuted, fontSize: 14 }}>
+        <div style={{ fontSize: 28, marginBottom: 12 }}>⟳</div>
+        Loading lead…
+      </div>
+    );
   }
   if (error || !detail) {
     return (
-      <div style={{ padding: 40, textAlign: 'center' }}>
+      <div style={{ padding: 60, textAlign: 'center' }}>
         <div style={{ color: t.red, fontSize: 14, marginBottom: 12 }}>Lead not found or access denied.</div>
-        <button onClick={() => navigate('/agent/leads')} style={{ color: t.accent, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>← Back to Leads</button>
+        <button onClick={() => navigate('/agent/leads')} style={{ color: t.accent, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>
+          ← Back to Leads
+        </button>
       </div>
     );
   }
 
-  // Backend returns { lead: {...}, scoring_breakdown: {...}, timeline: [...], ... }
   const lead = detail.lead;
+  const bc = bucketConfig(lead.score_bucket);
   const currentState = lead.current_state || 'NEW';
   const nextStates = VALID_TRANSITIONS[currentState] || [];
+  const stageName = pipeline?.current_stage?.name || currentState.replace(/_/g, ' ');
 
   const handleStatusChange = async (newStatus: string) => {
     setStatusError('');
@@ -77,342 +617,243 @@ export const AgentLeadDetailPage: React.FC = () => {
     }
   };
 
-  const handleAddNote = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!noteText.trim()) return;
-    setNoteLoading(true);
-    try {
-      await addNote.mutateAsync({ id: lead.id, content: noteText });
-      setNoteText('');
-    } catch { /* ignore */ } finally {
-      setNoteLoading(false);
+  const handleCopyPhone = () => {
+    if (lead.phone) {
+      navigator.clipboard.writeText(lead.phone).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
     }
   };
 
-  const cardStyle = { background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: '20px 22px', marginBottom: 16 };
-  const tabStyle = (active: boolean) => ({
-    padding: '11px 16px', minHeight: 44, borderRadius: 9, fontSize: 13, fontWeight: 500 as const, cursor: 'pointer' as const,
-    background: active ? t.accentBg : 'transparent',
-    border: `1px solid ${active ? t.accent : t.border}`,
-    color: active ? t.accent : t.textMuted,
-    transition: 'all 0.15s',
-  });
+  const TABS = [
+    { key: 'timeline', label: 'Timeline', icon: '◎' },
+    { key: 'pipeline', label: 'Pipeline', icon: '→' },
+    { key: 'scoring', label: 'Scoring', icon: '⭐' },
+    { key: 'emails', label: 'Emails', icon: '✉' },
+    { key: 'notes', label: 'Notes', icon: '📝' },
+  ] as const;
 
   return (
-    <div style={{ maxWidth: 800 }}>
-      {/* Back */}
+    <div style={{ maxWidth: 960 }}>
+      {/* Back nav */}
       <button onClick={() => navigate('/agent/leads')} style={{
         background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer',
         fontSize: 13, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 6,
-      }}>← Back to Leads</button>
+        padding: 0,
+      }}>
+        ← Back to Leads
+      </button>
 
-      {/* Header card */}
-      <div style={cardStyle}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{
-              width: 52, height: 52, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20, color: '#fff', fontWeight: 700, flexShrink: 0,
-            }}>
-              {lead.name?.[0]?.toUpperCase() || '?'}
+      {/* ── Hero card ── */}
+      <div style={{
+        background: t.bgCard, border: `1px solid ${lead.is_aging ? 'rgba(239,68,68,0.3)' : t.border}`,
+        borderRadius: 18, padding: '24px 26px', marginBottom: 14,
+        boxShadow: lead.is_aging ? '0 0 0 1px rgba(239,68,68,0.1)' : 'none',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18, flexWrap: 'wrap' }}>
+          {/* Avatar */}
+          <div style={{
+            width: 60, height: 60, borderRadius: '50%', flexShrink: 0,
+            background: avatarGradient(lead.name || '?'),
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 20, color: '#fff', fontWeight: 700, letterSpacing: '-0.5px',
+            boxShadow: bc ? `0 0 0 3px ${bc.border}` : 'none',
+          }}>
+            {getInitials(lead.name || '?')}
+          </div>
+
+          {/* Identity */}
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: t.text, letterSpacing: '-0.5px' }}>
+                {lead.name}
+              </h1>
+              {lead.is_aging && (
+                <span style={{ fontSize: 11, color: '#f87171', fontWeight: 700, background: 'rgba(239,68,68,0.1)', padding: '3px 8px', borderRadius: 6 }}>
+                  ⚠ AGING
+                </span>
+              )}
             </div>
-            <div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: '-0.4px' }}>{lead.name}</div>
-              {lead.phone && <div style={{ fontSize: 13, color: t.textMuted }}>{lead.phone}</div>}
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13, color: t.textMuted }}>
+              {lead.phone && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  📞 <span style={{ fontFamily: 'monospace', letterSpacing: '0.3px' }}>{lead.phone}</span>
+                </span>
+              )}
+              {lead.source && <span>◎ {lead.source}</span>}
+              <span>Created {timeAgo(lead.created_at)}</span>
+              {lead.last_agent_action_at && <span>Last action {timeAgo(lead.last_agent_action_at)}</span>}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            {lead.score_bucket && (
+
+          {/* Badges */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {bc && (
               <span style={{
-                fontSize: 13, fontWeight: 700, padding: '5px 12px', borderRadius: 10,
-                color: bucketColor(lead.score_bucket, t),
-                background: lead.score_bucket === 'HOT' ? t.redBg : lead.score_bucket === 'WARM' ? t.orangeBg : t.bgBadge,
+                fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 8,
+                color: bc.color, background: bc.bg, border: `1px solid ${bc.border}`,
+                letterSpacing: '0.3px',
               }}>
-                {lead.score_bucket}
+                {bc.label}
               </span>
             )}
             {lead.score != null && (
-              <span style={{ fontSize: 13, color: t.textMuted, background: t.bgBadge, padding: '5px 12px', borderRadius: 10 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: t.text, background: t.bgBadge, padding: '5px 12px', borderRadius: 8, border: `1px solid ${t.border}` }}>
                 {lead.score} pts
               </span>
             )}
-            <span style={{ fontSize: 13, color: t.textMuted, background: t.bgBadge, padding: '5px 12px', borderRadius: 10 }}>
-              {currentState}
+            <span style={{
+              fontSize: 12, color: t.textMuted, background: t.bgBadge,
+              padding: '5px 12px', borderRadius: 8, border: `1px solid ${t.border}`,
+            }}>
+              {stageName}
             </span>
           </div>
         </div>
+      </div>
 
-        {lead.address && (
-          <div style={{ marginTop: 14, fontSize: 13, color: t.textSecondary }}>
-            📍 {lead.address}
-            {lead.listing_url && (
-              <a href={lead.listing_url} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 10, color: t.accent, fontSize: 12 }}>
-                View listing →
-              </a>
+      {/* ── Action bar ── */}
+      <div style={{
+        background: t.bgCard, border: `1px solid ${t.border}`,
+        borderRadius: 14, padding: '14px 18px', marginBottom: 14,
+        display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
+      }}>
+        {lead.phone && (
+          <ActionButton icon="📞" label="Call" href={`tel:${lead.phone}`} variant="secondary" />
+        )}
+        {lead.phone && (
+          <ActionButton
+            icon={copied ? '✓' : '⎘'}
+            label={copied ? 'Copied!' : 'Copy Phone'}
+            variant="ghost"
+            onClick={handleCopyPhone}
+          />
+        )}
+        <ActionButton icon="✉" label="Email" href={lead.phone ? undefined : undefined} variant="secondary" disabled={!lead.phone && true} />
+        <ActionButton icon="💬" label="Text Message" comingSoon variant="ghost" />
+
+        {/* Stage transitions */}
+        {nextStates.length > 0 && (
+          <>
+            <div style={{ width: 1, height: 28, background: t.border, margin: '0 4px' }} />
+            <span style={{ fontSize: 12, color: t.textFaint }}>Move to:</span>
+            {nextStates.map(s => (
+              <button key={s} onClick={() => handleStatusChange(s)} disabled={updateStatus.isPending} style={{
+                padding: '8px 14px', borderRadius: 9, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                background: t.accentBg, border: `1px solid ${t.accent}40`, color: t.accent,
+                opacity: updateStatus.isPending ? 0.6 : 1, transition: 'all 0.15s',
+              }}>
+                {s.replace(/_/g, ' ')}
+              </button>
+            ))}
+          </>
+        )}
+        {statusError && <span style={{ fontSize: 12, color: t.red }}>{statusError}</span>}
+      </div>
+
+      {/* ── Two-column layout ── */}
+      <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+        {/* Main content */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: 4, marginBottom: 14, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4 }}>
+            {TABS.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                style={{
+                  flex: 1, padding: '8px 10px', borderRadius: 9, fontSize: 12, fontWeight: 500,
+                  cursor: 'pointer', transition: 'all 0.15s', border: 'none',
+                  background: activeTab === tab.key ? t.accentBg : 'transparent',
+                  color: activeTab === tab.key ? t.accent : t.textMuted,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                }}
+              >
+                <span style={{ fontSize: 13 }}>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {activeTab === 'timeline' && <TimelineTab detail={detail} />}
+          {activeTab === 'pipeline' && (
+            pipeline
+              ? <PipelineTab pipeline={pipeline} />
+              : <SectionCard><div style={{ fontSize: 13, color: t.textMuted, textAlign: 'center', padding: '20px 0' }}>No pipeline assigned to this lead.</div></SectionCard>
+          )}
+          {activeTab === 'scoring' && <ScoringTab detail={detail} />}
+          {activeTab === 'emails' && <EmailsTab detail={detail} />}
+          {activeTab === 'notes' && <NotesTab detail={detail} leadId={lead.id} />}
+        </div>
+
+        {/* Right sidebar */}
+        <div style={{ width: 240, flexShrink: 0 }}>
+          {/* Lead summary */}
+          <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: '16px 18px', marginBottom: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 12 }}>
+              Lead Summary
+            </div>
+            {[
+              { label: 'Status', value: currentState.replace(/_/g, ' ') },
+              { label: 'Stage', value: stageName },
+              { label: 'Score', value: lead.score != null ? `${lead.score} pts` : '—' },
+              { label: 'Bucket', value: lead.score_bucket || '—' },
+              { label: 'Source', value: lead.source || '—' },
+            ].map(row => (
+              <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${t.border}` }}>
+                <span style={{ fontSize: 12, color: t.textFaint }}>{row.label}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{row.value}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Qualification summary */}
+          <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: '16px 18px', marginBottom: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 12 }}>
+              Qualification
+            </div>
+            {detail.scoring_breakdown?.factors?.length ? (
+              detail.scoring_breakdown.factors.map((f, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 0' }}>
+                  <span style={{ fontSize: 11, color: f.met ? t.green : t.textFaint }}>{f.met ? '✓' : '○'}</span>
+                  <span style={{ fontSize: 11, color: f.met ? t.text : t.textFaint, flex: 1 }}>{f.label}</span>
+                </div>
+              ))
+            ) : (
+              <div style={{ fontSize: 12, color: t.textFaint }}>No form submitted yet</div>
             )}
           </div>
-        )}
 
-        <div style={{ marginTop: 12, fontSize: 12, color: t.textFaint }}>
-          {lead.source && <span>Source: {lead.source} · </span>}
-          Created {timeAgo(lead.created_at)}
-          {lead.last_agent_action_at && <span> · Last action {timeAgo(lead.last_agent_action_at)}</span>}
-          {lead.is_aging && <span style={{ color: t.red, fontWeight: 600 }}> · ⚠ AGING</span>}
-        </div>
-      </div>
-
-      {/* Status controls */}
-      {nextStates.length > 0 && (
-        <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', rowGap: 10 }}>
-          <span style={{ fontSize: 13, color: t.textMuted, fontWeight: 500 }}>Update status:</span>
-          {nextStates.map(s => (
-            <button key={s} onClick={() => handleStatusChange(s)} disabled={updateStatus.isPending} style={{
-              padding: '12px 18px', minHeight: 44, borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', color: '#fff',
-              boxShadow: '0 2px 8px rgba(99,102,241,0.3)', opacity: updateStatus.isPending ? 0.6 : 1,
-            }}>
-              {s.replace(/_/g, ' ')}
-            </button>
-          ))}
-          {statusError && <span style={{ fontSize: 12, color: t.red }}>{statusError}</span>}
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        {(['scoring', 'timeline', 'emails', 'notes', 'pipeline'] as const).map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} style={tabStyle(activeTab === tab)}>
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* Scoring breakdown */}
-      {activeTab === 'scoring' && (
-        <div style={cardStyle}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 16 }}>Score Breakdown</div>
-          {detail.scoring_breakdown?.factors?.length ? (
-            <>
-              {detail.scoring_breakdown.factors.map((factor, i) => (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '10px 0', borderBottom: `1px solid ${t.border}`,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 14, color: factor.met ? t.green : t.textFaint }}>
-                      {factor.met ? '✓' : '○'}
-                    </span>
-                    <span style={{ fontSize: 13, color: factor.met ? t.text : t.textMuted }}>{factor.label}</span>
-                  </div>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: factor.met ? t.green : t.textFaint }}>
-                    {factor.met ? `+${factor.points}` : '0'} pts
-                  </span>
-                </div>
-              ))}
-              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 12, marginTop: 4 }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>Total Score</span>
-                <span style={{ fontSize: 18, fontWeight: 800, color: bucketColor(lead.score_bucket, t) }}>
-                  {detail.scoring_breakdown.total}
-                </span>
-              </div>
-            </>
-          ) : (
-            <div style={{ fontSize: 13, color: t.textMuted }}>
-              {lead.score != null
-                ? `Score: ${lead.score} (${lead.score_bucket || 'unclassified'}) — no breakdown available.`
-                : 'No scoring data yet. The lead needs to submit the qualification form.'}
+          {/* Communication placeholder */}
+          <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: '16px 18px', marginBottom: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 12 }}>
+              Communications
             </div>
-          )}
+            <div style={{ fontSize: 12, color: t.textFaint, lineHeight: 1.6 }}>
+              {detail.rendered_emails?.length
+                ? `${detail.rendered_emails.length} email${detail.rendered_emails.length !== 1 ? 's' : ''} sent`
+                : 'No emails sent yet'}
+            </div>
+            <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 8, background: t.bgBadge, border: `1px dashed ${t.border}` }}>
+              <div style={{ fontSize: 11, color: t.textFaint }}>SMS & call log</div>
+              <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>Coming soon</div>
+            </div>
+          </div>
+
+          {/* Documents placeholder */}
+          <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: '16px 18px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 12 }}>
+              Documents
+            </div>
+            <div style={{ padding: '10px', borderRadius: 8, background: t.bgBadge, border: `1px dashed ${t.border}`, textAlign: 'center' }}>
+              <div style={{ fontSize: 20, marginBottom: 6 }}>📄</div>
+              <div style={{ fontSize: 11, color: t.textFaint }}>Document uploads</div>
+              <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>Coming soon</div>
+            </div>
+          </div>
         </div>
-      )}
-
-      {/* Timeline */}
-      {activeTab === 'timeline' && (
-        <div style={cardStyle}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 16 }}>Event Timeline</div>
-          {!detail.timeline?.length ? (
-            <div style={{ fontSize: 13, color: t.textMuted }}>No events yet.</div>
-          ) : (
-            [...detail.timeline].reverse().map((event, i) => (
-              <div key={event.id} style={{ display: 'flex', gap: 12, paddingBottom: 14, position: 'relative' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: t.accent, flexShrink: 0, marginTop: 3 }} />
-                  {i < detail.timeline.length - 1 && (
-                    <div style={{ width: 1, flex: 1, background: t.border, marginTop: 4 }} />
-                  )}
-                </div>
-                <div style={{ flex: 1, paddingBottom: 4 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{event.event_type.replace(/_/g, ' ')}</div>
-                  <div style={{ fontSize: 11, color: t.textFaint, marginTop: 2 }}>{timeAgo(event.created_at)}</div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Rendered emails */}
-      {activeTab === 'emails' && (
-        <div>
-          {!detail.rendered_emails?.length ? (
-            <div style={{ ...cardStyle, fontSize: 13, color: t.textMuted }}>No emails generated yet.</div>
-          ) : (
-            detail.rendered_emails.map((email, i) => (
-              <div key={i} style={cardStyle}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
-                  {email.type.replace(/_/g, ' ')}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: t.text, marginBottom: 10 }}>{email.subject}</div>
-                <div style={{ fontSize: 13, color: t.textSecondary, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{email.body}</div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Pipeline */}
-      {activeTab === 'pipeline' && (
-        <div>
-          {!pipeline ? (
-            <div style={{ ...cardStyle, fontSize: 13, color: t.textMuted }}>No pipeline assigned to this lead.</div>
-          ) : (
-            <>
-              {/* Current stage */}
-              <div style={cardStyle}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
-                  {pipeline.pipeline_name}
-                </div>
-                {pipeline.current_stage ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: pipeline.current_stage.color, flexShrink: 0 }} />
-                    <div>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: t.text }}>{pipeline.current_stage.name}</div>
-                      {pipeline.stage_entered_at && (
-                        <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>
-                          Entered {timeAgo(pipeline.stage_entered_at)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 13, color: t.textMuted }}>Not yet assigned to a stage.</div>
-                )}
-              </div>
-
-              {/* Stage progress */}
-              {pipeline.stages.length > 0 && (
-                <div style={cardStyle}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: t.text, marginBottom: 14 }}>Stage Progress</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 0, overflowX: 'auto' }}>
-                    {[...pipeline.stages].sort((a, b) => a.position - b.position).map((stage, idx, arr) => {
-                      const isCurrent = stage.id === pipeline.current_stage?.id;
-                      const isPast = pipeline.stage_history.some(h => h.to_stage_id === stage.id);
-                      return (
-                        <React.Fragment key={stage.id}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                            <div style={{
-                              width: 14, height: 14, borderRadius: '50%',
-                              background: isCurrent ? stage.color : isPast ? t.green : t.border,
-                              border: isCurrent ? `2px solid ${stage.color}` : 'none',
-                              boxShadow: isCurrent ? `0 0 8px ${stage.color}80` : 'none',
-                            }} />
-                            <div style={{ fontSize: 10, color: isCurrent ? t.text : t.textFaint, fontWeight: isCurrent ? 600 : 400, whiteSpace: 'nowrap', maxWidth: 70, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {stage.name}
-                            </div>
-                          </div>
-                          {idx < arr.length - 1 && (
-                            <div style={{ flex: 1, height: 1, background: t.border, minWidth: 16, marginBottom: 18 }} />
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Lifecycle events */}
-              {pipeline.lifecycle.length > 0 && (
-                <div style={cardStyle}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: t.text, marginBottom: 12 }}>Lifecycle Events</div>
-                  {pipeline.lifecycle.map((ev, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < pipeline.lifecycle.length - 1 ? `1px solid ${t.border}` : 'none' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ color: t.green, fontSize: 12 }}>✓</span>
-                        <span style={{ fontSize: 13, color: t.text }}>{ev.event_type.replace(/_/g, ' ')}</span>
-                      </div>
-                      <span style={{ fontSize: 11, color: t.textFaint }}>{timeAgo(ev.occurred_at)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Quick actions */}
-              <div style={{ ...cardStyle, display: 'flex', gap: 10 }}>
-                {[
-                  { label: '📞 Call', disabled: false },
-                  { label: '✉ Email', disabled: false },
-                  { label: '💬 Text', disabled: true, note: 'coming soon' },
-                ].map(action => (
-                  <button
-                    key={action.label}
-                    disabled={action.disabled}
-                    title={action.note}
-                    style={{
-                      flex: 1, padding: '10px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                      background: action.disabled ? t.bgBadge : t.accentBg,
-                      border: `1px solid ${action.disabled ? t.border : t.accent}`,
-                      color: action.disabled ? t.textFaint : t.accent,
-                      cursor: action.disabled ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    {action.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Notes */}
-      {activeTab === 'notes' && (        <div>
-          <form onSubmit={handleAddNote} style={{ ...cardStyle, display: 'flex', gap: 10 }}>
-            <input
-              value={noteText}
-              onChange={e => setNoteText(e.target.value)}
-              placeholder="Add a note…"
-              style={{
-                flex: 1, padding: '10px 14px', background: t.bgInput,
-                border: `1.5px solid ${t.border}`, borderRadius: 10,
-                fontSize: 13, color: t.text, outline: 'none',
-              }}
-              onFocus={e => (e.target.style.borderColor = t.borderFocus)}
-              onBlur={e => (e.target.style.borderColor = t.border)}
-            />
-            <button type="submit" disabled={noteLoading || !noteText.trim()} style={{
-              padding: '10px 18px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff',
-              cursor: noteLoading || !noteText.trim() ? 'not-allowed' : 'pointer',
-              opacity: noteLoading || !noteText.trim() ? 0.6 : 1,
-            }}>
-              {noteLoading ? '…' : 'Add'}
-            </button>
-          </form>
-
-          {!detail.notes?.length ? (
-            <div style={{ ...cardStyle, fontSize: 13, color: t.textMuted }}>No notes yet.</div>
-          ) : (
-            [...detail.notes].reverse().map((note, i) => (
-              <div key={i} style={cardStyle}>
-                <div style={{ fontSize: 13, color: t.text, lineHeight: 1.6 }}>{note.text}</div>
-                <div style={{ fontSize: 11, color: t.textFaint, marginTop: 8 }}>{timeAgo(note.created_at)}</div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
+      </div>
     </div>
   );
 };
