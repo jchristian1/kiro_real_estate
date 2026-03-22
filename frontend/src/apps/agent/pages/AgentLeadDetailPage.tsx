@@ -1,7 +1,7 @@
 /**
  * Agent Lead Detail — premium lead command center.
- * Single continuous view, no tabs. Mobile-first, two-column on desktop.
- * Order: hero → actions → pipeline → timeline → scoring → emails → notes → pending cards
+ * Single continuous view, no tabs. Mobile-first.
+ * Order: hero → actions → next-action → pipeline → timeline → scoring → emails → notes
  */
 
 import React, { useState } from 'react';
@@ -14,20 +14,21 @@ import {
 import { getAgentErrorMessage } from '../api/agentApi';
 import { BackendPendingBadge } from '../components/BackendPendingBadge';
 
-// ── Responsive CSS ────────────────────────────────────────────────────────────
+// ── CSS ───────────────────────────────────────────────────────────────────────
 
-if (typeof document !== 'undefined' && !document.getElementById('agent-detail-css')) {
+if (typeof document !== 'undefined' && !document.getElementById('ld-css')) {
   const s = document.createElement('style');
-  s.id = 'agent-detail-css';
+  s.id = 'ld-css';
   s.textContent = `
-    .ld-layout { display: flex; gap: 16px; align-items: flex-start; }
-    .ld-main   { flex: 1; min-width: 0; }
-    .ld-aside  { width: 248px; flex-shrink: 0; }
-    .ld-action-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .ld-body  { display: flex; gap: 14px; align-items: flex-start; }
+    .ld-main  { flex: 1; min-width: 0; }
+    .ld-aside { width: 244px; flex-shrink: 0; }
+    .ld-acts  { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+    .ld-hero-meta { display: flex; gap: 14px; flex-wrap: wrap; }
     @media (max-width: 767px) {
-      .ld-layout { flex-direction: column; }
-      .ld-aside  { width: 100%; }
-      .ld-action-bar { gap: 6px; }
+      .ld-body  { flex-direction: column; }
+      .ld-aside { width: 100%; }
+      .ld-acts  { gap: 6px; }
     }
   `;
   document.head.appendChild(s);
@@ -66,14 +67,14 @@ function avatarGrad(name: string): string {
 }
 
 function bucketCfg(b?: string) {
-  if (b === 'HOT')    return { label: 'HOT 🔥', color: '#f87171', bg: 'rgba(239,68,68,0.12)',    border: 'rgba(239,68,68,0.3)' };
-  if (b === 'WARM')   return { label: 'WARM',   color: '#fb923c', bg: 'rgba(251,146,60,0.12)',   border: 'rgba(251,146,60,0.3)' };
-  if (b === 'NURTURE')return { label: 'NURTURE',color: '#94a3b8', bg: 'rgba(148,163,184,0.1)',   border: 'rgba(148,163,184,0.2)' };
+  if (b === 'HOT')     return { label: 'HOT 🔥', color: '#f87171', bg: 'rgba(239,68,68,0.13)',  border: 'rgba(239,68,68,0.35)',  glow: 'rgba(239,68,68,0.08)' };
+  if (b === 'WARM')    return { label: 'WARM',   color: '#fb923c', bg: 'rgba(251,146,60,0.13)', border: 'rgba(251,146,60,0.35)', glow: 'rgba(251,146,60,0.06)' };
+  if (b === 'NURTURE') return { label: 'NURTURE',color: '#94a3b8', bg: 'rgba(148,163,184,0.1)', border: 'rgba(148,163,184,0.25)',glow: 'transparent' };
   return null;
 }
 
-function evIcon(t: string): string {
-  const u = t.toUpperCase();
+function evIcon(type: string): string {
+  const u = type.toUpperCase();
   if (u.includes('EMAIL'))  return '✉';
   if (u.includes('FORM'))   return '📋';
   if (u.includes('SCORE') || u.includes('BUCKET')) return '⭐';
@@ -100,35 +101,56 @@ const TRANSITIONS: Record<string, string[]> = {
   LOST: ['CONTACTED'], CLOSED: [],
 };
 
-// ── Shared primitives ─────────────────────────────────────────────────────────
+// What should the agent do next given the current state?
+function nextActionHint(state: string, pipeline?: { current_stage?: { name: string; category: string } }): { label: string; detail: string } | null {
+  const stage = pipeline?.current_stage;
+  if (stage) {
+    const cat = stage.category.toLowerCase();
+    if (cat === 'open' || cat === 'in_progress') return { label: `Follow up in ${stage.name}`, detail: 'Lead is active — reach out to move forward.' };
+    if (cat === 'waiting') return { label: 'Waiting on lead', detail: 'No action needed until lead responds.' };
+    if (cat === 'won') return { label: 'Lead closed — won', detail: 'This lead has been successfully converted.' };
+    if (cat === 'lost') return { label: 'Lead closed — lost', detail: 'This lead was marked as lost.' };
+  }
+  if (state === 'NEW') return { label: 'Reach out to this lead', detail: 'New lead — contact them to start the process.' };
+  if (state === 'INVITE_SENT') return { label: 'Follow up on form invite', detail: 'Form invite sent — check if they completed it.' };
+  if (state === 'FORM_SUBMITTED') return { label: 'Review form submission', detail: 'Lead submitted the form — review and score.' };
+  if (state === 'SCORED') return { label: 'Contact scored lead', detail: 'Lead has been scored — reach out now.' };
+  if (state === 'CONTACTED') return { label: 'Schedule appointment', detail: 'Lead contacted — move toward setting an appointment.' };
+  if (state === 'APPOINTMENT_SET') return { label: 'Confirm appointment', detail: 'Appointment set — confirm details with the lead.' };
+  if (state === 'LOST') return { label: 'Re-engage or archive', detail: 'Lead was lost — consider re-engagement or close out.' };
+  if (state === 'CLOSED') return null;
+  return null;
+}
+
+// ── Primitives ────────────────────────────────────────────────────────────────
 
 const Card: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = ({ children, style }) => {
   const { theme } = useTheme();
   const t = getTokens(theme);
   return (
-    <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: '18px 20px', marginBottom: 12, ...style }}>
+    <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: '16px 18px', marginBottom: 10, ...style }}>
       {children}
     </div>
   );
 };
 
-const CardTitle: React.FC<{ children: React.ReactNode; aside?: React.ReactNode }> = ({ children, aside }) => {
+const SectionLabel: React.FC<{ children: React.ReactNode; aside?: React.ReactNode }> = ({ children, aside }) => {
   const { theme } = useTheme();
   const t = getTokens(theme);
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+      <span style={{ fontSize: 10, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.9px' }}>
         {children}
-      </div>
+      </span>
       {aside}
     </div>
   );
 };
 
-const Divider: React.FC = () => {
+const HR: React.FC = () => {
   const { theme } = useTheme();
   const t = getTokens(theme);
-  return <div style={{ height: 1, background: t.border, margin: '10px 0' }} />;
+  return <div style={{ height: 1, background: t.border, margin: '12px 0' }} />;
 };
 
 // ── Action button ─────────────────────────────────────────────────────────────
@@ -136,25 +158,27 @@ const Divider: React.FC = () => {
 const Btn: React.FC<{
   icon: string; label: string; href?: string;
   disabled?: boolean; pending?: boolean;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
-  onClick?: () => void; title?: string;
-}> = ({ icon, label, href, disabled, pending, variant = 'secondary', onClick, title }) => {
+  variant?: 'primary' | 'secondary' | 'ghost' | 'green';
+  onClick?: () => void; title?: string; small?: boolean;
+}> = ({ icon, label, href, disabled, pending, variant = 'secondary', onClick, title, small }) => {
   const { theme } = useTheme();
   const t = getTokens(theme);
   const [hov, setHov] = useState(false);
   const off = disabled || pending;
+  const pad = small ? '7px 12px' : '9px 15px';
+  const fz = small ? 12 : 13;
 
   const base: React.CSSProperties = {
     display: 'inline-flex', alignItems: 'center', gap: 6,
-    padding: '9px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+    padding: pad, borderRadius: 9, fontSize: fz, fontWeight: 600,
     cursor: off ? 'not-allowed' : 'pointer', transition: 'all 0.15s',
     textDecoration: 'none', border: 'none', opacity: off ? 0.45 : 1, flexShrink: 0,
     ...(variant === 'primary' ? {
       background: hov && !off ? 'linear-gradient(135deg,#5558e8,#7c4fe0)' : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-      color: '#fff', boxShadow: off ? 'none' : '0 2px 10px rgba(99,102,241,0.3)',
-    } : variant === 'danger' ? {
-      background: hov && !off ? t.redBg : 'transparent',
-      color: t.red, border: `1px solid ${hov && !off ? t.red + '60' : t.border}`,
+      color: '#fff', boxShadow: off ? 'none' : '0 2px 8px rgba(99,102,241,0.35)',
+    } : variant === 'green' ? {
+      background: hov && !off ? t.greenBg : 'transparent',
+      color: t.green, border: `1px solid ${hov && !off ? t.green + '50' : t.border}`,
     } : variant === 'ghost' ? {
       background: 'transparent', color: t.textMuted,
       border: `1px solid ${hov && !off ? t.border : 'transparent'}`,
@@ -166,9 +190,9 @@ const Btn: React.FC<{
 
   const inner = (
     <>
-      <span style={{ fontSize: 14 }}>{icon}</span>
+      <span style={{ fontSize: fz + 1 }}>{icon}</span>
       <span>{label}</span>
-      {pending && <BackendPendingBadge variant="inline" tooltip="Not yet supported by backend" />}
+      {pending && <BackendPendingBadge variant="inline" tooltip="Not yet supported" />}
     </>
   );
 
@@ -181,7 +205,7 @@ const Btn: React.FC<{
   );
 };
 
-// ── Section: Pipeline ─────────────────────────────────────────────────────────
+// ── Pipeline section ──────────────────────────────────────────────────────────
 
 const PipelineSection: React.FC<{
   pipeline: NonNullable<ReturnType<typeof useLeadPipeline>['data']>;
@@ -190,29 +214,29 @@ const PipelineSection: React.FC<{
   const t = getTokens(theme);
   const sorted = [...pipeline.stages].sort((a, b) => a.position - b.position);
   const curIdx = sorted.findIndex(s => s.id === pipeline.current_stage?.id);
+  const cur = pipeline.current_stage;
 
   return (
     <Card>
-      <CardTitle>{pipeline.pipeline_name} · Pipeline</CardTitle>
+      <SectionLabel>{pipeline.pipeline_name}</SectionLabel>
 
-      {/* Current stage hero row */}
-      {pipeline.current_stage && (
+      {/* Current stage callout */}
+      {cur && (
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18,
-          padding: '14px 16px', borderRadius: 12,
-          background: `${pipeline.current_stage.color}12`,
-          border: `1px solid ${pipeline.current_stage.color}40`,
+          display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16,
+          padding: '12px 14px', borderRadius: 10,
+          background: `${cur.color}10`, border: `1px solid ${cur.color}35`,
         }}>
           <div style={{
-            width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-            background: `${pipeline.current_stage.color}25`,
-            border: `2px solid ${pipeline.current_stage.color}70`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
+            width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+            background: `${cur.color}22`, border: `2px solid ${cur.color}55`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 15, color: cur.color,
           }}>→</div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: t.text }}>{pipeline.current_stage.name}</div>
-            <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>
-              {pipeline.current_stage.category.replace(/_/g, ' ')}
+            <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{cur.name}</div>
+            <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1 }}>
+              {cur.category.replace(/_/g, ' ')}
               {pipeline.stage_entered_at && ` · entered ${timeAgo(pipeline.stage_entered_at)}`}
             </div>
           </div>
@@ -221,24 +245,24 @@ const PipelineSection: React.FC<{
 
       {/* Progress track */}
       {sorted.length > 0 && (
-        <div style={{ overflowX: 'auto', paddingBottom: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', minWidth: sorted.length * 76 }}>
+        <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', minWidth: sorted.length * 72 }}>
             {sorted.map((stage, idx) => {
-              const isCur = stage.id === pipeline.current_stage?.id;
+              const isCur = stage.id === cur?.id;
               const isPast = idx < curIdx;
-              const dot = isCur ? stage.color : isPast ? t.green : t.border;
+              const dotBg = isCur ? stage.color : isPast ? t.green : t.border;
               return (
                 <React.Fragment key={stage.id}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flexShrink: 0, minWidth: 68 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0, minWidth: 64 }}>
                     <div style={{
-                      width: 16, height: 16, borderRadius: '50%', background: dot,
+                      width: 14, height: 14, borderRadius: '50%', background: dotBg,
                       border: isCur ? `3px solid ${stage.color}` : 'none',
-                      boxShadow: isCur ? `0 0 8px ${stage.color}70` : 'none',
-                      outline: isCur ? `3px solid ${stage.color}20` : 'none',
+                      boxShadow: isCur ? `0 0 7px ${stage.color}80` : 'none',
+                      outline: isCur ? `3px solid ${stage.color}18` : 'none',
                       transition: 'all 0.2s',
                     }} />
                     <div style={{
-                      fontSize: 9, textAlign: 'center', maxWidth: 64,
+                      fontSize: 9, textAlign: 'center', maxWidth: 60,
                       color: isCur ? t.text : isPast ? t.textMuted : t.textFaint,
                       fontWeight: isCur ? 700 : 400,
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -247,7 +271,7 @@ const PipelineSection: React.FC<{
                     </div>
                   </div>
                   {idx < sorted.length - 1 && (
-                    <div style={{ flex: 1, height: 2, marginTop: 7, minWidth: 8, background: isPast ? t.green : t.border, transition: 'background 0.2s' }} />
+                    <div style={{ flex: 1, height: 2, marginTop: 6, minWidth: 6, background: isPast ? t.green : t.border, transition: 'background 0.2s' }} />
                   )}
                 </React.Fragment>
               );
@@ -256,19 +280,20 @@ const PipelineSection: React.FC<{
         </div>
       )}
 
-      {/* Stage history — compact */}
+      {/* Stage history */}
       {pipeline.stage_history.length > 0 && (
         <>
-          <Divider />
-          <div style={{ fontSize: 11, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 10 }}>
-            Stage History
-          </div>
-          {[...pipeline.stage_history].reverse().slice(0, 5).map((h, i) => {
+          <HR />
+          <SectionLabel>Stage History</SectionLabel>
+          {[...pipeline.stage_history].reverse().slice(0, 5).map((h, i, arr) => {
             const st = sorted.find(s => s.id === h.to_stage_id);
             return (
-              <div key={h.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0', borderBottom: i < Math.min(pipeline.stage_history.length, 5) - 1 ? `1px solid ${t.border}` : 'none' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {st && <div style={{ width: 7, height: 7, borderRadius: '50%', background: st.color, flexShrink: 0 }} />}
+              <div key={h.id} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '5px 0', borderBottom: i < arr.length - 1 ? `1px solid ${t.border}` : 'none',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  {st && <div style={{ width: 6, height: 6, borderRadius: '50%', background: st.color, flexShrink: 0 }} />}
                   <span style={{ fontSize: 12, color: t.text }}>{st?.name || `Stage ${h.to_stage_id}`}</span>
                   <span style={{ fontSize: 10, color: t.textFaint, background: t.bgBadge, padding: '1px 5px', borderRadius: 4 }}>{h.change_source}</span>
                 </div>
@@ -282,7 +307,7 @@ const PipelineSection: React.FC<{
   );
 };
 
-// ── Section: Timeline ─────────────────────────────────────────────────────────
+// ── Timeline section ──────────────────────────────────────────────────────────
 
 const TimelineSection: React.FC<{
   detail: NonNullable<ReturnType<typeof useAgentLead>['data']>;
@@ -291,14 +316,21 @@ const TimelineSection: React.FC<{
   const t = getTokens(theme);
   const [showAll, setShowAll] = useState(false);
   const events = [...(detail.timeline || [])].reverse();
-  const visible = showAll ? events : events.slice(0, 8);
+  const visible = showAll ? events : events.slice(0, 7);
 
   return (
     <Card>
-      <CardTitle>Activity Timeline</CardTitle>
+      <SectionLabel aside={
+        events.length > 0 && (
+          <span style={{ fontSize: 11, color: t.textFaint, background: t.bgBadge, padding: '2px 7px', borderRadius: 5 }}>
+            {events.length}
+          </span>
+        )
+      }>Activity Timeline</SectionLabel>
+
       {!events.length ? (
-        <div style={{ textAlign: 'center', padding: '24px 0', color: t.textMuted, fontSize: 13 }}>
-          <div style={{ fontSize: 24, marginBottom: 8 }}>◎</div>
+        <div style={{ padding: '16px 0', textAlign: 'center', color: t.textMuted, fontSize: 13 }}>
+          <div style={{ fontSize: 22, marginBottom: 6 }}>◎</div>
           No activity recorded yet
         </div>
       ) : (
@@ -308,17 +340,17 @@ const TimelineSection: React.FC<{
             const icon = evIcon(ev.event_type);
             const isLast = i === visible.length - 1;
             return (
-              <div key={ev.id} style={{ display: 'flex', gap: 12 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, width: 26 }}>
+              <div key={ev.id} style={{ display: 'flex', gap: 11 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, width: 24 }}>
                   <div style={{
-                    width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-                    background: `${color}15`, border: `1.5px solid ${color}45`,
+                    width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                    background: `${color}14`, border: `1.5px solid ${color}40`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 11, color, zIndex: 1,
+                    fontSize: 10, color, zIndex: 1,
                   }}>{icon}</div>
-                  {!isLast && <div style={{ width: 1, flex: 1, minHeight: 12, background: t.border, margin: '2px 0' }} />}
+                  {!isLast && <div style={{ width: 1, flex: 1, minHeight: 10, background: t.border, margin: '2px 0' }} />}
                 </div>
-                <div style={{ flex: 1, paddingBottom: isLast ? 0 : 14 }}>
+                <div style={{ flex: 1, paddingBottom: isLast ? 0 : 12 }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
                     <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
                       {ev.event_type.replace(/_/g, ' ')}
@@ -336,9 +368,9 @@ const TimelineSection: React.FC<{
               </div>
             );
           })}
-          {events.length > 8 && (
+          {events.length > 7 && (
             <button onClick={() => setShowAll(v => !v)} style={{
-              marginTop: 8, background: 'none', border: 'none', cursor: 'pointer',
+              marginTop: 6, background: 'none', border: 'none', cursor: 'pointer',
               fontSize: 12, color: t.accent, padding: 0,
             }}>
               {showAll ? '▲ Show less' : `▼ Show all ${events.length} events`}
@@ -350,7 +382,7 @@ const TimelineSection: React.FC<{
   );
 };
 
-// ── Section: Scoring ──────────────────────────────────────────────────────────
+// ── Scoring section ───────────────────────────────────────────────────────────
 
 const ScoringSection: React.FC<{
   detail: NonNullable<ReturnType<typeof useAgentLead>['data']>;
@@ -363,61 +395,57 @@ const ScoringSection: React.FC<{
 
   return (
     <Card>
-      <CardTitle>Qualification Score</CardTitle>
-
+      <SectionLabel>Qualification Score</SectionLabel>
       {bd?.factors?.length ? (() => {
         const max = bd.factors.reduce((s, f) => s + f.points, 0);
         const pct = max > 0 ? Math.round((bd.total / max) * 100) : 0;
         return (
           <>
-            {/* Score hero */}
             <div style={{
-              display: 'flex', alignItems: 'center', gap: 18, marginBottom: 16,
-              padding: '14px 16px', borderRadius: 12,
+              display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14,
+              padding: '12px 14px', borderRadius: 10,
               background: bc ? bc.bg : t.bgBadge, border: `1px solid ${bc ? bc.border : t.border}`,
             }}>
               <div style={{ textAlign: 'center', flexShrink: 0 }}>
-                <div style={{ fontSize: 34, fontWeight: 800, color: bc?.color || t.text, lineHeight: 1 }}>{bd.total}</div>
-                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>/ {max} pts</div>
+                <div style={{ fontSize: 32, fontWeight: 800, color: bc?.color || t.text, lineHeight: 1 }}>{bd.total}</div>
+                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 1 }}>/ {max}</div>
               </div>
               <div style={{ flex: 1 }}>
-                {bc && <div style={{ fontSize: 13, fontWeight: 700, color: bc.color, marginBottom: 5 }}>{bc.label}</div>}
+                {bc && <div style={{ fontSize: 12, fontWeight: 700, color: bc.color, marginBottom: 4 }}>{bc.label}</div>}
                 <div style={{ height: 5, borderRadius: 3, background: t.border, overflow: 'hidden' }}>
                   <div style={{ height: '100%', borderRadius: 3, width: `${pct}%`, background: bc?.color || t.accent, transition: 'width 0.5s ease' }} />
                 </div>
-                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 3 }}>{pct}% of max</div>
+                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 3 }}>{pct}% of max score</div>
               </div>
             </div>
-            {/* Factor rows */}
             {bd.factors.map((f, i) => (
               <div key={i} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '9px 0', borderBottom: i < bd.factors.length - 1 ? `1px solid ${t.border}` : 'none',
+                padding: '8px 0', borderBottom: i < bd.factors.length - 1 ? `1px solid ${t.border}` : 'none',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{
-                    width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                    width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
                     background: f.met ? t.greenBg : t.bgBadge,
                     border: `1.5px solid ${f.met ? t.green : t.border}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 10, color: f.met ? t.green : t.textFaint,
+                    fontSize: 9, color: f.met ? t.green : t.textFaint,
                   }}>{f.met ? '✓' : '○'}</div>
                   <span style={{ fontSize: 13, color: f.met ? t.text : t.textMuted }}>{f.label}</span>
                 </div>
                 <span style={{
-                  fontSize: 12, fontWeight: 700, padding: '2px 9px', borderRadius: 6,
-                  color: f.met ? t.green : t.textFaint,
-                  background: f.met ? t.greenBg : 'transparent',
+                  fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 5,
+                  color: f.met ? t.green : t.textFaint, background: f.met ? t.greenBg : 'transparent',
                 }}>{f.met ? `+${f.points}` : '—'}</span>
               </div>
             ))}
           </>
         );
       })() : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0' }}>
-          <div style={{ fontSize: 28 }}>📋</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0' }}>
+          <div style={{ fontSize: 26 }}>📋</div>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
               {lead.score != null ? `Score: ${lead.score} pts` : 'Not yet scored'}
             </div>
             <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>
@@ -430,7 +458,7 @@ const ScoringSection: React.FC<{
   );
 };
 
-// ── Section: Emails ───────────────────────────────────────────────────────────
+// ── Emails section ────────────────────────────────────────────────────────────
 
 const EmailsSection: React.FC<{
   detail: NonNullable<ReturnType<typeof useAgentLead>['data']>;
@@ -442,60 +470,57 @@ const EmailsSection: React.FC<{
 
   return (
     <Card style={{ padding: 0, overflow: 'hidden' }}>
-      <div style={{ padding: '18px 20px 14px' }}>
-        <CardTitle>
+      <div style={{ padding: '16px 18px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.9px' }}>
           Emails Sent
-          {emails.length > 0 && (
-            <span style={{ fontSize: 11, color: t.textFaint, background: t.bgBadge, padding: '2px 8px', borderRadius: 5 }}>
-              {emails.length}
-            </span>
-          )}
-        </CardTitle>
+        </span>
+        {emails.length > 0 && (
+          <span style={{ fontSize: 11, color: t.textFaint, background: t.bgBadge, padding: '2px 7px', borderRadius: 5 }}>
+            {emails.length}
+          </span>
+        )}
       </div>
       {!emails.length ? (
-        <div style={{ padding: '0 20px 20px', textAlign: 'center', color: t.textMuted, fontSize: 13 }}>
-          <div style={{ fontSize: 22, marginBottom: 6 }}>✉</div>
+        <div style={{ padding: '0 18px 18px', textAlign: 'center', color: t.textMuted, fontSize: 13 }}>
+          <div style={{ fontSize: 20, marginBottom: 5 }}>✉</div>
           No emails sent yet
         </div>
-      ) : (
-        emails.map((email, i) => (
-          <div key={i} style={{ borderTop: `1px solid ${t.border}` }}>
-            <button
-              onClick={() => setExpanded(expanded === i ? null : i)}
-              style={{
-                width: '100%', padding: '13px 20px', background: 'none', border: 'none',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                <span style={{ fontSize: 14, flexShrink: 0 }}>✉</span>
-                <div style={{ minWidth: 0, textAlign: 'left' }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {email.subject}
-                  </div>
-                  <div style={{ fontSize: 11, color: t.textFaint, marginTop: 1 }}>
-                    {email.type.replace(/_/g, ' ')}
-                    {email.sent_at && ` · ${timeAgo(email.sent_at)}`}
-                  </div>
+      ) : emails.map((email, i) => (
+        <div key={i} style={{ borderTop: `1px solid ${t.border}` }}>
+          <button
+            onClick={() => setExpanded(expanded === i ? null : i)}
+            style={{
+              width: '100%', padding: '12px 18px', background: 'none', border: 'none',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+              <span style={{ fontSize: 13, flexShrink: 0, color: t.accent }}>✉</span>
+              <div style={{ minWidth: 0, textAlign: 'left' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {email.subject}
+                </div>
+                <div style={{ fontSize: 11, color: t.textFaint, marginTop: 1 }}>
+                  {email.type.replace(/_/g, ' ')}{email.sent_at && ` · ${timeAgo(email.sent_at)}`}
                 </div>
               </div>
-              <span style={{ color: t.textFaint, fontSize: 11, flexShrink: 0 }}>{expanded === i ? '▲' : '▼'}</span>
-            </button>
-            {expanded === i && (
-              <div style={{ padding: '0 20px 16px', borderTop: `1px solid ${t.border}` }}>
-                <div style={{ paddingTop: 12, fontSize: 13, color: t.textSecondary, whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
-                  {email.body}
-                </div>
+            </div>
+            <span style={{ color: t.textFaint, fontSize: 10, flexShrink: 0 }}>{expanded === i ? '▲' : '▼'}</span>
+          </button>
+          {expanded === i && (
+            <div style={{ padding: '0 18px 14px', borderTop: `1px solid ${t.border}` }}>
+              <div style={{ paddingTop: 10, fontSize: 13, color: t.textSecondary, whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                {email.body}
               </div>
-            )}
-          </div>
-        ))
-      )}
+            </div>
+          )}
+        </div>
+      ))}
     </Card>
   );
 };
 
-// ── Section: Notes ────────────────────────────────────────────────────────────
+// ── Notes section ─────────────────────────────────────────────────────────────
 
 const NotesSection: React.FC<{
   detail: NonNullable<ReturnType<typeof useAgentLead>['data']>;
@@ -519,14 +544,14 @@ const NotesSection: React.FC<{
 
   return (
     <Card>
-      <CardTitle>Notes</CardTitle>
-      <form onSubmit={submit} style={{ display: 'flex', gap: 10, marginBottom: notes.length ? 16 : 0 }}>
+      <SectionLabel>Internal Notes</SectionLabel>
+      <form onSubmit={submit} style={{ display: 'flex', gap: 8, marginBottom: notes.length ? 14 : 0 }}>
         <textarea
           value={text} onChange={e => setText(e.target.value)}
-          placeholder="Add an internal note…" rows={2}
+          placeholder="Add a note visible only to your team…" rows={2}
           style={{
             flex: 1, padding: '9px 12px', background: t.bgInput,
-            border: `1.5px solid ${t.border}`, borderRadius: 10,
+            border: `1.5px solid ${t.border}`, borderRadius: 9,
             fontSize: 13, color: t.text, outline: 'none', resize: 'vertical',
             fontFamily: 'inherit', lineHeight: 1.5,
           }}
@@ -534,330 +559,107 @@ const NotesSection: React.FC<{
           onBlur={e => (e.target.style.borderColor = t.border)}
         />
         <button type="submit" disabled={saving || !text.trim()} style={{
-          padding: '9px 16px', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-          border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff',
+          padding: '9px 15px', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+          border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 600, color: '#fff',
           cursor: saving || !text.trim() ? 'not-allowed' : 'pointer',
           opacity: saving || !text.trim() ? 0.6 : 1, alignSelf: 'flex-start',
         }}>{saving ? '…' : 'Add'}</button>
       </form>
       {notes.map((n, i) => (
-        <div key={i} style={{ padding: '12px 0', borderTop: `1px solid ${t.border}` }}>
+        <div key={i} style={{ padding: '10px 0', borderTop: `1px solid ${t.border}` }}>
           <div style={{ fontSize: 13, color: t.text, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{n.text}</div>
-          <div style={{ fontSize: 11, color: t.textFaint, marginTop: 6 }}>{timeAgo(n.created_at)}</div>
+          <div style={{ fontSize: 11, color: t.textFaint, marginTop: 5 }}>{timeAgo(n.created_at)}</div>
         </div>
       ))}
       {!notes.length && (
-        <div style={{ fontSize: 12, color: t.textFaint, textAlign: 'center', padding: '12px 0' }}>No notes yet</div>
+        <div style={{ fontSize: 12, color: t.textFaint, paddingTop: notes.length ? 0 : 8 }}>No notes yet</div>
       )}
     </Card>
   );
 };
 
-// ── Sidebar cards ─────────────────────────────────────────────────────────────
+// ── Sidebar ───────────────────────────────────────────────────────────────────
 
-const SidebarSummary: React.FC<{
+const Sidebar: React.FC<{
   lead: NonNullable<ReturnType<typeof useAgentLead>['data']>['lead'];
+  detail: NonNullable<ReturnType<typeof useAgentLead>['data']>;
   stageName: string;
   currentState: string;
-}> = ({ lead, stageName, currentState }) => {
+}> = ({ lead, detail, stageName, currentState }) => {
   const { theme } = useTheme();
   const t = getTokens(theme);
   const bc = bucketCfg(lead.score_bucket);
-
-  const rows = [
-    { label: 'Status',  value: currentState.replace(/_/g, ' ') },
-    { label: 'Stage',   value: stageName },
-    { label: 'Score',   value: lead.score != null ? `${lead.score} pts` : '—' },
-    { label: 'Bucket',  value: lead.score_bucket || '—', color: bc?.color },
-    { label: 'Source',  value: lead.source || '—' },
-    { label: 'Created', value: timeAgo(lead.created_at) },
-  ];
-
-  return (
-    <Card>
-      <CardTitle>Lead Summary</CardTitle>
-      {rows.map((r, i) => (
-        <div key={r.label} style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '6px 0', borderBottom: i < rows.length - 1 ? `1px solid ${t.border}` : 'none',
-        }}>
-          <span style={{ fontSize: 12, color: t.textFaint }}>{r.label}</span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: r.color || t.text }}>{r.value}</span>
-        </div>
-      ))}
-    </Card>
-  );
-};
-
-const SidebarQualification: React.FC<{
-  detail: NonNullable<ReturnType<typeof useAgentLead>['data']>;
-}> = ({ detail }) => {
-  const { theme } = useTheme();
-  const t = getTokens(theme);
+  const emailCount = detail.rendered_emails?.length || 0;
   const factors = detail.scoring_breakdown?.factors || [];
 
   return (
-    <Card>
-      <CardTitle>Qualification</CardTitle>
-      {factors.length ? (
-        factors.map((f, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '4px 0' }}>
-            <span style={{ fontSize: 11, color: f.met ? t.green : t.textFaint, flexShrink: 0 }}>{f.met ? '✓' : '○'}</span>
-            <span style={{ fontSize: 12, color: f.met ? t.text : t.textFaint, flex: 1 }}>{f.label}</span>
-            {f.met && <span style={{ fontSize: 11, color: t.green, fontWeight: 700 }}>+{f.points}</span>}
-          </div>
-        ))
-      ) : (
-        <div style={{ fontSize: 12, color: t.textFaint }}>No form submitted yet</div>
-      )}
-    </Card>
-  );
-};
-
-const SidebarComms: React.FC<{
-  detail: NonNullable<ReturnType<typeof useAgentLead>['data']>;
-}> = ({ detail }) => {
-  const { theme } = useTheme();
-  const t = getTokens(theme);
-  const emailCount = detail.rendered_emails?.length || 0;
-
-  return (
-    <Card>
-      <CardTitle>Communications</CardTitle>
-      <div style={{ fontSize: 12, color: t.textMuted, marginBottom: 10 }}>
-        {emailCount ? `${emailCount} email${emailCount !== 1 ? 's' : ''} sent` : 'No emails sent yet'}
-      </div>
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '8px 10px', borderRadius: 8, background: t.bgBadge, border: `1px dashed ${t.border}`,
-      }}>
-        <span style={{ fontSize: 12, color: t.textFaint }}>SMS & call log</span>
-        <BackendPendingBadge tooltip="SMS and call log — coming soon" />
-      </div>
-    </Card>
-  );
-};
-
-const SidebarDocuments: React.FC = () => {
-  const { theme } = useTheme();
-  const t = getTokens(theme);
-  return (
-    <Card>
-      <CardTitle aside={<BackendPendingBadge tooltip="Document uploads — coming soon" />}>
-        Documents
-      </CardTitle>
-      <div style={{
-        padding: '14px', borderRadius: 10, background: t.bgBadge,
-        border: `1px dashed ${t.border}`, textAlign: 'center',
-      }}>
-        <div style={{ fontSize: 22, marginBottom: 6 }}>📄</div>
-        <div style={{ fontSize: 12, color: t.textFaint }}>No documents yet</div>
-      </div>
-    </Card>
-  );
-};
-
-// ── Main Page ─────────────────────────────────────────────────────────────────
-
-export const AgentLeadDetailPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { theme } = useTheme();
-  const t = getTokens(theme);
-
-  const { data: detail, isLoading, error } = useAgentLead(Number(id));
-  const updateStatus = useUpdateLeadStatus();
-  const { data: pipeline } = useLeadPipeline(Number(id));
-
-  const [statusError, setStatusError] = useState('');
-  const [copied, setCopied] = useState(false);
-
-  if (isLoading) {
-    return (
-      <div style={{ padding: 60, textAlign: 'center', color: t.textMuted, fontSize: 14 }}>
-        <div style={{ fontSize: 28, marginBottom: 12 }}>⟳</div>Loading lead…
-      </div>
-    );
-  }
-  if (error || !detail) {
-    return (
-      <div style={{ padding: 60, textAlign: 'center' }}>
-        <div style={{ color: t.red, fontSize: 14, marginBottom: 12 }}>Lead not found or access denied.</div>
-        <button onClick={() => navigate('/agent/leads')} style={{ color: t.accent, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>
-          ← Back to Leads
-        </button>
-      </div>
-    );
-  }
-
-  const lead = detail.lead;
-  const bc = bucketCfg(lead.score_bucket);
-  const currentState = lead.current_state || 'NEW';
-  const nextStates = TRANSITIONS[currentState] || [];
-  const stageName = pipeline?.current_stage?.name || currentState.replace(/_/g, ' ');
-
-  const handleMove = async (s: string) => {
-    setStatusError('');
-    try { await updateStatus.mutateAsync({ id: lead.id, status: s }); }
-    catch (err) { setStatusError(getAgentErrorMessage(err)); }
-  };
-
-  const copyPhone = () => {
-    if (!lead.phone) return;
-    navigator.clipboard.writeText(lead.phone).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  return (
-    <div style={{ maxWidth: 980 }}>
-      {/* ── Back ── */}
-      <button onClick={() => navigate('/agent/leads')} style={{
-        background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer',
-        fontSize: 13, marginBottom: 18, display: 'flex', alignItems: 'center', gap: 6, padding: 0,
-      }}>
-        ← Back to Leads
-      </button>
-
-      {/* ── Hero ── */}
-      <div style={{
-        background: t.bgCard,
-        border: `1px solid ${lead.is_aging ? 'rgba(239,68,68,0.3)' : t.border}`,
-        borderRadius: 18, padding: '22px 24px', marginBottom: 10,
-        boxShadow: lead.is_aging ? '0 0 0 1px rgba(239,68,68,0.08)' : 'none',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-          {/* Avatar */}
-          <div style={{
-            width: 58, height: 58, borderRadius: '50%', flexShrink: 0,
-            background: avatarGrad(lead.name || '?'),
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 19, color: '#fff', fontWeight: 700, letterSpacing: '-0.5px',
-            boxShadow: bc ? `0 0 0 3px ${bc.border}` : 'none',
+    <>
+      {/* Lead facts */}
+      <Card>
+        <SectionLabel>Lead</SectionLabel>
+        {[
+          { label: 'Status',  value: currentState.replace(/_/g, ' ') },
+          { label: 'Stage',   value: stageName },
+          { label: 'Score',   value: lead.score != null ? `${lead.score} pts` : '—', color: bc?.color },
+          { label: 'Bucket',  value: lead.score_bucket || '—', color: bc?.color },
+          { label: 'Source',  value: lead.source || '—' },
+          { label: 'Created', value: timeAgo(lead.created_at) },
+          ...(lead.last_agent_action_at ? [{ label: 'Last action', value: timeAgo(lead.last_agent_action_at) }] : []),
+        ].map((r, i, arr) => (
+          <div key={r.label} style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '5px 0', borderBottom: i < arr.length - 1 ? `1px solid ${t.border}` : 'none',
           }}>
-            {initials(lead.name || '?')}
+            <span style={{ fontSize: 11, color: t.textFaint }}>{r.label}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: r.color || t.text, textAlign: 'right', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.value}</span>
           </div>
+        ))}
+      </Card>
 
-          {/* Identity block */}
-          <div style={{ flex: 1, minWidth: 160 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 5 }}>
-              <h1 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: t.text, letterSpacing: '-0.5px' }}>
-                {lead.name}
-              </h1>
-              {lead.is_aging && (
-                <span style={{ fontSize: 10, color: '#f87171', fontWeight: 700, background: 'rgba(239,68,68,0.1)', padding: '3px 8px', borderRadius: 6, letterSpacing: '0.3px' }}>
-                  ⚠ AGING
-                </span>
-              )}
+      {/* Qualification checklist */}
+      <Card>
+        <SectionLabel>Qualification</SectionLabel>
+        {factors.length ? (
+          factors.map((f, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '4px 0' }}>
+              <span style={{ fontSize: 11, color: f.met ? t.green : t.textFaint, flexShrink: 0 }}>{f.met ? '✓' : '○'}</span>
+              <span style={{ fontSize: 12, color: f.met ? t.text : t.textFaint, flex: 1 }}>{f.label}</span>
+              {f.met && <span style={{ fontSize: 11, color: t.green, fontWeight: 700 }}>+{f.points}</span>}
             </div>
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 13, color: t.textMuted }}>
-              {lead.phone && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  📞 <span style={{ fontFamily: 'monospace', letterSpacing: '0.3px' }}>{lead.phone}</span>
-                </span>
-              )}
-              {lead.email && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  ✉ <span>{lead.email}</span>
-                </span>
-              )}
-              {lead.source && <span>◎ {lead.source}</span>}
-              <span style={{ color: t.textFaint }}>Created {timeAgo(lead.created_at)}</span>
-              {lead.last_agent_action_at && (
-                <span style={{ color: t.textFaint }}>Last action {timeAgo(lead.last_agent_action_at)}</span>
-              )}
-            </div>
-          </div>
+          ))
+        ) : (
+          <div style={{ fontSize: 12, color: t.textFaint }}>No form submitted yet</div>
+        )}
+      </Card>
 
-          {/* Badges */}
-          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
-            {bc && (
-              <span style={{
-                fontSize: 11, fontWeight: 700, padding: '5px 11px', borderRadius: 8,
-                color: bc.color, background: bc.bg, border: `1px solid ${bc.border}`, letterSpacing: '0.3px',
-              }}>{bc.label}</span>
-            )}
-            {lead.score != null && (
-              <span style={{ fontSize: 12, fontWeight: 700, color: t.text, background: t.bgBadge, padding: '5px 11px', borderRadius: 8, border: `1px solid ${t.border}` }}>
-                {lead.score} pts
-              </span>
-            )}
-            <span style={{ fontSize: 11, color: t.textMuted, background: t.bgBadge, padding: '5px 11px', borderRadius: 8, border: `1px solid ${t.border}` }}>
-              {stageName}
-            </span>
-          </div>
+      {/* Communications */}
+      <Card>
+        <SectionLabel>Communications</SectionLabel>
+        <div style={{ fontSize: 12, color: t.textMuted, marginBottom: 8 }}>
+          {emailCount ? `${emailCount} email${emailCount !== 1 ? 's' : ''} sent` : 'No emails sent yet'}
         </div>
-      </div>
-
-      {/* ── Action bar ── */}
-      <div style={{
-        background: t.bgCard, border: `1px solid ${t.border}`,
-        borderRadius: 14, padding: '11px 14px', marginBottom: 14,
-      }}>
-        <div className="ld-action-bar">
-          {lead.phone && <Btn icon="📞" label="Call" href={`tel:${lead.phone}`} />}
-          {lead.email && <Btn icon="✉" label="Email" href={`mailto:${lead.email}`} />}
-          {lead.phone && (
-            <Btn icon={copied ? '✓' : '⎘'} label={copied ? 'Copied!' : 'Copy Phone'} variant="ghost" onClick={copyPhone} />
-          )}
-          <Btn icon="💬" label="Text" pending variant="ghost" />
-
-          {nextStates.length > 0 && (
-            <>
-              <div style={{ width: 1, height: 26, background: t.border, margin: '0 2px', flexShrink: 0 }} />
-              <span style={{ fontSize: 12, color: t.textFaint, flexShrink: 0 }}>Move to:</span>
-              {nextStates.map(s => (
-                <button key={s} onClick={() => handleMove(s)} disabled={updateStatus.isPending} style={{
-                  padding: '7px 13px', borderRadius: 9, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  background: t.accentBg, border: `1px solid ${t.accent}40`, color: t.accent,
-                  opacity: updateStatus.isPending ? 0.6 : 1, transition: 'all 0.15s',
-                }}>
-                  {s.replace(/_/g, ' ')}
-                </button>
-              ))}
-            </>
-          )}
-          {statusError && <span style={{ fontSize: 12, color: t.red }}>{statusError}</span>}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '7px 9px', borderRadius: 7, background: t.bgBadge, border: `1px dashed ${t.border}`,
+        }}>
+          <span style={{ fontSize: 11, color: t.textFaint }}>SMS & call log</span>
+          <BackendPendingBadge tooltip="SMS and call log — coming soon" />
         </div>
-      </div>
+      </Card>
 
-      {/* ── Two-column body ── */}
-      <div className="ld-layout">
-        {/* Main column */}
-        <div className="ld-main">
-          {/* Pipeline */}
-          {pipeline
-            ? <PipelineSection pipeline={pipeline} />
-            : (
-              <Card>
-                <CardTitle>Pipeline</CardTitle>
-                <div style={{ fontSize: 13, color: t.textMuted }}>No pipeline assigned to this lead.</div>
-              </Card>
-            )
-          }
-
-          {/* Timeline */}
-          <TimelineSection detail={detail} />
-
-          {/* Scoring */}
-          <ScoringSection detail={detail} />
-
-          {/* Emails */}
-          <EmailsSection detail={detail} />
-
-          {/* Notes */}
-          <NotesSection detail={detail} leadId={lead.id} />
+      {/* Documents */}
+      <Card>
+        <SectionLabel aside={<BackendPendingBadge tooltip="Document uploads — coming soon" />}>
+          Documents
+        </SectionLabel>
+        <div style={{
+          padding: '12px', borderRadius: 8, background: t.bgBadge,
+          border: `1px dashed ${t.border}`, textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 20, marginBottom: 4 }}>📄</div>
+          <div style={{ fontSize: 11, color: t.textFaint }}>No documents yet</div>
         </div>
-
-        {/* Sidebar */}
-        <div className="ld-aside">
-          <SidebarSummary lead={lead} stageName={stageName} currentState={currentState} />
-          <SidebarQualification detail={detail} />
-          <SidebarComms detail={detail} />
-          <SidebarDocuments />
-        </div>
-      </div>
-    </div>
+      </Card>
+    </>
   );
 };
