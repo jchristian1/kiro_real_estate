@@ -20,76 +20,16 @@ if (typeof document !== 'undefined' && !document.getElementById('ld-css')) {
   const s = document.createElement('style');
   s.id = 'ld-css';
   s.textContent = `
-    /* Two-column desktop layout */
-    .ld-body  { display: flex; gap: 14px; align-items: flex-start; }
-    .ld-main  { flex: 1; min-width: 0; }
-    .ld-aside { width: 244px; flex-shrink: 0; }
-    /* Hero meta row */
+    .ld-body      { display: flex; gap: 14px; align-items: flex-start; }
+    .ld-main      { flex: 1; min-width: 0; }
+    .ld-aside     { width: 244px; flex-shrink: 0; }
     .ld-hero-meta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-    /* Desktop action bar — horizontal */
-    .ld-acts  { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
-    /* Sticky bottom bar — hidden on desktop */
-    .ld-sticky-bar { display: none; }
-
+    .ld-acts      { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
     @media (max-width: 767px) {
-      /* Stack layout */
-      .ld-body  { flex-direction: column; }
-      .ld-aside { width: 100%; }
-
-      /* Inline action bar hidden on mobile — replaced by sticky bar */
+      .ld-body      { flex-direction: column; }
+      .ld-aside     { width: 100%; }
       .ld-acts-wrap { display: none; }
-
-      /* Sticky bottom action bar */
-      .ld-sticky-bar {
-        display: flex;
-        position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
-        padding: 8px 10px 16px;
-        gap: 6px;
-        background: var(--ld-bar-bg, #13141a);
-        border-top: 1px solid var(--ld-bar-border, rgba(255,255,255,0.08));
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        box-shadow: 0 -4px 24px rgba(0,0,0,0.35);
-        align-items: stretch;
-      }
-      .ld-bar-btn {
-        flex: 1;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: center !important;
-        gap: 4px;
-        padding: 8px 2px !important;
-        border-radius: 11px;
-        border: 1px solid transparent;
-        cursor: pointer;
-        font-size: 10px !important;
-        font-weight: 700;
-        letter-spacing: 0.01em;
-        min-height: 54px;
-        min-width: 0;
-        text-decoration: none !important;
-        transition: opacity 0.15s, transform 0.1s;
-        box-sizing: border-box;
-        line-height: 1;
-      }
-      .ld-bar-btn:active { transform: scale(0.93); }
-      .ld-bar-btn .ld-bar-icon {
-        font-size: 20px !important;
-        line-height: 1;
-        display: block;
-      }
-      .ld-bar-btn span:not(.ld-bar-icon) {
-        font-size: 10px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 100%;
-        display: block;
-      }
-
-      /* Extra bottom padding so content isn't hidden behind sticky bar */
-      .ld-page { padding-bottom: 90px !important; }
+      .ld-page      { padding-bottom: 88px !important; }
     }
   `;
   document.head.appendChild(s);
