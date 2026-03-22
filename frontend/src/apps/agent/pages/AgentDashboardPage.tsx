@@ -1,6 +1,5 @@
 /**
- * Agent Dashboard — daily command cockpit.
- * Structure: greeting → overview strip → watcher health → attention queue → HOT leads → aging → recent
+ * Agent Dashboard — compact premium operational cockpit.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -12,85 +11,45 @@ import {
 } from '../hooks/useAgentQueries';
 import { BackendPendingBadge } from '../components/BackendPendingBadge';
 
-// ── CSS ───────────────────────────────────────────────────────────────────────
-
+// ── Inject styles once ────────────────────────────────────────────────────────
 if (typeof document !== 'undefined' && !document.getElementById('dash-css')) {
   const s = document.createElement('style');
   s.id = 'dash-css';
   s.textContent = `
-    /* Overview strip: 4-col desktop → 2×2 mobile */
-    .dash-overview {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
+    .dash-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+    @media(max-width:680px){ .dash-grid{ grid-template-columns:repeat(2,1fr); gap:5px; } }
+
+    .dash-row {
+      display:flex; align-items:center; gap:9px;
+      padding:8px 12px; cursor:pointer;
+      transition:background 0.1s;
+      -webkit-tap-highlight-color:transparent;
     }
-    @media (max-width: 767px) {
-      .dash-overview { grid-template-columns: repeat(2, 1fr); gap: 7px; }
+    .dash-row:last-child { border-bottom:none !important; }
+    @media(max-width:480px){ .dash-row{ padding:8px 10px; gap:8px; } }
+
+    .dash-sec-hdr {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:8px 12px 7px;
+      border-bottom:1px solid var(--dash-border);
+    }
+    .dash-sec-btn {
+      background:none; border:none; cursor:pointer;
+      font-size:11px; font-weight:600;
+      padding:3px 0 3px 8px; min-height:28px;
+      display:flex; align-items:center;
     }
 
-    /* Queue section panels */
-    .dash-queue-panel {
-      border-radius: 12px;
-      overflow: hidden;
-      margin-bottom: 8px;
+    @keyframes dpulse {
+      0%,100%{ opacity:1; transform:scale(1); }
+      50%{ opacity:0.5; transform:scale(1.4); }
     }
-    .dash-queue-header {
-      padding: 9px 12px 8px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .dash-queue-action {
-      background: none;
-      border: none;
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      padding: 4px 0 4px 10px;
-      min-height: 32px;
-      display: flex;
-      align-items: center;
-    }
-
-    /* Queue items */
-    .dash-queue-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 12px;
-      cursor: pointer;
-      transition: background 0.12s;
-      -webkit-tap-highlight-color: transparent;
-    }
-    @media (max-width: 480px) {
-      .dash-queue-item { padding: 9px 11px; gap: 9px; }
-      .dash-queue-header { padding: 8px 11px 7px; }
-    }
-
-    /* Watcher card */
-    .dash-watcher {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      border-radius: 12px;
-      padding: 10px 14px;
-      margin-bottom: 8px;
-    }
-    @media (max-width: 380px) {
-      .dash-watcher { gap: 9px; padding: 9px 11px; }
-    }
-
-    /* Greeting */
-    .dash-greeting-name { font-size: 20px; }
-    @media (max-width: 480px) {
-      .dash-greeting-name { font-size: 18px; }
-    }
+    .dpulse { animation:dpulse 2s ease-in-out infinite; }
   `;
   document.head.appendChild(s);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
 function timeAgo(dateStr?: string): string {
   if (!dateStr) return '—';
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -126,93 +85,81 @@ function avatarGrad(name: string): string {
   return g[Math.abs(h) % g.length];
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-// ── Queue item — richer work queue card ──────────────────────────────────────
-
-type QueueLead = {
-  id: number;
-  name: string;
-  score?: number;
-  score_bucket?: string;
-  source?: string;
-  lead_source_name?: string;
-  created_at?: string;
-  is_aging?: boolean;
-  minutes_since_created?: number;
-  current_state?: string;
-  address?: string;
-  property_address?: string;
-};
-
-function bucketCfg(b?: string) {
-  if (b === 'HOT')     return { label: 'HOT 🔥', color: '#f87171', bg: 'rgba(239,68,68,0.12)',  border: 'rgba(239,68,68,0.3)'  };
-  if (b === 'WARM')    return { label: 'WARM',   color: '#fb923c', bg: 'rgba(251,146,60,0.12)', border: 'rgba(251,146,60,0.3)' };
-  if (b === 'NURTURE') return { label: 'NURTURE',color: '#94a3b8', bg: 'rgba(148,163,184,0.1)', border: 'rgba(148,163,184,0.25)' };
-  return null;
-}
-
 function stateHint(state?: string): string {
   if (!state) return 'New lead';
   const map: Record<string, string> = {
-    NEW: 'Reach out now',
-    INVITE_SENT: 'Follow up on form invite',
-    FORM_SUBMITTED: 'Review form submission',
-    SCORED: 'Contact scored lead',
-    CONTACTED: 'Schedule appointment',
-    APPOINTMENT_SET: 'Confirm appointment',
-    LOST: 'Re-engage or archive',
-    CLOSED: 'Closed',
+    NEW: 'Reach out now', INVITE_SENT: 'Follow up on invite',
+    FORM_SUBMITTED: 'Review submission', SCORED: 'Contact scored lead',
+    CONTACTED: 'Schedule appointment', APPOINTMENT_SET: 'Confirm appointment',
+    LOST: 'Re-engage or archive', CLOSED: 'Closed',
   };
   return map[state] ?? state.replace(/_/g, ' ');
 }
 
-const QueueItem: React.FC<{
+type QueueLead = {
+  id: number; name: string; score?: number; score_bucket?: string;
+  source?: string; lead_source_name?: string; created_at?: string;
+  is_aging?: boolean; minutes_since_created?: number; current_state?: string;
+};
+
+function bucketColor(b?: string) {
+  if (b === 'HOT')     return { c: '#f87171', bg: 'rgba(239,68,68,0.12)',  bd: 'rgba(239,68,68,0.3)'  };
+  if (b === 'WARM')    return { c: '#fb923c', bg: 'rgba(251,146,60,0.12)', bd: 'rgba(251,146,60,0.3)' };
+  if (b === 'NURTURE') return { c: '#94a3b8', bg: 'rgba(148,163,184,0.1)', bd: 'rgba(148,163,184,0.25)' };
+  return null;
+}
+
+// ── LeadRow — compact queue row ───────────────────────────────────────────────
+const LeadRow: React.FC<{
   lead: QueueLead;
-  urgencyBadge?: React.ReactNode;
+  badge?: React.ReactNode;
+  borderColor: string;
   onClick: () => void;
-}> = ({ lead, urgencyBadge, onClick }) => {
+}> = ({ lead, badge, borderColor, onClick }) => {
   const { theme } = useTheme();
   const t = getTokens(theme);
   const [hov, setHov] = useState(false);
-  const bc = bucketCfg(lead.score_bucket);
+  const bc = bucketColor(lead.score_bucket);
   const src = lead.lead_source_name || lead.source;
   const hint = stateHint(lead.current_state);
-  const age = lead.created_at ? timeAgo(lead.created_at) : lead.minutes_since_created != null ? `${Math.round(lead.minutes_since_created)}m` : null;
+  const age = lead.created_at
+    ? timeAgo(lead.created_at)
+    : lead.minutes_since_created != null
+      ? `${Math.round(lead.minutes_since_created)}m`
+      : null;
 
   return (
     <div
+      className="dash-row"
       onClick={onClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      className="dash-queue-item"
       style={{
         background: hov ? t.bgCardHover : 'transparent',
-        borderBottom: `1px solid ${t.border}`,
+        borderBottom: `1px solid ${borderColor}`,
       }}
     >
       {/* Avatar */}
       <div style={{
-        width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+        width: 28, height: 28, borderRadius: 7, flexShrink: 0,
         background: avatarGrad(lead.name || '?'),
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 12, color: '#fff', fontWeight: 700,
-        boxShadow: bc ? `0 0 0 2px ${bc.color}30` : 'none',
+        fontSize: 10, fontWeight: 700, color: '#fff',
+        boxShadow: bc ? `0 0 0 1.5px ${bc.c}40` : 'none',
       }}>
         {initials(lead.name || '?')}
       </div>
 
-      {/* Main info */}
+      {/* Name + hint */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* Row 1: name + urgency */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
-            {lead.name}
-          </span>
-          {urgencyBadge}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 1 }}>
+          <span style={{
+            fontSize: 12, fontWeight: 700, color: t.text,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>{lead.name}</span>
+          {badge}
         </div>
-        {/* Row 2: hint + source — truncated on mobile */}
-        <div style={{ fontSize: 11, color: t.textMuted, display: 'flex', gap: 5, alignItems: 'center', overflow: 'hidden' }}>
+        <div style={{ fontSize: 10, display: 'flex', gap: 4, alignItems: 'center', overflow: 'hidden' }}>
           <span style={{ color: t.accent, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>{hint}</span>
           {src && (
             <span style={{ color: t.textFaint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -222,175 +169,234 @@ const QueueItem: React.FC<{
         </div>
       </div>
 
-      {/* Right: badges + age */}
-      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-        <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+      {/* Trailing: bucket + score + age */}
+      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           {bc && (
             <span style={{
-              fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
-              background: bc.bg, color: bc.color, border: `1px solid ${bc.border}`,
+              fontSize: 8, fontWeight: 800, padding: '1px 5px', borderRadius: 3,
+              background: bc.bg, color: bc.c, border: `1px solid ${bc.bd}`,
               letterSpacing: '0.04em', whiteSpace: 'nowrap',
-            }}>{bc.label}</span>
+            }}>{lead.score_bucket}</span>
           )}
           {lead.score != null && (
-            <span style={{ fontSize: 10, fontWeight: 700, color: t.textMuted }}>{lead.score}pt</span>
+            <span style={{ fontSize: 9, fontWeight: 700, color: t.textMuted }}>{lead.score}pt</span>
           )}
         </div>
-        {age && <span style={{ fontSize: 10, color: t.textFaint, whiteSpace: 'nowrap' }}>{age}</span>}
+        {age && <span style={{ fontSize: 9, color: t.textFaint, whiteSpace: 'nowrap' }}>{age}</span>}
       </div>
 
-      {/* Open arrow */}
-      <span style={{ fontSize: 14, color: t.textFaint, flexShrink: 0 }}>›</span>
+      <span style={{ fontSize: 12, color: t.textFaint, flexShrink: 0, marginLeft: 2 }}>›</span>
     </div>
   );
 };
 
-// ── Watcher health card ───────────────────────────────────────────────────────
+// ── MetricCard ────────────────────────────────────────────────────────────────
+const MetricCard: React.FC<{
+  label: string; value: React.ReactNode; sub: string;
+  accentColor?: string; accentBar?: string; onClick?: () => void;
+  pending?: boolean;
+}> = ({ label, value, sub, accentColor, accentBar, onClick, pending }) => {
+  const { theme } = useTheme();
+  const t = getTokens(theme);
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        borderRadius: 10, padding: '10px 12px 9px',
+        background: accentColor ? `${accentColor}0d` : t.bgCard,
+        border: `1px solid ${accentColor ? accentColor + '35' : t.border}`,
+        cursor: onClick ? 'pointer' : 'default',
+        position: 'relative', overflow: 'hidden',
+        transition: 'background 0.12s',
+        ...(hov && onClick ? { background: accentColor ? `${accentColor}18` : t.bgCardHover } : {}),
+      }}
+    >
+      {accentBar && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+          background: accentBar,
+        }} />
+      )}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
+        <span style={{
+          fontSize: 9, fontWeight: 700, color: accentColor ?? t.textFaint,
+          textTransform: 'uppercase', letterSpacing: '0.7px',
+        }}>{label}</span>
+        {pending && <BackendPendingBadge tooltip="Coming soon" />}
+      </div>
+      <div style={{
+        fontSize: 26, fontWeight: 800, lineHeight: 1, letterSpacing: '-0.5px',
+        color: accentColor ?? t.textMuted,
+      }}>{value}</div>
+      <div style={{ fontSize: 10, color: accentColor ? `${accentColor}99` : t.textFaint, marginTop: 3 }}>{sub}</div>
+    </div>
+  );
+};
 
-// Inject pulse animation once
-if (typeof document !== 'undefined' && !document.getElementById('watcher-css')) {
-  const s = document.createElement('style');
-  s.id = 'watcher-css';
-  s.textContent = `
-    @keyframes watcher-pulse {
-      0%,100% { opacity: 1; transform: scale(1); }
-      50%      { opacity: 0.55; transform: scale(1.35); }
-    }
-    .watcher-live { animation: watcher-pulse 2s ease-in-out infinite; }
-  `;
-  document.head.appendChild(s);
-}
+// ── QueueSection — reusable section wrapper ───────────────────────────────────
+const QueueSection: React.FC<{
+  icon: string; title: string; count?: number; countColor?: string; countBg?: string; countBd?: string;
+  actionLabel: string; onAction: () => void; actionColor: string;
+  borderColor: string; bg?: string; headerBorder?: string;
+  emptyNode?: React.ReactNode;
+  children?: React.ReactNode;
+  style?: React.CSSProperties;
+}> = ({ icon, title, count, countColor, countBg, countBd, actionLabel, onAction, actionColor,
+        borderColor, bg, headerBorder, emptyNode, children, style }) => {
+  const { theme } = useTheme();
+  const t = getTokens(theme);
+  return (
+    <div style={{
+      borderRadius: 10, overflow: 'hidden',
+      border: `1px solid ${borderColor}`,
+      background: bg ?? t.bgCard,
+      marginBottom: 7,
+      ...style,
+    }}>
+      <div className="dash-sec-hdr" style={{
+        '--dash-border': headerBorder ?? t.border,
+        borderBottom: `1px solid ${headerBorder ?? t.border}`,
+      } as React.CSSProperties}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 13 }}>{icon}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{title}</span>
+          {count != null && count > 0 && (
+            <span style={{
+              fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 4,
+              background: countBg, color: countColor, border: `1px solid ${countBd}`,
+            }}>{count}</span>
+          )}
+        </div>
+        <button className="dash-sec-btn" onClick={onAction} style={{ color: actionColor }}>
+          {actionLabel}
+        </button>
+      </div>
+      {children ?? emptyNode}
+    </div>
+  );
+};
 
+// ── WatcherCard ───────────────────────────────────────────────────────────────
 const WatcherCard: React.FC = () => {
   const { theme } = useTheme();
   const t = getTokens(theme);
   const { data: gmail } = useAgentGmail();
   const toggleWatcher = useToggleWatcher();
 
-  const watcherOn = gmail?.watcher_enabled ?? false;
+  const watcherOn   = gmail?.watcher_enabled ?? false;
   const adminLocked = gmail?.watcher_admin_override ?? false;
-  const connected = gmail?.connected ?? false;
+  const connected   = gmail?.connected ?? false;
 
   const handleToggle = async () => {
     if (adminLocked || !connected) return;
     try { await toggleWatcher.mutateAsync(!watcherOn); } catch { /* ignore */ }
   };
 
-  // Derive status tier
-  const tier: 'active' | 'paused' | 'offline' | 'unconfigured' =
+  const tier: 'active' | 'paused' | 'unconfigured' =
     !connected ? 'unconfigured' : watcherOn ? 'active' : 'paused';
 
-  const tierCfg = {
-    active:       { label: 'Active',        sub: 'Monitoring inbox for new leads', color: t.green,    bg: `${t.green}10`,    border: `${t.green}30`,    dot: t.green,    pulse: true  },
-    paused:       { label: 'Paused',         sub: 'Watcher is off — leads may be missed', color: '#f87171', bg: 'rgba(248,113,113,0.07)', border: 'rgba(248,113,113,0.25)', dot: '#f87171', pulse: false },
-    offline:      { label: 'Offline',        sub: 'Connection lost', color: '#f87171', bg: 'rgba(248,113,113,0.07)', border: 'rgba(248,113,113,0.25)', dot: '#f87171', pulse: false },
-    unconfigured: { label: 'Not configured', sub: 'Connect Gmail to enable lead monitoring', color: t.textFaint, bg: t.bgBadge, border: t.border, dot: t.textFaint, pulse: false },
+  const cfg = {
+    active:       { label: 'Active',          dot: t.green,    bg: `${t.green}0d`,           bd: `${t.green}28`,           lc: t.green    },
+    paused:       { label: 'Paused',           dot: '#f87171',  bg: 'rgba(248,113,113,0.06)', bd: 'rgba(248,113,113,0.22)', lc: '#f87171'  },
+    unconfigured: { label: 'Not configured',   dot: t.textFaint, bg: t.bgBadge,              bd: t.border,                 lc: t.textFaint },
   }[tier];
 
-  // Mask email for display — show domain only to reduce visual noise
   const emailDisplay = gmail?.gmail_address
     ? gmail.gmail_address.replace(/^(.{2}).*@/, '$1…@')
     : null;
-
   const lastSync = gmail?.last_sync;
 
   return (
-    <div className="dash-watcher" style={{
-      background: tierCfg.bg,
-      border: `1px solid ${tierCfg.border}`,
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      borderRadius: 10, padding: '9px 12px',
+      background: cfg.bg, border: `1px solid ${cfg.bd}`,
+      marginBottom: 7,
     }}>
-      {/* Status icon + live dot */}
+      {/* Icon + pulse dot */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
         <div style={{
-          width: 36, height: 36, borderRadius: 11,
+          width: 32, height: 32, borderRadius: 9,
           background: tier === 'active' ? `${t.green}15` : t.bgBadge,
-          border: `1.5px solid ${tier === 'active' ? t.green + '35' : t.border}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 17,
+          border: `1px solid ${tier === 'active' ? t.green + '30' : t.border}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15,
         }}>
           {tier === 'active' ? '📡' : tier === 'unconfigured' ? '🔌' : '⏸'}
         </div>
-        {/* Live pulse dot */}
         <div
-          className={tierCfg.pulse ? 'watcher-live' : undefined}
+          className={tier === 'active' ? 'dpulse' : undefined}
           style={{
             position: 'absolute', bottom: -1, right: -1,
-            width: 11, height: 11, borderRadius: '50%',
-            background: tierCfg.dot,
-            border: `2px solid ${t.bgCard}`,
-            boxShadow: tier === 'active' ? `0 0 8px ${t.green}80` : 'none',
+            width: 9, height: 9, borderRadius: '50%',
+            background: cfg.dot, border: `1.5px solid ${t.bgCard}`,
+            boxShadow: tier === 'active' ? `0 0 6px ${t.green}70` : 'none',
           }}
         />
       </div>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 1 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>Inbox Watcher</span>
-            <span style={{
-              fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-              background: tier === 'active' ? `${t.green}18` : tier === 'unconfigured' ? t.bgBadge : 'rgba(248,113,113,0.12)',
-              color: tierCfg.color,
-              border: `1px solid ${tier === 'active' ? t.green + '30' : tier === 'unconfigured' ? t.border : 'rgba(248,113,113,0.25)'}`,
-              letterSpacing: '0.04em',
-            }}>{tierCfg.label}</span>
-            {adminLocked && (
-              <span style={{ fontSize: 9, color: t.orange, fontWeight: 700, letterSpacing: '0.05em' }}>LOCKED</span>
-            )}
-          </div>
-          <div style={{ fontSize: 10, color: t.textMuted, lineHeight: 1.3, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            {emailDisplay && (
-              <span style={{ fontFamily: 'monospace', color: t.textFaint }}>{emailDisplay}</span>
-            )}
-            {lastSync && tier === 'active' && (
-              <span style={{ color: t.textFaint }}>· synced {timeAgo(lastSync)}</span>
-            )}
-            {!emailDisplay && (
-              <span>{tierCfg.sub}</span>
-            )}
-          </div>
+      {/* Text */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 1 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: t.text }}>Inbox Watcher</span>
+          <span style={{
+            fontSize: 8, fontWeight: 800, padding: '1px 5px', borderRadius: 3,
+            background: tier === 'active' ? `${t.green}18` : 'rgba(148,163,184,0.12)',
+            color: cfg.lc, border: `1px solid ${cfg.bd}`, letterSpacing: '0.05em',
+          }}>{cfg.label}</span>
+          {adminLocked && (
+            <span style={{ fontSize: 8, color: t.orange, fontWeight: 700, letterSpacing: '0.05em' }}>LOCKED</span>
+          )}
         </div>
+        <div style={{ fontSize: 10, color: t.textFaint, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {emailDisplay
+            ? <span style={{ fontFamily: 'monospace' }}>{emailDisplay}</span>
+            : <span>{tier === 'unconfigured' ? 'Connect Gmail to monitor leads' : tier === 'paused' ? 'Watcher paused — leads may be missed' : 'Monitoring inbox'}</span>
+          }
+          {lastSync && tier === 'active' && (
+            <span>· {timeAgo(lastSync)}</span>
+          )}
+        </div>
+      </div>
 
-      {/* Toggle — only when connected */}
+      {/* Control */}
       {connected ? (
-        <div style={{ flexShrink: 0 }}>
-          <button
-            onClick={handleToggle}
-            disabled={adminLocked || toggleWatcher.isPending}
-            aria-label={watcherOn ? 'Pause watcher' : 'Enable watcher'}
-            style={{
-              width: 42, height: 24, borderRadius: 12, border: 'none',
-              cursor: adminLocked ? 'not-allowed' : 'pointer',
-              background: watcherOn ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : t.border,
-              position: 'relative', transition: 'background 0.2s',
-              opacity: adminLocked ? 0.5 : 1, flexShrink: 0,
-            }}
-          >
-            <div style={{
-              position: 'absolute', top: 3, left: watcherOn ? 20 : 3,
-              width: 18, height: 18, borderRadius: '50%', background: '#fff',
-              transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
-            }} />
-          </button>
-        </div>
-      ) : (
         <button
-          onClick={() => {/* navigate to settings */}}
+          onClick={handleToggle}
+          disabled={adminLocked || toggleWatcher.isPending}
+          aria-label={watcherOn ? 'Pause watcher' : 'Enable watcher'}
           style={{
-            padding: '7px 13px', borderRadius: 9, fontSize: 11, fontWeight: 600,
-            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff',
-            border: 'none', cursor: 'pointer', flexShrink: 0,
-            boxShadow: '0 2px 8px rgba(99,102,241,0.3)',
+            width: 38, height: 22, borderRadius: 11, border: 'none', flexShrink: 0,
+            cursor: adminLocked ? 'not-allowed' : 'pointer',
+            background: watcherOn ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : t.border,
+            position: 'relative', transition: 'background 0.2s',
+            opacity: adminLocked ? 0.5 : 1,
           }}
         >
-          Set up
+          <div style={{
+            position: 'absolute', top: 2, left: watcherOn ? 18 : 2,
+            width: 18, height: 18, borderRadius: '50%', background: '#fff',
+            transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+          }} />
         </button>
+      ) : (
+        <button
+          style={{
+            padding: '5px 10px', borderRadius: 7, fontSize: 10, fontWeight: 600,
+            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff',
+            border: 'none', cursor: 'pointer', flexShrink: 0,
+            boxShadow: '0 2px 6px rgba(99,102,241,0.3)',
+          }}
+        >Set up</button>
       )}
     </div>
   );
 };
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
-
 export const AgentDashboardPage: React.FC = () => {
   const { theme } = useTheme();
   const t = getTokens(theme);
@@ -399,325 +405,197 @@ export const AgentDashboardPage: React.FC = () => {
   const { data: me } = useAgentMe();
   const [now, setNow] = useState(new Date());
 
-  // Tick clock for greeting freshness
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
 
-  const hotLeads = data?.hot_leads || [];
+  const hotLeads   = data?.hot_leads   || [];
   const agingLeads = data?.aging_leads || [];
-  const hotCount = data?.hot_lead_count ?? hotLeads.length;
+  const hotCount   = data?.hot_lead_count   ?? hotLeads.length;
   const agingCount = data?.aging_lead_count ?? agingLeads.length;
   const responseTime = data?.response_time_today_minutes;
 
-  // Attention queue = aging leads that need immediate action
   const attentionLeads = agingLeads.slice(0, 5);
-  const hasAttention = attentionLeads.length > 0;
-
-  const todayStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const todayStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: t.textMuted, fontSize: 14 }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 24, marginBottom: 8 }}>⟳</div>
-          Loading dashboard…
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 160, color: t.textMuted, fontSize: 13 }}>
+        Loading…
       </div>
     );
   }
 
-  return (
-    <div style={{ maxWidth: 960, paddingBottom: 40 }}>
+  // Urgency badge helpers
+  const stalledBadge = (lead: QueueLead) => (
+    <span style={{
+      fontSize: 8, fontWeight: 800, padding: '1px 5px', borderRadius: 3,
+      background: 'rgba(251,146,60,0.15)', color: '#fb923c',
+      border: '1px solid rgba(251,146,60,0.3)', letterSpacing: '0.04em',
+    }}>
+      {lead.minutes_since_created != null ? `${Math.round(lead.minutes_since_created)}m` : 'stalled'}
+    </span>
+  );
 
-      {/* ── Greeting header ── */}
-      <div style={{ marginBottom: 12 }}>
-        <div className="dash-greeting-name" style={{ fontWeight: 800, color: t.text, letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+  const agingBadge = (
+    <span style={{ fontSize: 9, color: '#fb923c', fontWeight: 800 }}>⏱</span>
+  );
+
+  // Deduped recent leads
+  const recentLeads = [...hotLeads, ...agingLeads]
+    .filter((l, i, arr) => arr.findIndex(x => x.id === l.id) === i)
+    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+    .slice(0, 6);
+
+  return (
+    <div style={{ maxWidth: 900, paddingBottom: 32 }}>
+
+      {/* ── Greeting ── */}
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: '-0.2px', lineHeight: 1.2 }}>
           {greeting(me?.full_name)}
         </div>
-        <div style={{ fontSize: 12, color: t.textFaint, marginTop: 3 }}>{todayStr}</div>
+        <div style={{ fontSize: 11, color: t.textFaint, marginTop: 2 }}>{todayStr}</div>
       </div>
 
-      {/* ── Overview strip ── */}
-      <div className="dash-overview" style={{ marginBottom: 8 }}>
-
-        {/* HOT leads */}
-        <div
+      {/* ── Metric strip ── */}
+      <div className="dash-grid" style={{ marginBottom: 7 }}>
+        <MetricCard
+          label="🔥 HOT Leads"
+          value={hotCount}
+          sub={hotCount === 0 ? 'none right now' : hotCount === 1 ? 'needs attention' : 'need attention'}
+          accentColor={hotCount > 0 ? '#f87171' : undefined}
+          accentBar={hotCount > 0 ? 'linear-gradient(90deg,#ef4444,#f87171)' : undefined}
           onClick={() => navigate('/agent/leads?bucket=HOT')}
-          style={{
-            borderRadius: 12, padding: '12px 14px', cursor: 'pointer',
-            background: hotCount > 0 ? 'rgba(239,68,68,0.08)' : t.bgCard,
-            border: `1px solid ${hotCount > 0 ? 'rgba(239,68,68,0.28)' : t.border}`,
-            transition: 'all 0.15s', position: 'relative', overflow: 'hidden',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.background = hotCount > 0 ? 'rgba(239,68,68,0.13)' : t.bgCardHover)}
-          onMouseLeave={e => (e.currentTarget.style.background = hotCount > 0 ? 'rgba(239,68,68,0.08)' : t.bgCard)}
-        >
-          {hotCount > 0 && (
-            <div style={{
-              position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-              background: 'linear-gradient(90deg,#ef4444,#f87171)',
-            }} />
-          )}
-          <div style={{ fontSize: 9, fontWeight: 700, color: hotCount > 0 ? '#f87171' : t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 5 }}>
-            🔥 HOT Leads
-          </div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: hotCount > 0 ? '#f87171' : t.textMuted, lineHeight: 1, letterSpacing: '-1px' }}>
-            {hotCount}
-          </div>
-          <div style={{ fontSize: 10, color: hotCount > 0 ? 'rgba(248,113,113,0.7)' : t.textFaint, marginTop: 4 }}>
-            {hotCount === 0 ? 'none right now' : hotCount === 1 ? 'needs attention' : 'need attention'}
-          </div>
-        </div>
-
-        {/* Aging */}
-        <div
+        />
+        <MetricCard
+          label="⏱ Stalled"
+          value={agingCount}
+          sub={agingCount === 0 ? 'all caught up ✓' : agingCount === 1 ? 'lead stalled' : 'leads stalled'}
+          accentColor={agingCount > 0 ? '#fb923c' : undefined}
+          accentBar={agingCount > 0 ? 'linear-gradient(90deg,#f97316,#fb923c)' : undefined}
           onClick={() => navigate('/agent/leads')}
-          style={{
-            borderRadius: 12, padding: '12px 14px', cursor: 'pointer',
-            background: agingCount > 0 ? 'rgba(251,146,60,0.08)' : t.bgCard,
-            border: `1px solid ${agingCount > 0 ? 'rgba(251,146,60,0.28)' : t.border}`,
-            transition: 'all 0.15s', position: 'relative', overflow: 'hidden',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.background = agingCount > 0 ? 'rgba(251,146,60,0.13)' : t.bgCardHover)}
-          onMouseLeave={e => (e.currentTarget.style.background = agingCount > 0 ? 'rgba(251,146,60,0.08)' : t.bgCard)}
-        >
-          {agingCount > 0 && (
-            <div style={{
-              position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-              background: 'linear-gradient(90deg,#f97316,#fb923c)',
-            }} />
-          )}
-          <div style={{ fontSize: 9, fontWeight: 700, color: agingCount > 0 ? '#fb923c' : t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 5 }}>
-            ⏱ Stalled
-          </div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: agingCount > 0 ? '#fb923c' : t.textMuted, lineHeight: 1, letterSpacing: '-1px' }}>
-            {agingCount}
-          </div>
-          <div style={{ fontSize: 10, color: agingCount > 0 ? 'rgba(251,146,60,0.7)' : t.textFaint, marginTop: 4 }}>
-            {agingCount === 0 ? 'all caught up ✓' : agingCount === 1 ? 'lead stalled' : 'leads stalled'}
-          </div>
-        </div>
-
-        {/* Response time */}
-        <div style={{
-          borderRadius: 12, padding: '12px 14px', position: 'relative', overflow: 'hidden',
-          background: t.bgCard, border: `1px solid ${t.border}`,
-        }}>
-          {responseTime != null && (
-            <div style={{
-              position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-              background: responseTime <= 15
-                ? `linear-gradient(90deg,${t.green},${t.green}88)`
-                : 'linear-gradient(90deg,#f97316,#fb923c)',
-            }} />
-          )}
-          <div style={{ fontSize: 9, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 5 }}>
-            ⚡ Avg Response
-          </div>
-          <div style={{
-            fontSize: 28, fontWeight: 800, lineHeight: 1, letterSpacing: '-1px',
-            color: responseTime == null ? t.textMuted : responseTime <= 15 ? t.green : '#fb923c',
-          }}>
-            {responseTime != null ? `${responseTime}m` : '—'}
-          </div>
-          <div style={{ fontSize: 10, marginTop: 4, color: t.textFaint }}>
-            {responseTime == null ? 'no data today' : responseTime <= 15 ? 'on target ✓' : 'above 15m target'}
-          </div>
-        </div>
-
-        {/* Conversions — backend pending */}
-        <div style={{
-          borderRadius: 12, padding: '12px 14px',
-          background: t.bgCard, border: `1px dashed ${t.border}`,
-          position: 'relative', overflow: 'hidden',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 5 }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-              📊 Conversions
-            </div>
-            <BackendPendingBadge tooltip="Conversion rate tracking — coming soon" />
-          </div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: t.textFaint, lineHeight: 1, letterSpacing: '-1px' }}>—</div>
-          <div style={{ fontSize: 10, color: t.textFaint, marginTop: 4 }}>this month</div>
-        </div>
+        />
+        <MetricCard
+          label="⚡ Avg Response"
+          value={responseTime != null ? `${responseTime}m` : '—'}
+          sub={responseTime == null ? 'no data today' : responseTime <= 15 ? 'on target ✓' : 'above 15m target'}
+          accentColor={responseTime == null ? undefined : responseTime <= 15 ? t.green : '#fb923c'}
+          accentBar={responseTime != null ? (responseTime <= 15 ? `linear-gradient(90deg,${t.green},${t.green}88)` : 'linear-gradient(90deg,#f97316,#fb923c)') : undefined}
+        />
+        <MetricCard
+          label="📊 Conversions"
+          value="—"
+          sub="this month"
+          pending
+        />
       </div>
 
-      {/* ── Watcher + system health ── */}
+      {/* ── Watcher ── */}
       <WatcherCard />
 
-      {/* ── Needs attention now — always first if any aging ── */}
-      {hasAttention && (
-        <div style={{
-          marginBottom: 8, borderRadius: 12, overflow: 'hidden',
-          border: '1px solid rgba(251,146,60,0.35)',
-          background: 'rgba(251,146,60,0.04)',
-        }}>
-          <div className="dash-queue-header" style={{ borderBottom: '1px solid rgba(251,146,60,0.2)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fb923c', boxShadow: '0 0 6px #fb923c' }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>Needs Attention Now</span>
-              <span style={{
-                fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 5,
-                background: 'rgba(251,146,60,0.15)', color: '#fb923c',
-                border: '1px solid rgba(251,146,60,0.3)',
-              }}>{attentionLeads.length}</span>
-            </div>
-            <button className="dash-queue-action" onClick={() => navigate('/agent/leads')} style={{ color: t.accent }}>
-              View all →
-            </button>
-          </div>
+      {/* ── Needs Attention ── */}
+      {attentionLeads.length > 0 && (
+        <QueueSection
+          icon="●" title="Needs Attention"
+          count={attentionLeads.length}
+          countColor="#fb923c" countBg="rgba(251,146,60,0.15)" countBd="rgba(251,146,60,0.3)"
+          actionLabel="View all →" onAction={() => navigate('/agent/leads')} actionColor={t.accent}
+          borderColor="rgba(251,146,60,0.35)" bg="rgba(251,146,60,0.04)"
+          headerBorder="rgba(251,146,60,0.2)"
+        >
           {attentionLeads.map(lead => (
-            <QueueItem
-              key={lead.id}
-              lead={lead}
-              onClick={() => navigate(`/agent/leads/${lead.id}`)}
-              urgencyBadge={
-                <span style={{
-                  fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
-                  background: 'rgba(251,146,60,0.15)', color: '#fb923c',
-                  border: '1px solid rgba(251,146,60,0.3)', letterSpacing: '0.04em',
-                }}>
-                  {lead.minutes_since_created != null ? `${Math.round(lead.minutes_since_created)}m` : '⏱ STALLED'}
-                </span>
-              }
-            />
+            <LeadRow key={lead.id} lead={lead} badge={stalledBadge(lead)}
+              borderColor="rgba(251,146,60,0.12)"
+              onClick={() => navigate(`/agent/leads/${lead.id}`)} />
           ))}
-        </div>
+        </QueueSection>
       )}
 
-      {/* ── HOT leads queue ── */}
-      <div style={{ marginBottom: 8, borderRadius: 12, overflow: 'hidden', border: `1px solid ${hotLeads.length > 0 ? 'rgba(239,68,68,0.25)' : t.border}`, background: t.bgCard }}>
-        <div className="dash-queue-header" style={{ borderBottom: `1px solid ${t.border}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 14 }}>🔥</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>HOT Leads</span>
-            {hotCount > 0 && (
-              <span style={{
-                fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 5,
-                background: 'rgba(239,68,68,0.12)', color: '#f87171',
-                border: '1px solid rgba(239,68,68,0.28)',
-              }}>{hotCount}</span>
-            )}
+      {/* ── HOT Leads ── */}
+      <QueueSection
+        icon="🔥" title="HOT Leads"
+        count={hotCount} countColor="#f87171" countBg="rgba(239,68,68,0.12)" countBd="rgba(239,68,68,0.28)"
+        actionLabel="View all →" onAction={() => navigate('/agent/leads?bucket=HOT')} actionColor={t.accent}
+        borderColor={hotLeads.length > 0 ? 'rgba(239,68,68,0.22)' : t.border}
+        emptyNode={
+          <div style={{ padding: '9px 12px', fontSize: 11, color: t.textMuted }}>
+            No HOT leads right now
           </div>
-          <button className="dash-queue-action" onClick={() => navigate('/agent/leads?bucket=HOT')} style={{ color: t.accent }}>
-            View all →
-          </button>
-        </div>
-        {hotLeads.length === 0 ? (
-          <div style={{ padding: '12px 14px', color: t.textMuted, fontSize: 12 }}>
-            🎯 No HOT leads right now — check back soon
-          </div>
-        ) : (
+        }
+      >
+        {hotLeads.length > 0 ? (
           <>
             {hotLeads.slice(0, 5).map(lead => (
-              <QueueItem
-                key={lead.id}
-                lead={lead}
-                onClick={() => navigate(`/agent/leads/${lead.id}`)}
-                urgencyBadge={
-                  lead.is_aging ? (
-                    <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: 'rgba(251,146,60,0.15)', color: '#fb923c', border: '1px solid rgba(251,146,60,0.3)' }}>⏱</span>
-                  ) : undefined
-                }
-              />
+              <LeadRow key={lead.id} lead={lead}
+                badge={lead.is_aging ? agingBadge : undefined}
+                borderColor={t.border}
+                onClick={() => navigate(`/agent/leads/${lead.id}`)} />
             ))}
             {hotLeads.length > 5 && (
-              <div style={{ padding: '9px 14px', borderTop: `1px solid ${t.border}` }}>
-                <button className="dash-queue-action" onClick={() => navigate('/agent/leads?bucket=HOT')} style={{ color: t.accent, padding: 0, minHeight: 'auto' }}>
-                  +{hotLeads.length - 5} more HOT leads →
+              <div style={{ padding: '7px 12px', borderTop: `1px solid ${t.border}` }}>
+                <button className="dash-sec-btn" onClick={() => navigate('/agent/leads?bucket=HOT')}
+                  style={{ color: t.accent, padding: 0, minHeight: 'auto' }}>
+                  +{hotLeads.length - 5} more →
                 </button>
               </div>
             )}
           </>
-        )}
-      </div>
+        ) : undefined}
+      </QueueSection>
 
-      {/* ── Stalled / aging queue ── */}
-      <div style={{ marginBottom: 8, borderRadius: 12, overflow: 'hidden', border: `1px solid ${agingLeads.length > 0 ? 'rgba(251,146,60,0.22)' : t.border}`, background: t.bgCard }}>
-        <div className="dash-queue-header" style={{ borderBottom: `1px solid ${t.border}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 14 }}>⏱</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>Stalled Leads</span>
-            {agingCount > 0 && (
-              <span style={{
-                fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 5,
-                background: 'rgba(251,146,60,0.12)', color: '#fb923c',
-                border: '1px solid rgba(251,146,60,0.28)',
-              }}>{agingCount}</span>
-            )}
+      {/* ── Stalled Leads ── */}
+      <QueueSection
+        icon="⏱" title="Stalled Leads"
+        count={agingCount} countColor="#fb923c" countBg="rgba(251,146,60,0.12)" countBd="rgba(251,146,60,0.28)"
+        actionLabel="↻ Refresh" onAction={() => refetch()} actionColor={t.textFaint}
+        borderColor={agingLeads.length > 0 ? 'rgba(251,146,60,0.2)' : t.border}
+        emptyNode={
+          <div style={{ padding: '9px 12px', fontSize: 11 }}>
+            <span style={{ fontWeight: 600, color: t.green }}>✓ All caught up</span>
+            <span style={{ color: t.textFaint, marginLeft: 5 }}>No stalled leads</span>
           </div>
-          <button className="dash-queue-action" onClick={() => refetch()} style={{ color: t.textFaint }}>
-            ↻ Refresh
-          </button>
-        </div>
-        {agingLeads.length === 0 ? (
-          <div style={{ padding: '12px 14px' }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: t.green }}>✓ All caught up</span>
-            <span style={{ fontSize: 11, color: t.textFaint, marginLeft: 6 }}>No stalled leads</span>
-          </div>
-        ) : (
+        }
+      >
+        {agingLeads.length > 0 ? (
           agingLeads.slice(0, 5).map(lead => (
-            <QueueItem
-              key={lead.id}
-              lead={lead}
-              onClick={() => navigate(`/agent/leads/${lead.id}`)}
-              urgencyBadge={
-                <span style={{
-                  fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
-                  background: 'rgba(251,146,60,0.15)', color: '#fb923c',
-                  border: '1px solid rgba(251,146,60,0.3)', letterSpacing: '0.04em',
-                }}>
-                  {lead.minutes_since_created != null ? `${Math.round(lead.minutes_since_created)}m old` : 'stalled'}
-                </span>
-              }
-            />
+            <LeadRow key={lead.id} lead={lead} badge={stalledBadge(lead)}
+              borderColor={t.border}
+              onClick={() => navigate(`/agent/leads/${lead.id}`)} />
           ))
-        )}
-      </div>
+        ) : undefined}
+      </QueueSection>
 
-      {/* ── Recent leads ── */}
-      <div style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid ${t.border}`, background: t.bgCard }}>
-        <div className="dash-queue-header" style={{ borderBottom: `1px solid ${t.border}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 14 }}>🕐</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>Recent Leads</span>
+      {/* ── Recent Leads ── */}
+      <QueueSection
+        icon="🕐" title="Recent Leads"
+        actionLabel="All leads →" onAction={() => navigate('/agent/leads')} actionColor={t.accent}
+        borderColor={t.border}
+        style={{ marginBottom: 0 }}
+        emptyNode={
+          <div style={{ padding: '9px 12px', fontSize: 11, color: t.textMuted }}>
+            No leads yet — they'll appear here as they come in
           </div>
-          <button className="dash-queue-action" onClick={() => navigate('/agent/leads')} style={{ color: t.accent }}>
-            All leads →
-          </button>
-        </div>
-        {hotLeads.length === 0 && agingLeads.length === 0 ? (
-          <div style={{ padding: '12px 14px', color: t.textMuted, fontSize: 12 }}>
-            ◎ No leads yet — they'll appear here as they come in
-          </div>
-        ) : (
+        }
+      >
+        {recentLeads.length > 0 ? (
           <>
-            {[...hotLeads, ...agingLeads]
-              .filter((lead, idx, arr) => arr.findIndex(l => l.id === lead.id) === idx)
-              .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
-              .slice(0, 6)
-              .map(lead => (
-                <QueueItem
-                  key={lead.id}
-                  lead={lead}
-                  onClick={() => navigate(`/agent/leads/${lead.id}`)}
-                  urgencyBadge={
-                    lead.is_aging ? (
-                      <span style={{ fontSize: 9, color: '#fb923c', fontWeight: 800 }}>⏱</span>
-                    ) : undefined
-                  }
-                />
-              ))}
-            <div style={{ padding: '9px 14px', borderTop: `1px solid ${t.border}` }}>
-              <button className="dash-queue-action" onClick={() => navigate('/agent/leads')} style={{ color: t.accent, padding: 0, minHeight: 'auto' }}>
+            {recentLeads.map(lead => (
+              <LeadRow key={lead.id} lead={lead}
+                badge={lead.is_aging ? agingBadge : undefined}
+                borderColor={t.border}
+                onClick={() => navigate(`/agent/leads/${lead.id}`)} />
+            ))}
+            <div style={{ padding: '7px 12px', borderTop: `1px solid ${t.border}` }}>
+              <button className="dash-sec-btn" onClick={() => navigate('/agent/leads')}
+                style={{ color: t.accent, padding: 0, minHeight: 'auto' }}>
                 View all leads →
               </button>
             </div>
           </>
-        )}
-      </div>
+        ) : undefined}
+      </QueueSection>
 
     </div>
   );
