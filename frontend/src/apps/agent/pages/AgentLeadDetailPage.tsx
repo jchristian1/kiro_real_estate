@@ -1,5 +1,6 @@
 /**
  * Agent Lead Detail — premium command center for a single lead.
+ * Mobile-first layout with sticky action bar and stacking sidebar.
  */
 
 import React, { useState } from 'react';
@@ -10,6 +11,45 @@ import {
   useAgentLead, useUpdateLeadStatus, useAddLeadNote, useLeadPipeline,
 } from '../hooks/useAgentQueries';
 import { getAgentErrorMessage } from '../api/agentApi';
+import { BackendPendingBadge } from '../components/BackendPendingBadge';
+
+// Inject responsive CSS once
+if (typeof document !== 'undefined' && !document.getElementById('agent-detail-css')) {
+  const style = document.createElement('style');
+  style.id = 'agent-detail-css';
+  style.textContent = `
+    .detail-action-bar {
+      position: sticky;
+      bottom: 0;
+      z-index: 20;
+    }
+    .detail-body {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .detail-sidebar {
+      width: 240px;
+      flex-shrink: 0;
+    }
+    @media (max-width: 767px) {
+      .detail-action-bar {
+        border-radius: 0 !important;
+        border-left: none !important;
+        border-right: none !important;
+        border-bottom: none !important;
+        margin-bottom: 0 !important;
+      }
+      .detail-body {
+        flex-direction: column;
+      }
+      .detail-sidebar {
+        width: 100%;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -116,7 +156,6 @@ const ActionButton: React.FC<{
   const { theme } = useTheme();
   const t = getTokens(theme);
   const [hovered, setHovered] = useState(false);
-
   const isDisabled = disabled || comingSoon;
 
   const styles: React.CSSProperties = {
@@ -141,11 +180,7 @@ const ActionButton: React.FC<{
     <>
       <span style={{ fontSize: 15 }}>{icon}</span>
       <span>{label}</span>
-      {comingSoon && (
-        <span style={{ fontSize: 9, fontWeight: 700, color: t.textFaint, letterSpacing: '0.4px', marginLeft: 2 }}>
-          SOON
-        </span>
-      )}
+      {comingSoon && <BackendPendingBadge variant="inline" tooltip="Not yet supported" />}
     </>
   );
 
@@ -161,7 +196,7 @@ const ActionButton: React.FC<{
     <button
       disabled={isDisabled}
       onClick={onClick}
-      title={comingSoon ? 'Coming soon' : undefined}
+      title={comingSoon ? 'Not yet supported' : undefined}
       style={styles}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -176,7 +211,6 @@ const ActionButton: React.FC<{
 const TimelineTab: React.FC<{ detail: NonNullable<ReturnType<typeof useAgentLead>['data']> }> = ({ detail }) => {
   const { theme } = useTheme();
   const t = getTokens(theme);
-
   const events = [...(detail.timeline || [])].reverse();
 
   if (!events.length) {
@@ -200,7 +234,6 @@ const TimelineTab: React.FC<{ detail: NonNullable<ReturnType<typeof useAgentLead
           const isLast = i === events.length - 1;
           return (
             <div key={event.id} style={{ display: 'flex', gap: 14, position: 'relative' }}>
-              {/* Line + dot */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, width: 28 }}>
                 <div style={{
                   width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
@@ -214,7 +247,6 @@ const TimelineTab: React.FC<{ detail: NonNullable<ReturnType<typeof useAgentLead
                   <div style={{ width: 1, flex: 1, minHeight: 16, background: t.border, margin: '3px 0' }} />
                 )}
               </div>
-              {/* Content */}
               <div style={{ flex: 1, paddingBottom: isLast ? 0 : 16 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
@@ -243,13 +275,11 @@ const TimelineTab: React.FC<{ detail: NonNullable<ReturnType<typeof useAgentLead
 const PipelineTab: React.FC<{ pipeline: NonNullable<ReturnType<typeof useLeadPipeline>['data']> }> = ({ pipeline }) => {
   const { theme } = useTheme();
   const t = getTokens(theme);
-
   const sortedStages = [...pipeline.stages].sort((a, b) => a.position - b.position);
   const currentIdx = sortedStages.findIndex(s => s.id === pipeline.current_stage?.id);
 
   return (
     <>
-      {/* Current stage hero */}
       <SectionCard>
         <SectionTitle>{pipeline.pipeline_name}</SectionTitle>
         {pipeline.current_stage ? (
@@ -258,11 +288,8 @@ const PipelineTab: React.FC<{ pipeline: NonNullable<ReturnType<typeof useLeadPip
               width: 44, height: 44, borderRadius: 12, flexShrink: 0,
               background: `${pipeline.current_stage.color}20`,
               border: `2px solid ${pipeline.current_stage.color}60`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 18,
-            }}>
-              →
-            </div>
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+            }}>→</div>
             <div>
               <div style={{ fontSize: 18, fontWeight: 700, color: t.text }}>{pipeline.current_stage.name}</div>
               <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>
@@ -276,7 +303,6 @@ const PipelineTab: React.FC<{ pipeline: NonNullable<ReturnType<typeof useLeadPip
         )}
       </SectionCard>
 
-      {/* Stage progress track */}
       {sortedStages.length > 0 && (
         <SectionCard>
           <SectionTitle>Pipeline Progress</SectionTitle>
@@ -285,8 +311,6 @@ const PipelineTab: React.FC<{ pipeline: NonNullable<ReturnType<typeof useLeadPip
               {sortedStages.map((stage, idx) => {
                 const isCurrent = stage.id === pipeline.current_stage?.id;
                 const isPast = idx < currentIdx;
-                const isWon = stage.is_closed_won;
-                const isLost = stage.is_closed_lost;
                 const dotColor = isCurrent ? stage.color : isPast ? t.green : t.border;
                 return (
                   <React.Fragment key={stage.id}>
@@ -305,14 +329,13 @@ const PipelineTab: React.FC<{ pipeline: NonNullable<ReturnType<typeof useLeadPip
                         fontWeight: isCurrent ? 700 : 400,
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                       }}>
-                        {isWon ? '✓ ' : isLost ? '✗ ' : ''}{stage.name}
+                        {stage.is_closed_won ? '✓ ' : stage.is_closed_lost ? '✗ ' : ''}{stage.name}
                       </div>
                     </div>
                     {idx < sortedStages.length - 1 && (
                       <div style={{
                         flex: 1, height: 2, marginTop: 8, minWidth: 12,
-                        background: isPast ? t.green : t.border,
-                        transition: 'background 0.2s',
+                        background: isPast ? t.green : t.border, transition: 'background 0.2s',
                       }} />
                     )}
                   </React.Fragment>
@@ -323,7 +346,6 @@ const PipelineTab: React.FC<{ pipeline: NonNullable<ReturnType<typeof useLeadPip
         </SectionCard>
       )}
 
-      {/* Stage history */}
       {pipeline.stage_history.length > 0 && (
         <SectionCard>
           <SectionTitle>Stage History</SectionTitle>
@@ -385,29 +407,23 @@ const ScoringTab: React.FC<{ detail: NonNullable<ReturnType<typeof useAgentLead>
   return (
     <SectionCard>
       <SectionTitle>Qualification Score</SectionTitle>
-
-      {/* Score hero */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20, padding: '16px 20px', borderRadius: 12, background: bc ? bc.bg : t.bgBadge, border: `1px solid ${bc ? bc.border : t.border}` }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20,
+        padding: '16px 20px', borderRadius: 12,
+        background: bc ? bc.bg : t.bgBadge, border: `1px solid ${bc ? bc.border : t.border}`,
+      }}>
         <div style={{ textAlign: 'center', flexShrink: 0 }}>
           <div style={{ fontSize: 36, fontWeight: 800, color: bc?.color || t.text, lineHeight: 1 }}>{breakdown.total}</div>
           <div style={{ fontSize: 11, color: t.textFaint, marginTop: 2 }}>/ {maxScore} pts</div>
         </div>
         <div style={{ flex: 1 }}>
-          {bc && (
-            <div style={{ fontSize: 14, fontWeight: 700, color: bc.color, marginBottom: 6 }}>{bc.label}</div>
-          )}
+          {bc && <div style={{ fontSize: 14, fontWeight: 700, color: bc.color, marginBottom: 6 }}>{bc.label}</div>}
           <div style={{ height: 6, borderRadius: 3, background: t.border, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', borderRadius: 3, transition: 'width 0.5s ease',
-              width: `${pct}%`,
-              background: bc?.color || t.accent,
-            }} />
+            <div style={{ height: '100%', borderRadius: 3, transition: 'width 0.5s ease', width: `${pct}%`, background: bc?.color || t.accent }} />
           </div>
           <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>{pct}% of max score</div>
         </div>
       </div>
-
-      {/* Factor breakdown */}
       {breakdown.factors.map((factor, i) => (
         <div key={i} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -547,7 +563,6 @@ const NotesTab: React.FC<{
           </button>
         </form>
       </SectionCard>
-
       {!detail.notes?.length ? (
         <SectionCard>
           <div style={{ textAlign: 'center', padding: '20px 0', color: t.textMuted, fontSize: 13 }}>
@@ -629,9 +644,9 @@ export const AgentLeadDetailPage: React.FC = () => {
   const TABS = [
     { key: 'timeline', label: 'Timeline', icon: '◎' },
     { key: 'pipeline', label: 'Pipeline', icon: '→' },
-    { key: 'scoring', label: 'Scoring', icon: '⭐' },
-    { key: 'emails', label: 'Emails', icon: '✉' },
-    { key: 'notes', label: 'Notes', icon: '📝' },
+    { key: 'scoring',  label: 'Scoring',  icon: '⭐' },
+    { key: 'emails',   label: 'Emails',   icon: '✉' },
+    { key: 'notes',    label: 'Notes',    icon: '📝' },
   ] as const;
 
   return (
@@ -639,8 +654,7 @@ export const AgentLeadDetailPage: React.FC = () => {
       {/* Back nav */}
       <button onClick={() => navigate('/agent/leads')} style={{
         background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer',
-        fontSize: 13, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 6,
-        padding: 0,
+        fontSize: 13, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 6, padding: 0,
       }}>
         ← Back to Leads
       </button>
@@ -664,7 +678,7 @@ export const AgentLeadDetailPage: React.FC = () => {
           </div>
 
           {/* Identity */}
-          <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ flex: 1, minWidth: 180 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
               <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: t.text, letterSpacing: '-0.5px' }}>
                 {lead.name}
@@ -675,7 +689,7 @@ export const AgentLeadDetailPage: React.FC = () => {
                 </span>
               )}
             </div>
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13, color: t.textMuted }}>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 13, color: t.textMuted }}>
               {lead.phone && (
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                   📞 <span style={{ fontFamily: 'monospace', letterSpacing: '0.3px' }}>{lead.phone}</span>
@@ -692,8 +706,7 @@ export const AgentLeadDetailPage: React.FC = () => {
             {bc && (
               <span style={{
                 fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 8,
-                color: bc.color, background: bc.bg, border: `1px solid ${bc.border}`,
-                letterSpacing: '0.3px',
+                color: bc.color, background: bc.bg, border: `1px solid ${bc.border}`, letterSpacing: '0.3px',
               }}>
                 {bc.label}
               </span>
@@ -703,25 +716,23 @@ export const AgentLeadDetailPage: React.FC = () => {
                 {lead.score} pts
               </span>
             )}
-            <span style={{
-              fontSize: 12, color: t.textMuted, background: t.bgBadge,
-              padding: '5px 12px', borderRadius: 8, border: `1px solid ${t.border}`,
-            }}>
+            <span style={{ fontSize: 12, color: t.textMuted, background: t.bgBadge, padding: '5px 12px', borderRadius: 8, border: `1px solid ${t.border}` }}>
               {stageName}
             </span>
           </div>
         </div>
       </div>
 
-      {/* ── Action bar ── */}
-      <div style={{
-        background: t.bgCard, border: `1px solid ${t.border}`,
-        borderRadius: 14, padding: '14px 18px', marginBottom: 14,
-        display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
-      }}>
-        {lead.phone && (
-          <ActionButton icon="📞" label="Call" href={`tel:${lead.phone}`} variant="secondary" />
-        )}
+      {/* ── Action bar — sticky on mobile ── */}
+      <div
+        className="detail-action-bar"
+        style={{
+          background: t.bgCard, border: `1px solid ${t.border}`,
+          borderRadius: 14, padding: '12px 16px', marginBottom: 14,
+          display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
+        }}
+      >
+        {lead.phone && <ActionButton icon="📞" label="Call" href={`tel:${lead.phone}`} variant="secondary" />}
         {lead.phone && (
           <ActionButton
             icon={copied ? '✓' : '⎘'}
@@ -730,10 +741,9 @@ export const AgentLeadDetailPage: React.FC = () => {
             onClick={handleCopyPhone}
           />
         )}
-        <ActionButton icon="✉" label="Email" href={lead.phone ? undefined : undefined} variant="secondary" disabled={!lead.phone && true} />
-        <ActionButton icon="💬" label="Text Message" comingSoon variant="ghost" />
+        <ActionButton icon="✉" label="Email" variant="secondary" disabled={!lead.email} href={lead.email ? `mailto:${lead.email}` : undefined} />
+        <ActionButton icon="💬" label="Text" comingSoon variant="ghost" />
 
-        {/* Stage transitions */}
         {nextStates.length > 0 && (
           <>
             <div style={{ width: 1, height: 28, background: t.border, margin: '0 4px' }} />
@@ -752,19 +762,19 @@ export const AgentLeadDetailPage: React.FC = () => {
         {statusError && <span style={{ fontSize: 12, color: t.red }}>{statusError}</span>}
       </div>
 
-      {/* ── Two-column layout ── */}
-      <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+      {/* ── Two-column body (stacks on mobile) ── */}
+      <div className="detail-body">
         {/* Main content */}
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Tabs */}
-          <div style={{ display: 'flex', gap: 4, marginBottom: 14, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4 }}>
+          <div style={{ display: 'flex', gap: 4, marginBottom: 14, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, overflowX: 'auto' }}>
             {TABS.map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 style={{
                   flex: 1, padding: '8px 10px', borderRadius: 9, fontSize: 12, fontWeight: 500,
-                  cursor: 'pointer', transition: 'all 0.15s', border: 'none',
+                  cursor: 'pointer', transition: 'all 0.15s', border: 'none', whiteSpace: 'nowrap',
                   background: activeTab === tab.key ? t.accentBg : 'transparent',
                   color: activeTab === tab.key ? t.accent : t.textMuted,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
@@ -782,13 +792,13 @@ export const AgentLeadDetailPage: React.FC = () => {
               ? <PipelineTab pipeline={pipeline} />
               : <SectionCard><div style={{ fontSize: 13, color: t.textMuted, textAlign: 'center', padding: '20px 0' }}>No pipeline assigned to this lead.</div></SectionCard>
           )}
-          {activeTab === 'scoring' && <ScoringTab detail={detail} />}
-          {activeTab === 'emails' && <EmailsTab detail={detail} />}
-          {activeTab === 'notes' && <NotesTab detail={detail} leadId={lead.id} />}
+          {activeTab === 'scoring'  && <ScoringTab detail={detail} />}
+          {activeTab === 'emails'   && <EmailsTab detail={detail} />}
+          {activeTab === 'notes'    && <NotesTab detail={detail} leadId={lead.id} />}
         </div>
 
-        {/* Right sidebar */}
-        <div style={{ width: 240, flexShrink: 0 }}>
+        {/* Right sidebar — stacks below on mobile */}
+        <div className="detail-sidebar">
           {/* Lead summary */}
           <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: '16px 18px', marginBottom: 10 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 12 }}>
@@ -796,8 +806,8 @@ export const AgentLeadDetailPage: React.FC = () => {
             </div>
             {[
               { label: 'Status', value: currentState.replace(/_/g, ' ') },
-              { label: 'Stage', value: stageName },
-              { label: 'Score', value: lead.score != null ? `${lead.score} pts` : '—' },
+              { label: 'Stage',  value: stageName },
+              { label: 'Score',  value: lead.score != null ? `${lead.score} pts` : '—' },
               { label: 'Bucket', value: lead.score_bucket || '—' },
               { label: 'Source', value: lead.source || '—' },
             ].map(row => (
@@ -825,7 +835,7 @@ export const AgentLeadDetailPage: React.FC = () => {
             )}
           </div>
 
-          {/* Communication placeholder */}
+          {/* Communications */}
           <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: '16px 18px', marginBottom: 10 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 12 }}>
               Communications
@@ -835,21 +845,23 @@ export const AgentLeadDetailPage: React.FC = () => {
                 ? `${detail.rendered_emails.length} email${detail.rendered_emails.length !== 1 ? 's' : ''} sent`
                 : 'No emails sent yet'}
             </div>
-            <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 8, background: t.bgBadge, border: `1px dashed ${t.border}` }}>
-              <div style={{ fontSize: 11, color: t.textFaint }}>SMS & call log</div>
-              <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>Coming soon</div>
+            <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 8, background: t.bgBadge, border: `1px dashed ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 11, color: t.textFaint }}>SMS & call log</span>
+              <BackendPendingBadge tooltip="SMS and call log tracking — coming soon" />
             </div>
           </div>
 
-          {/* Documents placeholder */}
+          {/* Documents */}
           <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: '16px 18px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 12 }}>
-              Documents
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                Documents
+              </div>
+              <BackendPendingBadge tooltip="Document uploads — coming soon" />
             </div>
             <div style={{ padding: '10px', borderRadius: 8, background: t.bgBadge, border: `1px dashed ${t.border}`, textAlign: 'center' }}>
               <div style={{ fontSize: 20, marginBottom: 6 }}>📄</div>
-              <div style={{ fontSize: 11, color: t.textFaint }}>Document uploads</div>
-              <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>Coming soon</div>
+              <div style={{ fontSize: 11, color: t.textFaint }}>No documents yet</div>
             </div>
           </div>
         </div>
