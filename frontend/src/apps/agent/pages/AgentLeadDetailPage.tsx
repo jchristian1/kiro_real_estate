@@ -43,25 +43,50 @@ if (typeof document !== 'undefined' && !document.getElementById('ld-css')) {
       .ld-sticky-bar {
         display: flex;
         position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
-        padding: 10px 12px 14px;
-        gap: 8px;
+        padding: 8px 10px 16px;
+        gap: 6px;
         background: var(--ld-bar-bg, #13141a);
         border-top: 1px solid var(--ld-bar-border, rgba(255,255,255,0.08));
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         box-shadow: 0 -4px 24px rgba(0,0,0,0.35);
+        align-items: stretch;
       }
-      .ld-sticky-bar .ld-bar-btn {
+      .ld-bar-btn {
         flex: 1;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        gap: 3px; padding: 10px 4px;
-        border-radius: 12px; border: none; cursor: pointer;
-        font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
-        min-height: 56px; min-width: 0;
-        transition: background 0.15s, transform 0.1s;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 4px;
+        padding: 8px 2px !important;
+        border-radius: 11px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        font-size: 10px !important;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        min-height: 54px;
+        min-width: 0;
+        text-decoration: none !important;
+        transition: opacity 0.15s, transform 0.1s;
+        box-sizing: border-box;
+        line-height: 1;
       }
-      .ld-sticky-bar .ld-bar-btn:active { transform: scale(0.95); }
-      .ld-sticky-bar .ld-bar-btn .ld-bar-icon { font-size: 18px; line-height: 1; }
+      .ld-bar-btn:active { transform: scale(0.93); }
+      .ld-bar-btn .ld-bar-icon {
+        font-size: 20px !important;
+        line-height: 1;
+        display: block;
+      }
+      .ld-bar-btn span:not(.ld-bar-icon) {
+        font-size: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+        display: block;
+      }
 
       /* Extra bottom padding so content isn't hidden behind sticky bar */
       .ld-page { padding-bottom: 90px !important; }
@@ -1201,81 +1226,56 @@ export function AgentLeadDetailPage() {
         {/* Call */}
         {lead.phone ? (
           <a href={`tel:${lead.phone}`} className="ld-bar-btn" style={{
-            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-            color: '#fff', textDecoration: 'none',
-            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: 3, padding: '10px 4px',
-            borderRadius: 12, minHeight: 56, fontSize: 11, fontWeight: 700,
+            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff',
           }}>
             <span className="ld-bar-icon">📞</span>
             <span>Call</span>
           </a>
         ) : (
-          <div className="ld-bar-btn" style={{ background: t.bgBadge, color: t.textFaint, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, padding: '10px 4px', borderRadius: 12, minHeight: 56, fontSize: 11, fontWeight: 700, opacity: 0.4 }}>
+          <span className="ld-bar-btn" style={{ background: t.bgBadge, color: t.textFaint, opacity: 0.4 }}>
             <span className="ld-bar-icon">📞</span><span>Call</span>
-          </div>
+          </span>
         )}
 
         {/* Email */}
         {lead.email ? (
           <a href={`mailto:${lead.email}`} className="ld-bar-btn" style={{
-            background: t.bgCardHover, color: t.text, textDecoration: 'none',
-            border: `1px solid ${t.border}`,
-            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: 3, padding: '10px 4px',
-            borderRadius: 12, minHeight: 56, fontSize: 11, fontWeight: 700,
+            background: t.bgCardHover, color: t.text, borderColor: t.border,
           }}>
             <span className="ld-bar-icon">✉</span>
             <span>Email</span>
           </a>
         ) : (
-          <div className="ld-bar-btn" style={{ background: t.bgBadge, color: t.textFaint, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, padding: '10px 4px', borderRadius: 12, minHeight: 56, fontSize: 11, fontWeight: 700, opacity: 0.4 }}>
+          <span className="ld-bar-btn" style={{ background: t.bgBadge, color: t.textFaint, opacity: 0.4 }}>
             <span className="ld-bar-icon">✉</span><span>Email</span>
-          </div>
+          </span>
         )}
 
         {/* Text — backend pending */}
-        <button className="ld-bar-btn" disabled style={{
-          background: t.bgBadge, color: t.textFaint,
-          border: `1px solid ${t.border}`, opacity: 0.5,
-          flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', gap: 3, padding: '10px 4px',
-          borderRadius: 12, minHeight: 56, fontSize: 11, fontWeight: 700, cursor: 'not-allowed',
-        }}>
+        <span className="ld-bar-btn" style={{ background: t.bgBadge, color: t.textFaint, opacity: 0.45, cursor: 'not-allowed' }}>
           <span className="ld-bar-icon">💬</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            Text <BackendPendingBadge variant="inline" tooltip="Coming soon" />
-          </span>
-        </button>
+          <span>Text</span>
+        </span>
 
         {/* Copy phone */}
         {lead.phone && (
           <button className="ld-bar-btn" onClick={copyPhone} style={{
             background: copied ? `${t.green}18` : t.bgCardHover,
             color: copied ? t.green : t.textMuted,
-            border: `1px solid ${copied ? t.green + '40' : t.border}`,
-            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: 3, padding: '10px 4px',
-            borderRadius: 12, minHeight: 56, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            borderColor: copied ? `${t.green}40` : t.border,
           }}>
             <span className="ld-bar-icon">{copied ? '✓' : '📋'}</span>
             <span>{copied ? 'Copied' : 'Copy #'}</span>
           </button>
         )}
 
-        {/* Stage move — first available transition */}
+        {/* Stage move */}
         {nextStates.length > 0 && (
           <button className="ld-bar-btn" onClick={() => moveToState(nextStates[0])} style={{
-            background: t.bgCardHover, color: t.textSecondary,
-            border: `1px solid ${t.border}`,
-            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: 3, padding: '10px 4px',
-            borderRadius: 12, minHeight: 56, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            background: t.bgCardHover, color: t.textSecondary, borderColor: t.border,
           }}>
             <span className="ld-bar-icon">→</span>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 56 }}>
-              {nextStates[0].replace(/_/g, ' ')}
-            </span>
+            <span>{nextStates[0].replace(/_/g, ' ')}</span>
           </button>
         )}
       </div>
