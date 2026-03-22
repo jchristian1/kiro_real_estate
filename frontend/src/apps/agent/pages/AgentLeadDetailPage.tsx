@@ -666,7 +666,7 @@ const Sidebar: React.FC<{
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-export default function AgentLeadDetailPage() {
+export function AgentLeadDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { theme } = useTheme();
