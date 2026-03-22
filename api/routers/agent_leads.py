@@ -795,10 +795,16 @@ def get_lead_pipeline(
     if lead is None:
         raise NotFoundException(message="Lead not found", code=ErrorCode.NOT_FOUND_LEAD)
 
-    # Tenant isolation: lead must belong to the agent's company.
-    lead_company_id = getattr(lead, "company_id", None)
+    # Tenant isolation: use same pattern as get_lead_detail — check agent_user_id.
+    # Fall back to company_id comparison for leads not directly owned by this agent.
+    lead_agent_id = getattr(lead, "agent_user_id", None)
     agent_company_id = getattr(agent, "company_id", None)
-    if lead_company_id != agent_company_id:
+    lead_company_id = getattr(lead, "company_id", None)
+
+    owned_by_agent = lead_agent_id == agent.id
+    same_company = (agent_company_id is not None) and (lead_company_id == agent_company_id)
+
+    if not owned_by_agent and not same_company:
         raise NotFoundException(message="Lead not found", code=ErrorCode.NOT_FOUND_LEAD)
 
     pipeline = get_active_pipeline(db, agent_company_id) if agent_company_id else None
