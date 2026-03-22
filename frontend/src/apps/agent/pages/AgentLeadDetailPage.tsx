@@ -4,7 +4,7 @@
  * Order: hero → actions → next-action → pipeline → timeline → scoring → emails → notes
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../../../shared/contexts/ThemeContext';
 import { getTokens } from '../../../shared/utils/theme';
@@ -199,6 +199,147 @@ const Btn: React.FC<{
   );
 };
 
+// ── Stepper track (scrollable, arrow-navigable) ───────────────────────────────
+
+const STAGE_W = 80; // px per stage slot
+
+const StepperTrack: React.FC<{
+  stages: NonNullable<ReturnType<typeof useLeadPipeline>['data']>['stages'];
+  curIdx: number;
+  cur: NonNullable<ReturnType<typeof useLeadPipeline>['data']>['current_stage'];
+}> = ({ stages, curIdx, cur }) => {
+  const { theme } = useTheme();
+  const t = getTokens(theme);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(false);
+
+  const updateArrows = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanLeft(el.scrollLeft > 4);
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  };
+
+  // Auto-scroll to current stage on mount / when curIdx changes
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || curIdx < 0) return;
+    const targetX = curIdx * STAGE_W - el.clientWidth / 2 + STAGE_W / 2;
+    el.scrollTo({ left: Math.max(0, targetX), behavior: 'smooth' });
+    setTimeout(updateArrows, 350);
+  }, [curIdx]);
+
+  const scroll = (dir: 'left' | 'right') => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir === 'left' ? -STAGE_W * 3 : STAGE_W * 3, behavior: 'smooth' });
+    setTimeout(updateArrows, 350);
+  };
+
+  const totalW = stages.length * STAGE_W;
+  const needsScroll = stages.length > 5;
+
+  return (
+    <div style={{ padding: '0 18px 16px', position: 'relative' }}>
+      {/* Left fade + arrow */}
+      {needsScroll && canLeft && (
+        <button onClick={() => scroll('left')} style={{
+          position: 'absolute', left: 18, top: 0, bottom: 16, width: 32,
+          background: `linear-gradient(90deg, ${t.bgCard} 60%, transparent)`,
+          border: 'none', cursor: 'pointer', zIndex: 2,
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
+          paddingLeft: 2, color: t.textMuted, fontSize: 14,
+        }}>‹</button>
+      )}
+      {/* Right fade + arrow */}
+      {needsScroll && canRight && (
+        <button onClick={() => scroll('right')} style={{
+          position: 'absolute', right: 18, top: 0, bottom: 16, width: 32,
+          background: `linear-gradient(270deg, ${t.bgCard} 60%, transparent)`,
+          border: 'none', cursor: 'pointer', zIndex: 2,
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+          paddingRight: 2, color: t.textMuted, fontSize: 14,
+        }}>›</button>
+      )}
+
+      {/* Scrollable track */}
+      <div
+        ref={scrollRef}
+        onScroll={updateArrows}
+        style={{
+          overflowX: 'auto',
+          scrollbarWidth: 'none',
+          // hide webkit scrollbar
+          msOverflowStyle: 'none',
+        }}
+      >
+        <div style={{
+          display: 'flex', alignItems: 'flex-start',
+          width: totalW, minWidth: totalW,
+        }}>
+          {stages.map((stage, idx) => {
+            const isCur = stage.id === cur?.id;
+            const isPast = curIdx >= 0 && idx < curIdx;
+            const isFuture = curIdx >= 0 && idx > curIdx;
+            const nodeColor = isCur ? stage.color : isPast ? t.green : t.border;
+            const lineColor = isPast ? t.green : t.border;
+
+            return (
+              <React.Fragment key={stage.id}>
+                <div style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  gap: 6, flexShrink: 0, width: STAGE_W,
+                  opacity: isFuture ? 0.45 : 1,
+                  transition: 'opacity 0.2s',
+                }}>
+                  <div style={{
+                    width: isCur ? 20 : 14, height: isCur ? 20 : 14,
+                    borderRadius: '50%',
+                    background: isCur ? stage.color : isPast ? t.green : t.bgBadge,
+                    border: `2px solid ${nodeColor}`,
+                    boxShadow: isCur ? `0 0 10px ${stage.color}60, 0 0 0 4px ${stage.color}18` : 'none',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 8, color: '#fff', fontWeight: 800,
+                    transition: 'all 0.2s', flexShrink: 0,
+                  }}>
+                    {isPast ? '✓' : ''}
+                  </div>
+                  <div style={{
+                    fontSize: 9, textAlign: 'center', width: STAGE_W - 8, lineHeight: 1.3,
+                    color: isCur ? t.text : isPast ? t.textSecondary : t.textFaint,
+                    fontWeight: isCur ? 700 : isPast ? 500 : 400,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    padding: '0 4px',
+                  }}>
+                    {stage.is_closed_won ? '✓ ' : stage.is_closed_lost ? '✗ ' : ''}{stage.name}
+                  </div>
+                </div>
+                {idx < stages.length - 1 && (
+                  <div style={{
+                    flex: 1, height: 2, marginTop: 9, minWidth: 4,
+                    background: lineColor, transition: 'background 0.3s',
+                    position: 'relative',
+                  }}>
+                    {idx === curIdx && (
+                      <div style={{
+                        position: 'absolute', top: 0, left: 0,
+                        height: '100%', width: '45%',
+                        background: `linear-gradient(90deg, ${stage.color}, transparent)`,
+                        borderRadius: 2,
+                      }} />
+                    )}
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Pipeline section ──────────────────────────────────────────────────────────
 
 const PipelineSection: React.FC<{
@@ -313,81 +454,8 @@ const PipelineSection: React.FC<{
         </div>
       )}
 
-      {/* Stage stepper track */}
-      <div style={{ padding: '0 18px 16px', overflowX: 'auto' }}>
-        <div style={{
-          display: 'flex', alignItems: 'flex-start',
-          minWidth: sorted.length * 80,
-          gap: 0,
-        }}>
-          {sorted.map((stage, idx) => {
-            const isCur = stage.id === cur?.id;
-            const isPast = curIdx >= 0 && idx < curIdx;
-            const isFuture = curIdx >= 0 && idx > curIdx;
-
-            const nodeColor = isCur ? stage.color : isPast ? t.green : t.border;
-            const lineColor = isPast ? t.green : t.border;
-
-            return (
-              <React.Fragment key={stage.id}>
-                <div style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  gap: 6, flexShrink: 0,
-                  minWidth: 72,
-                  opacity: isFuture ? 0.5 : 1,
-                  transition: 'opacity 0.2s',
-                }}>
-                  {/* Node */}
-                  <div style={{
-                    width: isCur ? 20 : 14,
-                    height: isCur ? 20 : 14,
-                    borderRadius: '50%',
-                    background: isCur ? stage.color : isPast ? t.green : t.bgBadge,
-                    border: `2px solid ${nodeColor}`,
-                    boxShadow: isCur ? `0 0 10px ${stage.color}60, 0 0 0 4px ${stage.color}18` : 'none',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 8, color: isCur ? '#fff' : isPast ? '#fff' : t.textFaint,
-                    fontWeight: 800,
-                    transition: 'all 0.2s',
-                    flexShrink: 0,
-                  }}>
-                    {isPast ? '✓' : isCur ? '' : ''}
-                  </div>
-                  {/* Label */}
-                  <div style={{
-                    fontSize: 9, textAlign: 'center',
-                    maxWidth: 68, lineHeight: 1.3,
-                    color: isCur ? t.text : isPast ? t.textSecondary : t.textFaint,
-                    fontWeight: isCur ? 700 : isPast ? 500 : 400,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>
-                    {stage.is_closed_won ? '✓ ' : stage.is_closed_lost ? '✗ ' : ''}{stage.name}
-                  </div>
-                </div>
-                {/* Connector line */}
-                {idx < sorted.length - 1 && (
-                  <div style={{
-                    flex: 1, height: 2, marginTop: 9, minWidth: 8,
-                    background: lineColor,
-                    transition: 'background 0.3s',
-                    position: 'relative',
-                  }}>
-                    {/* Animated fill for current→next */}
-                    {idx === curIdx && (
-                      <div style={{
-                        position: 'absolute', top: 0, left: 0,
-                        height: '100%', width: '40%',
-                        background: `linear-gradient(90deg, ${stage.color}, transparent)`,
-                        borderRadius: 2,
-                      }} />
-                    )}
-                  </div>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
-      </div>
+      {/* Stage stepper track — scrollable, auto-centers on current stage */}
+      <StepperTrack stages={sorted} curIdx={curIdx} cur={cur} />
 
       {/* Stage history */}
       {pipeline.stage_history.length > 0 && (
