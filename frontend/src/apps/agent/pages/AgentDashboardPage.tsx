@@ -167,6 +167,20 @@ const LeadRow: React.FC<{
 
 // ── Watcher health card ───────────────────────────────────────────────────────
 
+// Inject pulse animation once
+if (typeof document !== 'undefined' && !document.getElementById('watcher-css')) {
+  const s = document.createElement('style');
+  s.id = 'watcher-css';
+  s.textContent = `
+    @keyframes watcher-pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.55; transform: scale(1.35); }
+    }
+    .watcher-live { animation: watcher-pulse 2s ease-in-out infinite; }
+  `;
+  document.head.appendChild(s);
+}
+
 const WatcherCard: React.FC = () => {
   const { theme } = useTheme();
   const t = getTokens(theme);
@@ -182,67 +196,120 @@ const WatcherCard: React.FC = () => {
     try { await toggleWatcher.mutateAsync(!watcherOn); } catch { /* ignore */ }
   };
 
-  const statusColor = !connected ? t.textFaint : watcherOn ? t.green : '#f87171';
-  const statusLabel = !connected ? 'Not connected' : watcherOn ? 'Monitoring inbox' : 'Paused';
+  // Derive status tier
+  const tier: 'active' | 'paused' | 'offline' | 'unconfigured' =
+    !connected ? 'unconfigured' : watcherOn ? 'active' : 'paused';
+
+  const tierCfg = {
+    active:       { label: 'Active',        sub: 'Monitoring inbox for new leads', color: t.green,    bg: `${t.green}10`,    border: `${t.green}30`,    dot: t.green,    pulse: true  },
+    paused:       { label: 'Paused',         sub: 'Watcher is off — leads may be missed', color: '#f87171', bg: 'rgba(248,113,113,0.07)', border: 'rgba(248,113,113,0.25)', dot: '#f87171', pulse: false },
+    offline:      { label: 'Offline',        sub: 'Connection lost', color: '#f87171', bg: 'rgba(248,113,113,0.07)', border: 'rgba(248,113,113,0.25)', dot: '#f87171', pulse: false },
+    unconfigured: { label: 'Not configured', sub: 'Connect Gmail to enable lead monitoring', color: t.textFaint, bg: t.bgBadge, border: t.border, dot: t.textFaint, pulse: false },
+  }[tier];
+
+  // Mask email for display — show domain only to reduce visual noise
+  const emailDisplay = gmail?.gmail_address
+    ? gmail.gmail_address.replace(/^(.{2}).*@/, '$1…@')
+    : null;
+
+  const lastSync = gmail?.last_sync;
 
   return (
-    <Card style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px' }}>
-      {/* Pulse dot */}
+    <div style={{
+      background: tierCfg.bg,
+      border: `1px solid ${tierCfg.border}`,
+      borderRadius: 14, padding: '14px 16px',
+      display: 'flex', alignItems: 'center', gap: 14,
+    }}>
+      {/* Status icon + live dot */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
         <div style={{
-          width: 38, height: 38, borderRadius: 11,
-          background: connected && watcherOn ? `${t.green}18` : t.bgBadge,
-          border: `1.5px solid ${connected && watcherOn ? t.green + '40' : t.border}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17,
-        }}>📡</div>
-        <div style={{
-          position: 'absolute', bottom: -2, right: -2,
-          width: 10, height: 10, borderRadius: '50%',
-          background: statusColor,
-          border: `2px solid ${t.bgCard}`,
-          boxShadow: connected && watcherOn ? `0 0 6px ${t.green}` : 'none',
-        }} />
-      </div>
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: t.text }}>Gmail Watcher</div>
-        <div style={{ fontSize: 11, color: statusColor, marginTop: 1, fontWeight: 600 }}>{statusLabel}</div>
-        {gmail?.gmail_address && (
-          <div style={{ fontSize: 10, color: t.textFaint, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {gmail.gmail_address}
-          </div>
-        )}
-        {adminLocked && (
-          <div style={{ fontSize: 10, color: t.orange, marginTop: 1 }}>Admin locked</div>
-        )}
-      </div>
-
-      {connected && (
-        <button
-          onClick={handleToggle}
-          disabled={adminLocked || toggleWatcher.isPending}
-          aria-label={watcherOn ? 'Pause watcher' : 'Enable watcher'}
+          width: 44, height: 44, borderRadius: 13,
+          background: tier === 'active' ? `${t.green}15` : t.bgBadge,
+          border: `1.5px solid ${tier === 'active' ? t.green + '35' : t.border}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 20,
+        }}>
+          {tier === 'active' ? '📡' : tier === 'unconfigured' ? '🔌' : '⏸'}
+        </div>
+        {/* Live pulse dot */}
+        <div
+          className={tierCfg.pulse ? 'watcher-live' : undefined}
           style={{
-            width: 42, height: 24, borderRadius: 12, border: 'none', flexShrink: 0,
-            cursor: adminLocked ? 'not-allowed' : 'pointer',
-            background: watcherOn ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : t.border,
-            position: 'relative', transition: 'background 0.2s',
-            opacity: adminLocked ? 0.5 : 1,
+            position: 'absolute', bottom: -1, right: -1,
+            width: 11, height: 11, borderRadius: '50%',
+            background: tierCfg.dot,
+            border: `2px solid ${t.bgCard}`,
+            boxShadow: tier === 'active' ? `0 0 8px ${t.green}80` : 'none',
+          }}
+        />
+      </div>
+
+      {/* Text block */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 2 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>Inbox Watcher</span>
+          <span style={{
+            fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
+            background: tier === 'active' ? `${t.green}18` : tier === 'unconfigured' ? t.bgBadge : 'rgba(248,113,113,0.12)',
+            color: tierCfg.color,
+            border: `1px solid ${tier === 'active' ? t.green + '30' : tier === 'unconfigured' ? t.border : 'rgba(248,113,113,0.25)'}`,
+            letterSpacing: '0.04em',
+          }}>{tierCfg.label}</span>
+          {adminLocked && (
+            <span style={{ fontSize: 9, color: t.orange, fontWeight: 700, letterSpacing: '0.05em' }}>ADMIN LOCKED</span>
+          )}
+        </div>
+        <div style={{ fontSize: 11, color: t.textMuted, lineHeight: 1.4 }}>{tierCfg.sub}</div>
+        <div style={{ display: 'flex', gap: 10, marginTop: 4, flexWrap: 'wrap' }}>
+          {emailDisplay && (
+            <span style={{ fontSize: 10, color: t.textFaint, fontFamily: 'monospace' }}>{emailDisplay}</span>
+          )}
+          {lastSync && tier === 'active' && (
+            <span style={{ fontSize: 10, color: t.textFaint }}>last sync {timeAgo(lastSync)}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Toggle — only when connected */}
+      {connected ? (
+        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <button
+            onClick={handleToggle}
+            disabled={adminLocked || toggleWatcher.isPending}
+            aria-label={watcherOn ? 'Pause watcher' : 'Enable watcher'}
+            style={{
+              width: 46, height: 26, borderRadius: 13, border: 'none',
+              cursor: adminLocked ? 'not-allowed' : 'pointer',
+              background: watcherOn ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : t.border,
+              position: 'relative', transition: 'background 0.2s',
+              opacity: adminLocked ? 0.5 : 1, flexShrink: 0,
+            }}
+          >
+            <div style={{
+              position: 'absolute', top: 3, left: watcherOn ? 22 : 3,
+              width: 20, height: 20, borderRadius: '50%', background: '#fff',
+              transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
+            }} />
+          </button>
+          <span style={{ fontSize: 9, color: t.textFaint, fontWeight: 600 }}>
+            {watcherOn ? 'ON' : 'OFF'}
+          </span>
+        </div>
+      ) : (
+        <button
+          onClick={() => {/* navigate to settings */}}
+          style={{
+            padding: '7px 13px', borderRadius: 9, fontSize: 11, fontWeight: 600,
+            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff',
+            border: 'none', cursor: 'pointer', flexShrink: 0,
+            boxShadow: '0 2px 8px rgba(99,102,241,0.3)',
           }}
         >
-          <div style={{
-            position: 'absolute', top: 2, left: watcherOn ? 20 : 2,
-            width: 20, height: 20, borderRadius: '50%', background: '#fff',
-            transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
-          }} />
+          Set up
         </button>
       )}
-      {!connected && (
-        <span style={{ fontSize: 10, color: t.textFaint, background: t.bgBadge, padding: '3px 8px', borderRadius: 5, border: `1px solid ${t.border}` }}>
-          Not set up
-        </span>
-      )}
-    </Card>
+    </div>
   );
 };
 
@@ -298,72 +365,106 @@ export const AgentDashboardPage: React.FC = () => {
 
       {/* ── Overview strip ── */}
       <div className="dash-overview" style={{ marginBottom: 12 }}>
-        {/* HOT */}
+
+        {/* HOT leads */}
         <div
           onClick={() => navigate('/agent/leads?bucket=HOT')}
           style={{
+            borderRadius: 14, padding: '16px 16px 14px', cursor: 'pointer',
             background: hotCount > 0 ? 'rgba(239,68,68,0.08)' : t.bgCard,
-            border: `1px solid ${hotCount > 0 ? 'rgba(239,68,68,0.3)' : t.border}`,
-            borderRadius: 14, padding: '14px 16px', cursor: 'pointer',
-            transition: 'all 0.15s',
+            border: `1px solid ${hotCount > 0 ? 'rgba(239,68,68,0.28)' : t.border}`,
+            transition: 'all 0.15s', position: 'relative', overflow: 'hidden',
           }}
           onMouseEnter={e => (e.currentTarget.style.background = hotCount > 0 ? 'rgba(239,68,68,0.13)' : t.bgCardHover)}
           onMouseLeave={e => (e.currentTarget.style.background = hotCount > 0 ? 'rgba(239,68,68,0.08)' : t.bgCard)}
         >
-          <div style={{ fontSize: 10, fontWeight: 700, color: hotCount > 0 ? '#f87171' : t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>
-            🔥 HOT
+          {hotCount > 0 && (
+            <div style={{
+              position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+              background: 'linear-gradient(90deg,#ef4444,#f87171)',
+            }} />
+          )}
+          <div style={{ fontSize: 10, fontWeight: 700, color: hotCount > 0 ? '#f87171' : t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>
+            🔥 HOT Leads
           </div>
-          <div style={{ fontSize: 30, fontWeight: 800, color: hotCount > 0 ? '#f87171' : t.textMuted, lineHeight: 1 }}>{hotCount}</div>
-          <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>leads need action</div>
+          <div style={{ fontSize: 34, fontWeight: 800, color: hotCount > 0 ? '#f87171' : t.textMuted, lineHeight: 1, letterSpacing: '-1px' }}>
+            {hotCount}
+          </div>
+          <div style={{ fontSize: 11, color: hotCount > 0 ? 'rgba(248,113,113,0.7)' : t.textFaint, marginTop: 5 }}>
+            {hotCount === 0 ? 'none right now' : hotCount === 1 ? 'needs your attention' : 'need your attention'}
+          </div>
         </div>
 
         {/* Aging */}
         <div
           onClick={() => navigate('/agent/leads')}
           style={{
+            borderRadius: 14, padding: '16px 16px 14px', cursor: 'pointer',
             background: agingCount > 0 ? 'rgba(251,146,60,0.08)' : t.bgCard,
-            border: `1px solid ${agingCount > 0 ? 'rgba(251,146,60,0.3)' : t.border}`,
-            borderRadius: 14, padding: '14px 16px', cursor: 'pointer',
-            transition: 'all 0.15s',
+            border: `1px solid ${agingCount > 0 ? 'rgba(251,146,60,0.28)' : t.border}`,
+            transition: 'all 0.15s', position: 'relative', overflow: 'hidden',
           }}
           onMouseEnter={e => (e.currentTarget.style.background = agingCount > 0 ? 'rgba(251,146,60,0.13)' : t.bgCardHover)}
           onMouseLeave={e => (e.currentTarget.style.background = agingCount > 0 ? 'rgba(251,146,60,0.08)' : t.bgCard)}
         >
-          <div style={{ fontSize: 10, fontWeight: 700, color: agingCount > 0 ? '#fb923c' : t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>
-            ⏱ Aging
+          {agingCount > 0 && (
+            <div style={{
+              position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+              background: 'linear-gradient(90deg,#f97316,#fb923c)',
+            }} />
+          )}
+          <div style={{ fontSize: 10, fontWeight: 700, color: agingCount > 0 ? '#fb923c' : t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>
+            ⏱ Stalled
           </div>
-          <div style={{ fontSize: 30, fontWeight: 800, color: agingCount > 0 ? '#fb923c' : t.textMuted, lineHeight: 1 }}>{agingCount}</div>
-          <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>stalled leads</div>
+          <div style={{ fontSize: 34, fontWeight: 800, color: agingCount > 0 ? '#fb923c' : t.textMuted, lineHeight: 1, letterSpacing: '-1px' }}>
+            {agingCount}
+          </div>
+          <div style={{ fontSize: 11, color: agingCount > 0 ? 'rgba(251,146,60,0.7)' : t.textFaint, marginTop: 5 }}>
+            {agingCount === 0 ? 'all caught up ✓' : agingCount === 1 ? 'lead stalled' : 'leads stalled'}
+          </div>
         </div>
 
         {/* Response time */}
         <div style={{
+          borderRadius: 14, padding: '16px 16px 14px', position: 'relative', overflow: 'hidden',
           background: t.bgCard, border: `1px solid ${t.border}`,
-          borderRadius: 14, padding: '14px 16px',
         }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>
-            ⚡ Response
+          {responseTime != null && (
+            <div style={{
+              position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+              background: responseTime <= 15
+                ? `linear-gradient(90deg,${t.green},${t.green}88)`
+                : 'linear-gradient(90deg,#f97316,#fb923c)',
+            }} />
+          )}
+          <div style={{ fontSize: 10, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>
+            ⚡ Avg Response
           </div>
-          <div style={{ fontSize: 30, fontWeight: 800, color: responseTime != null && responseTime <= 15 ? t.green : responseTime != null ? '#fb923c' : t.textMuted, lineHeight: 1 }}>
+          <div style={{
+            fontSize: 34, fontWeight: 800, lineHeight: 1, letterSpacing: '-1px',
+            color: responseTime == null ? t.textMuted : responseTime <= 15 ? t.green : '#fb923c',
+          }}>
             {responseTime != null ? `${responseTime}m` : '—'}
           </div>
-          <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>avg today · target &lt;15m</div>
+          <div style={{ fontSize: 11, marginTop: 5, color: t.textFaint }}>
+            {responseTime == null ? 'no data today' : responseTime <= 15 ? 'on target ✓' : 'above 15m target'}
+          </div>
         </div>
 
-        {/* Pipeline — backend pending */}
+        {/* Conversions — backend pending */}
         <div style={{
+          borderRadius: 14, padding: '16px 16px 14px',
           background: t.bgCard, border: `1px dashed ${t.border}`,
-          borderRadius: 14, padding: '14px 16px',
-          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          position: 'relative', overflow: 'hidden',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
               📊 Conversions
             </div>
             <BackendPendingBadge tooltip="Conversion rate tracking — coming soon" />
           </div>
-          <div style={{ fontSize: 30, fontWeight: 800, color: t.textFaint, lineHeight: 1, marginTop: 6 }}>—</div>
-          <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>this month</div>
+          <div style={{ fontSize: 34, fontWeight: 800, color: t.textFaint, lineHeight: 1, letterSpacing: '-1px' }}>—</div>
+          <div style={{ fontSize: 11, color: t.textFaint, marginTop: 5 }}>this month</div>
         </div>
       </div>
 
