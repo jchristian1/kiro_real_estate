@@ -689,3 +689,115 @@ class TestLeadEvents:
         events = resp.json()["events"]
         assert len(events) == 1
         assert events[0]["metadata"] is None
+
+
+class TestAgentLeadDetail:
+    """GET /api/v1/agent/leads/{lead_id} — unified lead detail for agent."""
+
+    def test_returns_401_when_unauthenticated(self):
+        resp = client.get("/api/v1/agent/leads/1")
+        assert resp.status_code == 401
+
+    def test_returns_404_when_lead_not_found(self):
+        db = TestingSessionLocal()
+        agent = _create_agent(db)
+        token = _create_session(db, agent.id)
+        db.close()
+
+        resp = client.get("/api/v1/agent/leads/99999", headers=_auth_headers(token))
+        assert resp.status_code == 404
+
+    def test_returns_403_when_lead_belongs_to_different_agent(self):
+        db = TestingSessionLocal()
+        agent1 = _create_agent(db, email="agent1@detail.com")
+        agent2 = _create_agent(db, email="agent2@detail.com")
+        token1 = _create_session(db, agent1.id)
+        lead = _create_lead(db, agent2.id, name="Other Agent Lead")
+        lead_id = lead.id
+        db.close()
+
+        resp = client.get(f"/api/v1/agent/leads/{lead_id}", headers=_auth_headers(token1))
+        # AuthorizationException → 403
+        assert resp.status_code == 403
+
+    def test_returns_200_with_correct_shape(self):
+        db = TestingSessionLocal()
+        agent = _create_agent(db, email="agent@detail.com")
+        token = _create_session(db, agent.id)
+        lead = _create_lead(db, agent.id, name="Detail Lead", score_bucket="HOT", score=80)
+        lead_id = lead.id
+        db.close()
+
+        resp = client.get(f"/api/v1/agent/leads/{lead_id}", headers=_auth_headers(token))
+        assert resp.status_code == 200
+        data = resp.json()
+        # Top-level keys
+        for key in ("lead", "scoring_breakdown", "timeline", "rendered_emails", "notes"):
+            assert key in data, f"Missing key: {key}"
+
+    def test_lead_fields_populated(self):
+        db = TestingSessionLocal()
+        agent = _create_agent(db, email="agent@fields.com")
+        token = _create_session(db, agent.id)
+        lead = _create_lead(
+            db, agent.id,
+            name="Field Lead",
+            score_bucket="WARM",
+            score=60,
+            property_address="789 Elm St",
+        )
+        lead_id = lead.id
+        db.close()
+
+        resp = client.get(f"/api/v1/agent/leads/{lead_id}", headers=_auth_headers(token))
+        assert resp.status_code == 200
+        lead_data = resp.json()["lead"]
+        assert lead_data["id"] == lead_id
+        assert lead_data["name"] == "Field Lead"
+        assert lead_data["address"] == "789 Elm St"
+        assert "created_at" in lead_data
+        assert "is_aging" in lead_data
+
+    def test_score_and_bucket_come_from_qualification_not_orm(self):
+        """When no form submission exists, score/bucket are None (not from ORM)."""
+        db = TestingSessionLocal()
+        agent = _create_agent(db, email="agent@score.com")
+        token = _create_session(db, agent.id)
+        # Lead has ORM score columns set, but no FormSubmission
+        lead = _create_lead(db, agent.id, name="Score Lead", score_bucket="HOT", score=95)
+        lead_id = lead.id
+        db.close()
+
+        resp = client.get(f"/api/v1/agent/leads/{lead_id}", headers=_auth_headers(token))
+        assert resp.status_code == 200
+        data = resp.json()
+        # No submission → qualification is None → score/bucket on lead should be None
+        assert data["scoring_breakdown"] is None
+        assert data["lead"]["score"] is None
+        assert data["lead"]["score_bucket"] is None
+
+    def test_timeline_is_list(self):
+        db = TestingSessionLocal()
+        agent = _create_agent(db, email="agent@timeline.com")
+        token = _create_session(db, agent.id)
+        lead = _create_lead(db, agent.id, name="Timeline Lead")
+        lead_id = lead.id
+        db.close()
+
+        resp = client.get(f"/api/v1/agent/leads/{lead_id}", headers=_auth_headers(token))
+        assert resp.status_code == 200
+        assert isinstance(resp.json()["timeline"], list)
+
+    def test_rendered_emails_and_notes_are_lists(self):
+        db = TestingSessionLocal()
+        agent = _create_agent(db, email="agent@lists.com")
+        token = _create_session(db, agent.id)
+        lead = _create_lead(db, agent.id, name="Lists Lead")
+        lead_id = lead.id
+        db.close()
+
+        resp = client.get(f"/api/v1/agent/leads/{lead_id}", headers=_auth_headers(token))
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data["rendered_emails"], list)
+        assert isinstance(data["notes"], list)
