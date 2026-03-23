@@ -1,9 +1,24 @@
 """
-Shared utility for inserting LeadEvent records into the audit trail.
+Shared utility for inserting LeadEvent records.
 
-DEPRECATED: New code should call api.services.lead_activity.record_activity()
-directly. This module is kept as a shim for existing callers that have not
-been updated yet.
+COMPATIBILITY SHIM — do not use in new code.
+
+New code must call api.services.lead_activity.record_activity() directly,
+which accepts the full structured event shape including company_id and
+actor_source. This shim exists only for callers that predate Phase 3A and
+have not been updated yet.
+
+What this shim passes through to record_activity():
+  - lead_id       → lead_id
+  - event_type    → event_type
+  - payload_dict  → metadata
+  - agent_user_id → actor_id
+
+What this shim does NOT pass through (callers must migrate to record_activity
+to supply these):
+  - company_id    (always None via this shim — tenant scoping lost)
+  - actor_source  (always None via this shim)
+  - occurred_at   (always defaults to utcnow)
 
 Requirements: 20.1, 20.2
 """
@@ -25,13 +40,15 @@ def insert_lead_event(
     payload_dict: Optional[Dict[str, Any]] = None,
     agent_user_id: Optional[int] = None,
 ) -> None:
-    """Insert a single LeadEvent record.
+    """Compatibility shim — delegates to record_activity().
 
-    Deprecated shim — delegates to api.services.lead_activity.record_activity().
-    Existing callers continue to work unchanged.
+    DO NOT USE IN NEW CODE. Call record_activity() directly so that
+    company_id and actor_source are properly supplied.
 
-    New code should call record_activity() directly with the full structured
-    event shape (company_id, actor_source, metadata).
+    This shim intentionally omits company_id and actor_source because
+    legacy callers do not have that context. Events written via this shim
+    will not appear in company-scoped timeline queries until the caller
+    is migrated to record_activity().
     """
     from api.services.lead_activity import record_activity
 
@@ -41,4 +58,6 @@ def insert_lead_event(
         event_type=event_type,
         actor_id=agent_user_id,
         metadata=payload_dict,
+        # company_id and actor_source intentionally omitted —
+        # legacy callers do not have this context.
     )

@@ -93,6 +93,8 @@ def record_activity(
         metadata:     Structured context dict (stored as JSON in metadata_json).
         occurred_at:  Event timestamp; defaults to utcnow if not provided.
     """
+    # Lazy import to avoid circular dependency at module load time.
+    # Test patch target: gmail_lead_sync.agent_models.LeadEvent
     from gmail_lead_sync.agent_models import LeadEvent
 
     try:

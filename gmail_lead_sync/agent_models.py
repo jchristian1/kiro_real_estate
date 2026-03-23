@@ -264,7 +264,9 @@ class LeadEvent(Base):
     __tablename__ = "lead_events"
     __table_args__ = (
         Index("ix_lead_events_lead_id_created_at", "lead_id", "created_at"),
-        Index("ix_lead_events_company_created", "company_id", "created_at"),
+        # ix_lead_events_company_created is created by migration g1h2i3j4k5l6
+        # and is NOT declared here to avoid duplicate index creation when
+        # SQLAlchemy creates tables from ORM metadata in test environments.
     )
 
     id = Column(Integer, primary_key=True)

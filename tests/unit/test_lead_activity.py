@@ -257,18 +257,33 @@ class TestInsertLeadEventShim:
             metadata={"token": "abc"},
         )
 
-    def test_shim_never_raises(self):
+    def test_shim_omits_company_id_and_actor_source(self):
+        """Shim must NOT pass company_id or actor_source — callers don't have that context.
+
+        This is intentional and documented. Events written via the shim will not
+        appear in company-scoped timeline queries. Callers must migrate to
+        record_activity() to supply tenant scoping.
+        """
         from gmail_lead_sync.lead_event_utils import insert_lead_event
 
         db = MagicMock()
-        with patch(
-            "api.services.lead_activity.record_activity",
-            side_effect=RuntimeError("unexpected"),
-        ):
-            # The shim itself doesn't catch — record_activity does.
-            # This test confirms the shim passes through correctly.
-            # record_activity's own error handling is tested above.
-            pass  # no assertion needed — just confirm no import error
+        with patch("api.services.lead_activity.record_activity") as mock_record:
+            insert_lead_event(db, lead_id=1, event_type="INVITE_SENT")
+
+        _, kwargs = mock_record.call_args
+        assert "company_id" not in kwargs
+        assert "actor_source" not in kwargs
+
+    def test_shim_is_one_way_delegation(self):
+        """Shim must not implement any logic itself — pure delegation to record_activity."""
+        from gmail_lead_sync.lead_event_utils import insert_lead_event
+        import inspect
+
+        source = inspect.getsource(insert_lead_event)
+        # The shim must not contain any direct LeadEvent construction
+        assert "LeadEvent(" not in source
+        assert "db.add(" not in source
+        assert "db.flush(" not in source
 
 
 # ---------------------------------------------------------------------------
