@@ -243,22 +243,40 @@ class AgentTemplate(Base):
 
 class LeadEvent(Base):
     """
-    Immutable event log for full lead timeline and transparency.
+    Unified lead activity model — immutable operational timeline for a lead.
 
-    Records are never updated or deleted — append-only audit trail.
+    Serves as the single source of truth for "what happened to this lead and when".
+    Records are never updated or deleted — append-only.
 
-    Requirements: 20.1, 20.2
+    Columns added in Phase 3A migration (g1h2i3j4k5l6):
+      - company_id:     tenant scoping for multi-tenant reads
+      - actor_source:   who/what caused the event ("system", "pipeline",
+                        "agent", "admin", "qualification")
+      - actor_id:       optional numeric reference to the acting entity
+      - metadata_json:  structured context dict for new events
+
+    Legacy column:
+      - payload:        untyped JSON from pre-Phase-3A events (kept for
+                        backward compatibility; new code uses metadata_json)
+
+    Requirements: 20.1, 20.2, Phase-3A
     """
     __tablename__ = "lead_events"
     __table_args__ = (
         Index("ix_lead_events_lead_id_created_at", "lead_id", "created_at"),
+        Index("ix_lead_events_company_created", "company_id", "created_at"),
     )
 
     id = Column(Integer, primary_key=True)
     lead_id = Column(Integer, ForeignKey("leads.id"), nullable=False)
     agent_user_id = Column(Integer, ForeignKey("agent_users.id"), nullable=True)
+
+    # company_id added Phase 3A — nullable for backward compat with existing rows
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+
     event_type = Column(
         Enum(
+            # --- Legacy event types (pre-Phase-3A) ---
             "EMAIL_RECEIVED",
             "LEAD_PARSED",
             "INVITE_CREATED",
@@ -273,12 +291,31 @@ class LeadEvent(Base):
             "NOTE_ADDED",
             "STATUS_CHANGED",
             "WATCHER_TOGGLED",
+            # --- Phase 3A activity event types ---
+            "lead_created",
+            "lead_stage_changed",
+            "response_email_sent",
+            "qualification_form_sent",
+            "qualification_form_submitted",
+            "qualification_bucket_assigned",
+            "manual_admin_action",
+            "manual_agent_action",
+            "pipeline_action_executed",
             name="lead_event_type_enum",
         ),
         nullable=False,
     )
-    # JSON payload: score breakdown, email content, note text, state transition, etc.
+
+    # Legacy untyped payload — kept for backward compat; new code uses metadata_json
     payload = Column(Text, nullable=True)
+
+    # Phase 3A structured context — preferred for all new events
+    metadata_json = Column(Text, nullable=True)
+
+    # Phase 3A actor fields
+    actor_source = Column(String(50), nullable=True)   # system|pipeline|agent|admin|qualification
+    actor_id = Column(Integer, nullable=True)           # optional numeric actor reference
+
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Relationships
