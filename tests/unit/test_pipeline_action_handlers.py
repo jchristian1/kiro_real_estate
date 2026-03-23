@@ -286,3 +286,121 @@ class TestStageEnterChaining:
             result = execute_step(db, 1, 1, 1, step, {})
         assert result.success is False
         assert result.new_stage_id is None
+
+
+# ---------------------------------------------------------------------------
+# {form_link} boundary — qualification module owns token creation
+# ---------------------------------------------------------------------------
+
+
+class TestFormLinkBoundary:
+    """Verify that _render_admin_template delegates {form_link} to the
+    qualification module and does not create invitations inline.
+    """
+
+    def _make_mock_template(self, subject: str, body: str):
+        return SimpleNamespace(subject=subject, body=body)
+
+    def test_form_link_delegates_to_qualification_module(self):
+        """{form_link} in template must call get_or_create_form_link, not FormInvitationService directly."""
+        from api.pipelines.handlers.send_email import _render_admin_template
+
+        db = MagicMock()
+        lead = SimpleNamespace(id=1, name="Alice", company_id=10)
+        mock_tpl = SimpleNamespace(subject="Hi {lead_name}", body="Click {form_link}")
+
+        with (
+            patch("api.repositories.template_repository.AdminTemplateRepository") as MockRepo,
+            patch("gmail_lead_sync.agent_models.AgentUser"),
+            patch(
+                "gmail_lead_sync.preapproval.handlers.get_or_create_form_link",
+                return_value="https://example.com/form/abc123",
+            ) as mock_get_link,
+        ):
+            MockRepo.return_value.get_by_id.return_value = mock_tpl
+            db.query.return_value.filter.return_value.first.return_value = None
+
+            subject, body = _render_admin_template(db, template_id=1, lead=lead, tenant_id=10)
+
+        mock_get_link.assert_called_once_with(db, 10, 1)
+        assert "https://example.com/form/abc123" in body
+
+    def test_no_form_link_placeholder_skips_qualification_call(self):
+        """Templates without {form_link} must not call get_or_create_form_link at all."""
+        from api.pipelines.handlers.send_email import _render_admin_template
+
+        db = MagicMock()
+        lead = SimpleNamespace(id=1, name="Bob", company_id=10)
+        mock_tpl = SimpleNamespace(subject="Hello {lead_name}", body="No form link here.")
+
+        with (
+            patch("api.repositories.template_repository.AdminTemplateRepository") as MockRepo,
+            patch("gmail_lead_sync.agent_models.AgentUser"),
+            patch(
+                "gmail_lead_sync.preapproval.handlers.get_or_create_form_link"
+            ) as mock_get_link,
+        ):
+            MockRepo.return_value.get_by_id.return_value = mock_tpl
+            db.query.return_value.filter.return_value.first.return_value = None
+
+            _render_admin_template(db, template_id=1, lead=lead, tenant_id=10)
+
+        mock_get_link.assert_not_called()
+
+    def test_get_or_create_form_link_returns_fallback_when_no_active_form(self):
+        """get_or_create_form_link must return fallback URL when no active form version exists."""
+        from gmail_lead_sync.preapproval.handlers import get_or_create_form_link
+
+        db = MagicMock()
+        with patch(
+            "gmail_lead_sync.preapproval.handlers.resolve_active_form_version",
+            return_value=None,
+        ):
+            result = get_or_create_form_link(db, tenant_id=5, lead_id=1)
+
+        assert result.endswith("/public/buyer-qualification")
+        assert "/" in result
+
+    def test_get_or_create_form_link_returns_token_url_when_form_exists(self):
+        """get_or_create_form_link must return a token URL when an active form version exists."""
+        from gmail_lead_sync.preapproval.handlers import get_or_create_form_link
+        from types import SimpleNamespace as SN
+
+        db = MagicMock()
+        mock_version = SN(id=7)
+
+        with (
+            patch(
+                "gmail_lead_sync.preapproval.handlers.resolve_active_form_version",
+                return_value=mock_version,
+            ),
+            patch(
+                "gmail_lead_sync.preapproval.handlers._invitation_service.create_invitation",
+                return_value=("tok123", SN(id=99)),
+            ),
+        ):
+            result = get_or_create_form_link(db, tenant_id=5, lead_id=1)
+
+        assert "tok123" in result
+
+    def test_get_or_create_form_link_falls_back_on_invitation_error(self):
+        """get_or_create_form_link must return fallback URL if invitation creation fails."""
+        from gmail_lead_sync.preapproval.handlers import get_or_create_form_link
+        from types import SimpleNamespace as SN
+
+        db = MagicMock()
+        mock_version = SN(id=7)
+
+        with (
+            patch(
+                "gmail_lead_sync.preapproval.handlers.resolve_active_form_version",
+                return_value=mock_version,
+            ),
+            patch(
+                "gmail_lead_sync.preapproval.handlers._invitation_service.create_invitation",
+                side_effect=RuntimeError("db locked"),
+            ),
+        ):
+            result = get_or_create_form_link(db, tenant_id=5, lead_id=1)
+
+        assert result.endswith("/public/buyer-qualification")

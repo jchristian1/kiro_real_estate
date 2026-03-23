@@ -44,8 +44,9 @@ def _render_admin_template(
 ) -> tuple[str, str]:
     """Render AdminTemplate with lead/agent placeholders.
 
-    Handles {form_link} by creating a real FormInvitation token URL via the
-    qualification module's public interface.
+    Handles {form_link} by delegating to the qualification module's public
+    interface (get_or_create_form_link). This handler does not create
+    qualification invitations/tokens directly.
     Returns (subject, body). Raises ValueError if template not found.
     """
     from api.repositories.template_repository import AdminTemplateRepository
@@ -57,32 +58,11 @@ def _render_admin_template(
         raise ValueError(f"AdminTemplate {template_id} not found")
 
     agent = db.query(AgentUser).filter(AgentUser.company_id == tenant_id).first()
-    base_url = os.environ.get("PUBLIC_BASE_URL", "http://localhost:5173").rstrip("/")
 
-    form_link = f"{base_url}/public/buyer-qualification"
+    form_link = ""
     if "{form_link}" in tpl.subject or "{form_link}" in tpl.body:
-        try:
-            from gmail_lead_sync.preapproval.handlers import (
-                build_form_url,
-                resolve_active_form_version,
-            )
-            from gmail_lead_sync.preapproval.invitation_service import FormInvitationService
-            from gmail_lead_sync.preapproval.models_preapproval import IntentType
-
-            form_version = resolve_active_form_version(db, tenant_id, IntentType.BUY)
-            if form_version is not None:
-                raw_token, _ = FormInvitationService().create_invitation(
-                    db,
-                    tenant_id=tenant_id,
-                    lead_id=lead.id,
-                    form_version_id=form_version.id,
-                )
-                form_link = build_form_url(raw_token)
-        except Exception as exc:
-            logger.warning(
-                "Could not create form invitation for lead %s tenant %s: %s",
-                lead.id, tenant_id, exc,
-            )
+        from gmail_lead_sync.preapproval.handlers import get_or_create_form_link
+        form_link = get_or_create_form_link(db, tenant_id, lead.id)
 
     placeholders = {
         "{lead_name}": lead.name or "",

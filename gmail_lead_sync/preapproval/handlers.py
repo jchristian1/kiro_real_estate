@@ -82,6 +82,42 @@ def resolve_active_form_version(
 _resolve_active_form_version = resolve_active_form_version
 
 
+def get_or_create_form_link(db: Session, tenant_id: int, lead_id: int) -> str:
+    """Return a form invitation URL for the given lead/tenant.
+
+    Public interface for callers that need a {form_link} value but are not
+    themselves qualification-module code (e.g. the generic email handler).
+
+    Creates a FormInvitation token if an active BUY form version exists.
+    Falls back to the generic public qualification URL if no active form is
+    configured for the tenant.
+
+    Ownership: qualification module owns all invitation/token creation.
+    """
+    base_url = os.environ.get("PUBLIC_BASE_URL", "http://localhost:5173").rstrip("/")
+    fallback = f"{base_url}/public/buyer-qualification"
+
+    form_version = resolve_active_form_version(db, tenant_id, IntentType.BUY)
+    if form_version is None:
+        return fallback
+
+    try:
+        raw_token, _ = _invitation_service.create_invitation(
+            db,
+            tenant_id=tenant_id,
+            lead_id=lead_id,
+            form_version_id=form_version.id,
+        )
+        return build_form_url(raw_token)
+    except Exception as exc:
+        logger.warning(
+            "get_or_create_form_link: could not create invitation "
+            "for lead %s tenant %s: %s — using fallback URL",
+            lead_id, tenant_id, exc,
+        )
+        return fallback
+
+
 def _resolve_active_message_template(
     db: Session,
     tenant_id: int,
