@@ -310,3 +310,114 @@ class TestActivityVsAuditLog:
 
         # They must not share the same write function
         assert activity_module.record_activity is not audit_module.record_audit_log
+
+
+# ---------------------------------------------------------------------------
+# Phase 3B — emission from source points
+# ---------------------------------------------------------------------------
+
+class TestPhase3BEmission:
+    """Verify that each lifecycle source point calls record_activity correctly."""
+
+    # --- notify_lead_created ---
+
+    def test_notify_lead_created_emits_lead_created(self):
+        from api.orchestration.lead_lifecycle_orchestrator import notify_lead_created
+
+        db = MagicMock()
+        with (
+            patch("api.services.lead_stage_transition_engine.fire_event"),
+            patch("api.pipelines.handlers.base.resolve_lead_company_id", return_value=10),
+            patch("api.services.lead_activity.record_activity") as mock_record,
+        ):
+            notify_lead_created(db, lead_id=1, context={"source_email": "a@b.com", "gmail_uid": "123"})
+
+        mock_record.assert_called_once()
+        _, kwargs = mock_record.call_args
+        assert kwargs["event_type"] == "lead_created"
+        assert kwargs["company_id"] == 10
+        assert kwargs["actor_source"] == "system"
+        assert kwargs["metadata"]["source_email"] == "a@b.com"
+
+    def test_notify_lead_created_emits_even_if_pipeline_fails(self):
+        """Activity emission must not be gated on pipeline success."""
+        from api.orchestration.lead_lifecycle_orchestrator import notify_lead_created
+
+        db = MagicMock()
+        with (
+            patch(
+                "api.services.lead_stage_transition_engine.fire_event",
+                side_effect=RuntimeError("pipeline down"),
+            ),
+            patch("api.pipelines.handlers.base.resolve_lead_company_id", return_value=5),
+            patch("api.services.lead_activity.record_activity") as mock_record,
+        ):
+            notify_lead_created(db, lead_id=2, context={})
+
+        mock_record.assert_called_once()
+
+    # --- SendEmailTemplateHandler ---
+
+    def test_send_email_handler_emits_response_email_sent_on_success(self):
+        from api.pipelines.handlers.send_email import SendEmailTemplateHandler
+
+        db = MagicMock()
+        mock_lead = SimpleNamespace(id=1, source_email="lead@test.com", name="Test")
+
+        with (
+            patch("api.pipelines.handlers.send_email.resolve_lead_company_id", return_value=7),
+            patch("api.pipelines.handlers.send_email._render_admin_template", return_value=("subj", "body")),
+            patch("api.pipelines.handlers.send_email._get_smtp_credentials", return_value=("from@x.com", "pw")),
+            patch("api.pipelines.handlers.send_email._send_via_smtp"),
+            patch("api.services.lead_activity.record_activity") as mock_record,
+        ):
+            db.query.return_value.filter.return_value.first.return_value = mock_lead
+            handler = SendEmailTemplateHandler()
+            result = handler.execute(db, lead_id=1, config={"template_id": 5}, context={})
+
+        assert result.success is True
+        mock_record.assert_called_once()
+        _, kwargs = mock_record.call_args
+        assert kwargs["event_type"] == "response_email_sent"
+        assert kwargs["company_id"] == 7
+        assert kwargs["actor_source"] == "pipeline"
+
+    def test_send_email_handler_does_not_emit_on_failure(self):
+        from api.pipelines.handlers.send_email import SendEmailTemplateHandler
+
+        db = MagicMock()
+        mock_lead = SimpleNamespace(id=1, source_email="lead@test.com", name="Test")
+
+        with (
+            patch("api.pipelines.handlers.send_email.resolve_lead_company_id", return_value=7),
+            patch("api.pipelines.handlers.send_email._render_admin_template", return_value=("subj", "body")),
+            patch("api.pipelines.handlers.send_email._get_smtp_credentials", return_value=("from@x.com", "pw")),
+            patch("api.pipelines.handlers.send_email._send_via_smtp", side_effect=RuntimeError("smtp down")),
+            patch("api.services.lead_activity.record_activity") as mock_record,
+        ):
+            db.query.return_value.filter.return_value.first.return_value = mock_lead
+            handler = SendEmailTemplateHandler()
+            result = handler.execute(db, lead_id=1, config={"template_id": 5}, context={})
+
+        assert result.success is False
+        mock_record.assert_not_called()
+
+    # --- watcher EMAIL_RECEIVED migration ---
+
+    def test_watcher_uses_record_activity_not_shim(self):
+        """Watcher must call record_activity directly, not insert_lead_event."""
+        import gmail_lead_sync.watcher as watcher_module
+        import inspect
+
+        source = inspect.getsource(watcher_module.GmailWatcher._process_single_email)
+        assert "insert_lead_event" not in source
+        assert "record_activity" in source
+
+    def test_watcher_passes_company_id_and_actor_source(self):
+        """Watcher's record_activity call must include company_id and actor_source."""
+        import gmail_lead_sync.watcher as watcher_module
+        import inspect
+
+        source = inspect.getsource(watcher_module.GmailWatcher._process_single_email)
+        assert "company_id" in source
+        assert "actor_source" in source

@@ -49,6 +49,7 @@ def notify_lead_created(
 
     Fires the pipeline ``lead_created`` event so the pipeline engine can
     assign the initial stage and execute any matching automation rules.
+    Then records a structured lead_created activity event.
     """
     try:
         from api.models.pipeline_models import BuiltInEventType
@@ -58,6 +59,26 @@ def notify_lead_created(
     except Exception as exc:
         logger.warning(
             "notify_lead_created: pipeline fire_event failed for lead %s: %s",
+            lead_id, exc, exc_info=True,
+        )
+
+    # Record structured activity — runs regardless of pipeline outcome.
+    try:
+        from api.pipelines.handlers.base import resolve_lead_company_id
+        from api.services.lead_activity import record_activity
+
+        company_id = resolve_lead_company_id(db, lead_id)
+        record_activity(
+            db,
+            lead_id=lead_id,
+            event_type="lead_created",
+            company_id=company_id,
+            actor_source="system",
+            metadata={k: v for k, v in context.items() if k in ("source_email", "gmail_uid")},
+        )
+    except Exception as exc:
+        logger.warning(
+            "notify_lead_created: record_activity failed for lead %s: %s",
             lead_id, exc, exc_info=True,
         )
 

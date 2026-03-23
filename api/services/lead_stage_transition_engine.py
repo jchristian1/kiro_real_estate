@@ -69,6 +69,31 @@ def _get_default_stage(db: Session, pipeline_id: int) -> Optional[PipelineStage]
     )
 
 
+def _record_stage_changed(
+    db: Session,
+    lead_id: int,
+    company_id: Optional[int],
+    new_stage_id: int,
+    trigger: str,
+) -> None:
+    """Emit a lead_stage_changed activity event. Failures are swallowed."""
+    try:
+        from api.services.lead_activity import record_activity
+        record_activity(
+            db,
+            lead_id=lead_id,
+            event_type="lead_stage_changed",
+            company_id=company_id,
+            actor_source="pipeline",
+            metadata={"new_stage_id": new_stage_id, "trigger": trigger},
+        )
+    except Exception as exc:
+        logger.warning(
+            "_record_stage_changed: failed for lead %s stage %s: %s",
+            lead_id, new_stage_id, exc,
+        )
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -155,6 +180,11 @@ def fire_event(
                 f"in pipeline {pipeline_id}"
             ),
         )
+        _record_stage_changed(
+            db, lead_id, company_id,
+            new_stage_id=mapping.target_stage_id,
+            trigger=f"event_mapping:{event_type.value}",
+        )
 
     # Evaluate automation rules (Req 6.5)
     # Queue of stages entered this cycle (event mapping + chained move_to_stage actions).
@@ -224,6 +254,14 @@ def _dispatch_step(db, lead_id, pipeline_id, rule, step, context, trigger_label)
                 f"executed for lead {lead_id} on {trigger_label}"
             ),
         )
+        # Emit lead_stage_changed when a move_to_stage action succeeds.
+        if result.new_stage_id is not None:
+            company_id = resolve_lead_company_id(db, lead_id)
+            _record_stage_changed(
+                db, lead_id, company_id,
+                new_stage_id=result.new_stage_id,
+                trigger=f"pipeline_rule:{rule.id}:{trigger_label}",
+            )
     else:
         logger.error(
             "Pipeline action step failed: rule_id=%s step_id=%s lead_id=%s error=%s",

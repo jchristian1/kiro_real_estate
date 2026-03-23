@@ -342,6 +342,23 @@ def on_buyer_lead_email_received(
     ))
     db.commit()
 
+    # 7. Record structured activity
+    try:
+        from api.services.lead_activity import record_activity
+        record_activity(
+            db,
+            lead_id=lead_id,
+            event_type="qualification_form_sent",
+            company_id=tenant_id,
+            actor_source="qualification",
+            metadata={"invitation_id": invitation.id, "form_version_id": form_version.id},
+        )
+    except Exception as exc:
+        logger.warning(
+            "on_buyer_lead_email_received: record_activity failed for lead %s: %s",
+            lead_id, exc,
+        )
+
     logger.info("Form invite sent: tenant=%d lead=%d invitation=%d", tenant_id, lead_id, invitation.id)
 
 
@@ -418,6 +435,21 @@ def on_buyer_form_submitted(
             invitation.tenant_id, invitation.lead_id, submission.id,
         )
         db.commit()
+        try:
+            from api.services.lead_activity import record_activity
+            record_activity(
+                db,
+                lead_id=invitation.lead_id,
+                event_type="qualification_form_submitted",
+                company_id=invitation.tenant_id,
+                actor_source="qualification",
+                metadata={"submission_id": submission.id, "scored": False},
+            )
+        except Exception as exc:
+            logger.warning(
+                "on_buyer_form_submitted (unscored): record_activity failed for lead %s: %s",
+                invitation.lead_id, exc,
+            )
         _fire_post_submission_events(db, invitation.lead_id, invitation.tenant_id, bucket=None)
         return {"submission_id": submission.id, "score": None}
 
@@ -460,6 +492,35 @@ def on_buyer_form_submitted(
         invitation.tenant_id, invitation.lead_id, submission.id,
         score_result.bucket.value, score_result.total,
     )
+
+    # Record structured activity for form submission and bucket assignment.
+    try:
+        from api.services.lead_activity import record_activity
+        record_activity(
+            db,
+            lead_id=invitation.lead_id,
+            event_type="qualification_form_submitted",
+            company_id=invitation.tenant_id,
+            actor_source="qualification",
+            metadata={"submission_id": submission.id},
+        )
+        record_activity(
+            db,
+            lead_id=invitation.lead_id,
+            event_type="qualification_bucket_assigned",
+            company_id=invitation.tenant_id,
+            actor_source="qualification",
+            metadata={
+                "bucket": score_result.bucket.value,
+                "score": score_result.total,
+                "submission_id": submission.id,
+            },
+        )
+    except Exception as exc:
+        logger.warning(
+            "on_buyer_form_submitted: record_activity failed for lead %s: %s",
+            invitation.lead_id, exc,
+        )
 
     # 9. Fire pipeline events — pipeline handles all post-submission emails
     _fire_post_submission_events(db, invitation.lead_id, invitation.tenant_id, bucket=score_result.bucket.value)

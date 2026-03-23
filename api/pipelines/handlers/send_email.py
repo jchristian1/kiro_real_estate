@@ -151,6 +151,24 @@ class SendEmailTemplateHandler:
                 "send_email_template: sent lead_id=%s template_id=%s",
                 lead_id, template_id,
             )
+
+            # Record structured activity — after successful send.
+            try:
+                from api.services.lead_activity import record_activity
+                record_activity(
+                    db,
+                    lead_id=lead_id,
+                    event_type="response_email_sent",
+                    company_id=tenant_id,
+                    actor_source="pipeline",
+                    metadata={"template_id": template_id, "to": lead.source_email},
+                )
+            except Exception as _ae:
+                logger.warning(
+                    "send_email_template: record_activity failed for lead %s: %s",
+                    lead_id, _ae,
+                )
+
             return ActionResult(
                 success=True,
                 metadata={"template_id": template_id, "to": lead.source_email},
