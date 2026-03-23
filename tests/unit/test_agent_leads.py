@@ -60,8 +60,15 @@ client = TestClient(app, raise_server_exceptions=True)
 
 @pytest.fixture(autouse=True)
 def setup_db():
-    """Create all tables before each test and drop after."""
+    """Create all tables before each test and drop after.
+
+    Re-registers the dependency override on every test so that running this
+    file after test_leads_api.py (which also manipulates dependency_overrides)
+    does not leave the agent tests pointing at a dropped-table engine.
+    """
     Base.metadata.create_all(bind=engine)
+    # Re-register override every test — other test files may overwrite it
+    app.dependency_overrides[get_db] = override_get_db
     db = TestingSessionLocal()
     ls = LeadSource(
         sender_email="leads@test.com",
