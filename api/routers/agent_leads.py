@@ -724,17 +724,14 @@ def get_lead_events(
         )
 
     # Also include STATUS_CHANGED LeadEvent records (from agent-app state machine)
+    # Uses LeadActivityRepository — the canonical read boundary for LeadEvent.
     if not events:
-        from gmail_lead_sync.agent_models import LeadEvent
-        lead_events = (
-            db.query(LeadEvent)
-            .filter(
-                LeadEvent.lead_id == lead_id,
-                LeadEvent.event_type == "STATUS_CHANGED",
-            )
-            .order_by(LeadEvent.created_at.asc())
-            .all()
-        )
+        from api.repositories.lead_activity_repository import LeadActivityRepository
+        activity_repo = LeadActivityRepository(db)
+        lead_events = [
+            ev for ev in activity_repo.get_timeline(lead_id=lead_id)
+            if ev.event_type == "STATUS_CHANGED"
+        ]
         for ev in lead_events:
             payload_dict: Optional[Dict[str, Any]] = None
             if ev.payload:
