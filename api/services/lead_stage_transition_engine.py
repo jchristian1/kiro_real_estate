@@ -41,6 +41,7 @@ from api.models.pipeline_models import (
     ChangeSource,
     PipelineStage,
 )
+from api.pipelines.handlers.base import resolve_lead_company_id
 from api.services.audit_log import record_audit_log
 from api.services.lead_stage_service import assign_initial_stage, move_stage
 from api.services.pipeline_action_rule_service import evaluate_rules
@@ -55,33 +56,6 @@ _SYSTEM_USER_ID = 0
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-
-def _get_company_id(db: Session, lead_id: int) -> Optional[int]:
-    """Resolve company_id for a lead via direct column, lead_source, or agent_user."""
-    from gmail_lead_sync.models import Lead
-
-    lead = db.query(Lead).filter(Lead.id == lead_id).first()
-    if lead is None:
-        return None
-
-    company_id = getattr(lead, "company_id", None)
-    if company_id:
-        return company_id
-
-    lead_source = getattr(lead, "lead_source", None)
-    if lead_source is not None:
-        cid = getattr(lead_source, "company_id", None)
-        if cid:
-            return cid
-
-    agent_user = getattr(lead, "agent_user", None)
-    if agent_user is not None:
-        cid = getattr(agent_user, "company_id", None)
-        if cid:
-            return cid
-
-    return None
 
 
 def _get_default_stage(db: Session, pipeline_id: int) -> Optional[PipelineStage]:
@@ -124,7 +98,7 @@ def fire_event(
         logger.warning("fire_event: lead %s not found, skipping", lead_id)
         return
 
-    company_id = _get_company_id(db, lead_id)
+    company_id = resolve_lead_company_id(db, lead_id)
     if company_id is None:
         logger.warning(
             "fire_event: cannot resolve company_id for lead %s, skipping", lead_id

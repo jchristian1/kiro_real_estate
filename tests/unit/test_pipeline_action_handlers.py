@@ -244,3 +244,45 @@ class TestExecutor:
         assert results[1].success is False   # missing template_id
         assert results[2].success is True
         assert executed == [2, 3], f"Expected both moves to execute, got {executed}"
+
+
+# ---------------------------------------------------------------------------
+# on_stage_enter chaining via new_stage_id
+# ---------------------------------------------------------------------------
+
+
+class TestStageEnterChaining:
+    """Verify that new_stage_id propagates correctly from move_to_stage results.
+
+    The engine uses ActionResult.new_stage_id to queue on_stage_enter rule
+    evaluation. This test confirms the executor surfaces it correctly so the
+    engine can chain.
+    """
+
+    def test_move_to_stage_new_stage_id_propagates(self):
+        """new_stage_id must equal the configured stage_id on success."""
+        step = _make_step("move_to_stage", {"stage_id": 42})
+        db = MagicMock()
+        with patch("api.pipelines.handlers.move_stage.move_stage"):
+            result = execute_step(db, lead_id=1, pipeline_id=1, rule_id=1, step=step, context={})
+        assert result.success is True
+        assert result.new_stage_id == 42
+
+    def test_non_move_actions_have_no_new_stage_id(self):
+        """send_email_template must not set new_stage_id (only move_to_stage does)."""
+        step = _make_step("send_email_template", {})
+        # Missing template_id → validation failure, but new_stage_id must still be None
+        result = execute_step(MagicMock(), 1, 1, 1, step, {})
+        assert result.new_stage_id is None
+
+    def test_failed_move_does_not_set_new_stage_id(self):
+        """A failed move_to_stage must not propagate new_stage_id."""
+        step = _make_step("move_to_stage", {"stage_id": 10})
+        db = MagicMock()
+        with patch(
+            "api.pipelines.handlers.move_stage.move_stage",
+            side_effect=RuntimeError("stage locked"),
+        ):
+            result = execute_step(db, 1, 1, 1, step, {})
+        assert result.success is False
+        assert result.new_stage_id is None
