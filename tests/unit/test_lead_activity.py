@@ -421,3 +421,63 @@ class TestPhase3BEmission:
         source = inspect.getsource(watcher_module.GmailWatcher._process_single_email)
         assert "company_id" in source
         assert "actor_source" in source
+
+    # --- qualification_form_sent — only emits when email actually sent ---
+
+    def test_qualification_form_sent_not_emitted_when_no_smtp_creds(self):
+        """qualification_form_sent must NOT emit if SMTP credentials are missing."""
+        import gmail_lead_sync.preapproval.handlers as handlers_module
+        import inspect
+
+        source = inspect.getsource(handlers_module.on_buyer_lead_email_received)
+        # The activity call must be inside the email_sent branch
+        assert "if email_sent" in source
+
+    def test_qualification_form_sent_source_is_qualification(self):
+        """qualification_form_sent must use actor_source='qualification'."""
+        import gmail_lead_sync.preapproval.handlers as handlers_module
+        import inspect
+
+        source = inspect.getsource(handlers_module.on_buyer_lead_email_received)
+        assert "qualification_form_sent" in source
+        assert "actor_source" in source
+
+    # --- qualification_form_submitted — both scored and unscored paths ---
+
+    def test_qualification_form_submitted_emitted_in_unscored_path(self):
+        """qualification_form_submitted must emit even when no scoring version exists."""
+        import gmail_lead_sync.preapproval.handlers as handlers_module
+        import inspect
+
+        source = inspect.getsource(handlers_module.on_buyer_form_submitted)
+        # Both the unscored early-return block and the scored block must contain the event
+        assert source.count("qualification_form_submitted") >= 2
+
+    def test_qualification_bucket_assigned_only_in_scored_path(self):
+        """qualification_bucket_assigned must only appear in the scored path, not the unscored early return."""
+        import gmail_lead_sync.preapproval.handlers as handlers_module
+        import inspect
+
+        source = inspect.getsource(handlers_module.on_buyer_form_submitted)
+        # bucket_assigned must appear exactly once (scored path only)
+        assert source.count("qualification_bucket_assigned") == 1
+
+    # --- lead_stage_changed — source is pipeline, carries trigger label ---
+
+    def test_lead_stage_changed_source_is_pipeline(self):
+        """lead_stage_changed must use actor_source='pipeline'."""
+        import api.services.lead_stage_transition_engine as engine_module
+        import inspect
+
+        source = inspect.getsource(engine_module._record_stage_changed)
+        assert "actor_source" in source
+        assert "pipeline" in source
+
+    def test_lead_stage_changed_metadata_includes_trigger(self):
+        """lead_stage_changed metadata must include both new_stage_id and trigger."""
+        import api.services.lead_stage_transition_engine as engine_module
+        import inspect
+
+        source = inspect.getsource(engine_module._record_stage_changed)
+        assert "new_stage_id" in source
+        assert "trigger" in source

@@ -323,10 +323,12 @@ def on_buyer_lead_email_received(
 
     # 4. Send email
     creds = _get_tenant_email_credentials(db, tenant_id)
+    email_sent = False
     if creds is None:
         logger.error("No SMTP credentials for tenant %d; cannot send form invite (lead_id=%d).", tenant_id, lead_id)
     else:
         _send_email(lead.source_email, rendered_subject, rendered_body, creds[0], creds[1])
+        email_sent = True
 
     # 5. Mark invitation sent + update lead state
     invitation.sent_at = datetime.utcnow()
@@ -342,22 +344,23 @@ def on_buyer_lead_email_received(
     ))
     db.commit()
 
-    # 7. Record structured activity
-    try:
-        from api.services.lead_activity import record_activity
-        record_activity(
-            db,
-            lead_id=lead_id,
-            event_type="qualification_form_sent",
-            company_id=tenant_id,
-            actor_source="qualification",
-            metadata={"invitation_id": invitation.id, "form_version_id": form_version.id},
-        )
-    except Exception as exc:
-        logger.warning(
-            "on_buyer_lead_email_received: record_activity failed for lead %s: %s",
-            lead_id, exc,
-        )
+    # 7. Record structured activity — only when email was actually sent.
+    if email_sent:
+        try:
+            from api.services.lead_activity import record_activity
+            record_activity(
+                db,
+                lead_id=lead_id,
+                event_type="qualification_form_sent",
+                company_id=tenant_id,
+                actor_source="qualification",
+                metadata={"invitation_id": invitation.id, "form_version_id": form_version.id},
+            )
+        except Exception as exc:
+            logger.warning(
+                "on_buyer_lead_email_received: record_activity failed for lead %s: %s",
+                lead_id, exc,
+            )
 
     logger.info("Form invite sent: tenant=%d lead=%d invitation=%d", tenant_id, lead_id, invitation.id)
 
