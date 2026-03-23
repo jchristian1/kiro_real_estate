@@ -1,8 +1,8 @@
 """
 send_email_template / send_bucket_followup_email action handler.
 
-Validates config, resolves tenant credentials, renders the AdminTemplate,
-and sends via SMTP. All email-sending logic for pipeline rules lives here.
+Validates config, resolves tenant credentials via EmailDeliveryService,
+renders the AdminTemplate, and sends via SMTP.
 
 Config schema:
     { "template_id": <int> }
@@ -11,32 +11,20 @@ Config schema:
 from __future__ import annotations
 
 import logging
-import os
 
 from sqlalchemy.orm import Session
 
+from api.communications.email_delivery import EmailDeliveryService
 from api.pipelines.handlers.base import ActionResult, resolve_lead_company_id
 
 logger = logging.getLogger(__name__)
 
+_delivery = EmailDeliveryService()
+
 
 # ---------------------------------------------------------------------------
-# Internal helpers (owned by this handler — not shared with the engine)
+# Internal helpers (rendering only — delivery is owned by EmailDeliveryService)
 # ---------------------------------------------------------------------------
-
-
-def _get_smtp_credentials(db: Session, tenant_id: int) -> tuple[str, str]:
-    from gmail_lead_sync.models import Credentials
-
-    creds = db.query(Credentials).filter(Credentials.company_id == tenant_id).first()
-    if creds is None:
-        raise ValueError(f"No SMTP credentials for tenant {tenant_id}")
-    encryption_key = os.environ.get("ENCRYPTION_KEY")
-    if encryption_key:
-        from gmail_lead_sync.credentials import EncryptedDBCredentialsStore
-        store = EncryptedDBCredentialsStore(db, encryption_key)
-        return store.get_credentials(creds.agent_id)
-    return creds.email_encrypted, creds.app_password_encrypted
 
 
 def _render_admin_template(
@@ -76,23 +64,6 @@ def _render_admin_template(
         subject = subject.replace(key, value)
         body = body.replace(key, value)
     return subject, body
-
-
-def _send_via_smtp(
-    to_address: str, subject: str, body: str, from_address: str, app_password: str
-) -> None:
-    from gmail_lead_sync.responder import AutoResponder
-
-    responder = object.__new__(AutoResponder)
-    ok = responder.send_email(
-        to_address=to_address,
-        subject=subject,
-        body=body,
-        from_address=from_address,
-        app_password=app_password,
-    )
-    if not ok:
-        raise RuntimeError(f"SMTP send failed to {to_address}")
 
 
 # ---------------------------------------------------------------------------
@@ -144,8 +115,13 @@ class SendEmailTemplateHandler:
                 )
 
             subject, body = _render_admin_template(db, template_id, lead, tenant_id)
-            from_email, app_password = _get_smtp_credentials(db, tenant_id)
-            _send_via_smtp(lead.source_email, subject, body, from_email, app_password)
+
+            ok = _delivery.send(db, tenant_id, lead.source_email, subject, body)
+            if not ok:
+                return ActionResult(
+                    success=False,
+                    error=f"send_email_template: delivery failed for lead {lead_id}",
+                )
 
             logger.info(
                 "send_email_template: sent lead_id=%s template_id=%s",

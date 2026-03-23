@@ -19,7 +19,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from gmail_lead_sync.models import Credentials, Lead
+from gmail_lead_sync.models import Lead
 from gmail_lead_sync.preapproval.invitation_service import FormInvitationService
 from gmail_lead_sync.preapproval.models_preapproval import (
     Channel,
@@ -179,28 +179,16 @@ def _render_agent_template(subject_tpl: str, body_tpl: str, context: dict) -> tu
     return subject, body
 
 
-def _get_tenant_email_credentials(db: Session, tenant_id: int) -> tuple[str, str] | None:
-    creds = db.query(Credentials).filter(Credentials.company_id == tenant_id).first()
-    if creds is None:
-        return None
-    encryption_key = os.environ.get("ENCRYPTION_KEY")
-    if encryption_key:
-        from gmail_lead_sync.credentials import EncryptedDBCredentialsStore
-        store = EncryptedDBCredentialsStore(db, encryption_key)
-        return store.get_credentials(creds.agent_id)
-    return creds.email_encrypted, creds.app_password_encrypted
+_delivery = None
 
 
-def _send_email(to_address: str, subject: str, body: str, from_address: str, app_password: str) -> bool:
-    from gmail_lead_sync.responder import AutoResponder
-    responder = object.__new__(AutoResponder)
-    return responder.send_email(
-        to_address=to_address,
-        subject=subject,
-        body=body,
-        from_address=from_address,
-        app_password=app_password,
-    )
+def _get_delivery():
+    """Lazy singleton for EmailDeliveryService — avoids circular import at module load."""
+    global _delivery
+    if _delivery is None:
+        from api.communications.email_delivery import EmailDeliveryService
+        _delivery = EmailDeliveryService()
+    return _delivery
 
 
 def _resolve_active_scoring_version(
@@ -321,14 +309,12 @@ def on_buyer_lead_email_received(
         )
         rendered_subject, rendered_body = rendered_obj.subject, rendered_obj.body
 
-    # 4. Send email
-    creds = _get_tenant_email_credentials(db, tenant_id)
-    email_sent = False
-    if creds is None:
-        logger.error("No SMTP credentials for tenant %d; cannot send form invite (lead_id=%d).", tenant_id, lead_id)
-    else:
-        _send_email(lead.source_email, rendered_subject, rendered_body, creds[0], creds[1])
-        email_sent = True
+    # 4. Send email via EmailDeliveryService
+    email_sent = _get_delivery().send(
+        db, tenant_id, lead.source_email, rendered_subject, rendered_body
+    )
+    if not email_sent:
+        logger.error("No SMTP credentials or delivery failed for tenant %d (lead_id=%d).", tenant_id, lead_id)
 
     # 5. Mark invitation sent + update lead state
     invitation.sent_at = datetime.utcnow()
