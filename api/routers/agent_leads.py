@@ -272,6 +272,16 @@ class NoteItem(BaseModel):
     created_at: datetime
 
 
+class StageInfo(BaseModel):
+    """Current pipeline stage for a lead — sourced from the unified read model."""
+    stage_id: int
+    stage_name: str
+    stage_key: str
+    stage_color: str
+    stage_category: str
+    stage_entered_at: Optional[datetime]
+
+
 class EnrichedLead(BaseModel):
     id: int
     name: str
@@ -289,6 +299,7 @@ class EnrichedLead(BaseModel):
 
 class LeadDetailResponse(BaseModel):
     lead: EnrichedLead
+    stage: Optional[StageInfo]
     scoring_breakdown: Optional[ScoringBreakdown]
     timeline: List[TimelineEvent]
     rendered_emails: List[RenderedEmail]
@@ -465,6 +476,14 @@ def get_lead_detail(
 
     return LeadDetailResponse(
         lead=enriched,
+        stage=StageInfo(
+            stage_id=detail.stage.stage_id,
+            stage_name=detail.stage.stage_name,
+            stage_key=detail.stage.stage_key,
+            stage_color=detail.stage.stage_color,
+            stage_category=detail.stage.stage_category,
+            stage_entered_at=detail.stage.stage_entered_at,
+        ) if detail.stage else None,
         scoring_breakdown=scoring_breakdown,
         timeline=timeline,
         rendered_emails=rendered_emails,

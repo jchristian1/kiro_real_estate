@@ -738,9 +738,22 @@ class TestAgentLeadDetail:
         resp = client.get(f"/api/v1/agent/leads/{lead_id}", headers=_auth_headers(token))
         assert resp.status_code == 200
         data = resp.json()
-        # Top-level keys
-        for key in ("lead", "scoring_breakdown", "timeline", "rendered_emails", "notes"):
+        # Top-level keys — stage is now included alongside agent-specific fields
+        for key in ("lead", "stage", "scoring_breakdown", "timeline", "rendered_emails", "notes"):
             assert key in data, f"Missing key: {key}"
+
+    def test_stage_is_none_when_no_pipeline_stage_assigned(self):
+        """Stage is null when the lead has no current_stage_id set."""
+        db = TestingSessionLocal()
+        agent = _create_agent(db, email="agent@stage_none.com")
+        token = _create_session(db, agent.id)
+        lead = _create_lead(db, agent.id, name="No Stage Lead")
+        lead_id = lead.id
+        db.close()
+
+        resp = client.get(f"/api/v1/agent/leads/{lead_id}", headers=_auth_headers(token))
+        assert resp.status_code == 200
+        assert resp.json()["stage"] is None
 
     def test_lead_fields_populated(self):
         db = TestingSessionLocal()
