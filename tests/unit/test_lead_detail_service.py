@@ -440,3 +440,100 @@ class TestParseLegacyBreakdown:
 
     def test_returns_empty_on_invalid_json(self):
         assert _parse_lead_score_breakdown("{bad}") == []
+
+
+# ---------------------------------------------------------------------------
+# Router contract: score/score_bucket must come from assembler, not raw ORM
+# ---------------------------------------------------------------------------
+
+class TestAgentRouterScoreSource:
+    """
+    Verify that the agent router get_lead_detail() sources score and score_bucket
+    from the assembler's qualification summary, not directly from the Lead ORM.
+    This guards against regression of the Phase 3C audit fix.
+    """
+
+    def test_score_and_bucket_come_from_qualification_not_orm(self):
+        """
+        Lead ORM has score=99/bucket='HOT' but assembler returns score=72/bucket='WARM'.
+        Router must use assembler values.
+        """
+        from unittest.mock import MagicMock, patch
+        from api.services.lead_detail_service import (
+            UnifiedLeadDetail,
+            LeadCoreInfo,
+            LeadQualificationSummary,
+            ScoreFactorDetail,
+        )
+        from datetime import datetime
+
+        # Fake lead ORM — score/bucket intentionally differ from assembler output
+        fake_lead = SimpleNamespace(
+            id=1,
+            name="Bob",
+            phone="555-9999",
+            source_email="bob@test.com",
+            created_at=datetime(2026, 1, 1),
+            property_address=None,
+            listing_url=None,
+            lead_source_name=None,
+            agent_current_state="NEW",
+            last_agent_action_at=None,
+            score=99,           # ORM value — should NOT appear in response
+            score_bucket="HOT", # ORM value — should NOT appear in response
+            score_breakdown=None,
+            current_stage_id=None,
+            stage_entered_at=None,
+            company_id=10,
+            agent_user_id=5,
+        )
+
+        fake_detail = UnifiedLeadDetail(
+            core=LeadCoreInfo(
+                id=1,
+                name="Bob",
+                phone="555-9999",
+                source_email="bob@test.com",
+                created_at=datetime(2026, 1, 1),
+                property_address=None,
+                listing_url=None,
+                lead_source_name=None,
+                agent_current_state="NEW",
+                last_agent_action_at=None,
+            ),
+            stage=None,
+            qualification=LeadQualificationSummary(
+                score=72,           # assembler value — must win
+                bucket="WARM",      # assembler value — must win
+                explanation_text=None,
+                breakdown=[ScoreFactorDetail(label="Budget", points=10, met=True)],
+                submitted_at=None,
+                invitation_sent_at=None,
+            ),
+            timeline=[],
+        )
+
+        from api.routers.agent_leads import get_lead_detail
+
+        fake_db = MagicMock()
+        fake_agent = SimpleNamespace(id=5, company_id=10)
+
+        mock_repo_instance = MagicMock()
+        mock_repo_instance.get_by_agent_id_str.return_value = fake_lead
+
+        mock_watcher_instance = MagicMock()
+        mock_watcher_instance.get_config_by_agent_id.return_value = None
+
+        # assemble_lead_detail is imported inside the function body, so patch the service module
+        with patch("api.routers.agent_leads.LeadRepository", return_value=mock_repo_instance), \
+             patch("api.routers.agent_leads.WatcherRepository", return_value=mock_watcher_instance), \
+             patch("api.services.lead_detail_service.assemble_lead_detail", return_value=fake_detail):
+
+            response = get_lead_detail(
+                lead_id=1,
+                db=fake_db,
+                agent=fake_agent,
+            )
+
+        assert response.lead.score == 72,    "score must come from assembler qualification, not ORM"
+        assert response.lead.score_bucket == "WARM", "score_bucket must come from assembler qualification, not ORM"

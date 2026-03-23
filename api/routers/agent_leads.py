@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from api.dependencies.agent_auth import get_current_agent
 from api.dependencies.db import get_db
 from api.repositories import LeadRepository
+from api.repositories.lead_repository import LeadEventWriteRepository
 from api.repositories.watcher_repository import WatcherRepository
 from gmail_lead_sync.agent_models import AgentUser
 from api.dependencies.auth import require_role
@@ -399,13 +400,14 @@ def get_lead_detail(
     if detail is None:
         raise NotFoundException(message="Lead not found", code=ErrorCode.NOT_FOUND_LEAD)
 
-    # Build EnrichedLead from assembler core
+    # Build EnrichedLead from assembler — score/bucket come from qualification summary
+    qual = detail.qualification
     enriched = EnrichedLead(
         id=detail.core.id,
         name=detail.core.name,
         phone=detail.core.phone,
-        score=getattr(lead, "score", None),
-        score_bucket=getattr(lead, "score_bucket", None),
+        score=qual.score if qual else None,
+        score_bucket=qual.bucket if qual else None,
         current_state=detail.core.agent_current_state,
         source=detail.core.lead_source_name,
         address=detail.core.property_address,
@@ -415,30 +417,16 @@ def get_lead_detail(
         is_aging=is_aging,
     )
 
-    # Scoring breakdown — prefer qualification summary, fall back to lead column
+    # Scoring breakdown — sourced entirely from assembler qualification summary
     scoring_breakdown: Optional[ScoringBreakdown] = None
-    if detail.qualification is not None and detail.qualification.breakdown:
+    if qual is not None and qual.breakdown:
         scoring_breakdown = ScoringBreakdown(
-            total=detail.qualification.score,
+            total=qual.score,
             factors=[
                 ScoreFactor(label=f.label, points=f.points, met=f.met)
-                for f in detail.qualification.breakdown
+                for f in qual.breakdown
             ],
         )
-    elif getattr(lead, "score_breakdown", None):
-        try:
-            raw = json.loads(lead.score_breakdown)
-            factors = [
-                ScoreFactor(
-                    label=f.get("label", ""),
-                    points=f.get("points", 0),
-                    met=f.get("met", False),
-                )
-                for f in raw.get("factors", [])
-            ]
-            scoring_breakdown = ScoringBreakdown(total=lead.score or 0, factors=factors)
-        except (json.JSONDecodeError, TypeError):
-            pass
 
     # Build timeline, rendered_emails, notes from unified activity timeline
     timeline: List[TimelineEvent] = []
