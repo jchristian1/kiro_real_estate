@@ -24,7 +24,6 @@ from sqlalchemy.orm import Session
 from api.dependencies.agent_auth import get_current_agent
 from api.dependencies.db import get_db
 from api.repositories import LeadRepository
-from api.repositories.lead_repository import LeadEventWriteRepository
 from api.repositories.watcher_repository import WatcherRepository
 from gmail_lead_sync.agent_models import AgentUser
 from api.dependencies.auth import require_role
@@ -360,32 +359,26 @@ def get_lead_detail(
     Return enriched detail for a single lead.
 
     - Returns 403 if the lead belongs to a different agent (Requirement 18.2).
-    - Scoring breakdown is parsed from the JSON score_breakdown column.
-    - Timeline is the full ordered list of lead_events for this lead.
-    - Rendered emails are extracted from INVITE_SENT / POST_EMAIL_SENT events.
-    - Notes are extracted from NOTE_ADDED events.
+    - Delegates assembly to lead_detail_service.assemble_lead_detail().
+    - Timeline is sourced from LeadActivityRepository (Phase 3C).
+    - Rendered emails and notes are extracted from the unified timeline.
 
     Requirements: 12.1, 12.2, 12.3, 18.2
     """
-    now = datetime.utcnow()
+    from api.exceptions import AuthorizationException, NotFoundException
+    from api.models.error_models import ErrorCode
+    from api.services.lead_detail_service import assemble_lead_detail
 
+    now = datetime.utcnow()
     lead_repo = LeadRepository(db)
-    event_write_repo = LeadEventWriteRepository(db)
     prefs_repo = WatcherRepository(db)
 
+    # Verify existence and tenant ownership before assembling
     lead = lead_repo.get_by_agent_id_str(lead_id)
     if lead is None:
-        from api.exceptions import NotFoundException
-        from api.models.error_models import ErrorCode
-        raise NotFoundException(
-            message="Lead not found",
-            code=ErrorCode.NOT_FOUND_LEAD,
-        )
+        raise NotFoundException(message="Lead not found", code=ErrorCode.NOT_FOUND_LEAD)
 
-    # Tenant isolation — 403 for cross-agent access (Requirement 18.2)
     if lead.agent_user_id != agent.id:
-        from api.exceptions import AuthorizationException
-        from api.models.error_models import ErrorCode
         raise AuthorizationException(
             message="Access to this lead is not permitted",
             code=ErrorCode.AUTH_FORBIDDEN,
@@ -395,30 +388,44 @@ def get_lead_detail(
     prefs = prefs_repo.get_config_by_agent_id(agent.id)
     sla_minutes_hot: int = prefs.sla_minutes_hot if prefs else 5
     is_aging = False
-    bucket_val = lead.score_bucket or ""
+    bucket_val = getattr(lead, "score_bucket", None) or ""
     if bucket_val == "HOT" and lead.last_agent_action_at is None and lead.created_at:
         is_aging = (now - lead.created_at) > timedelta(minutes=sla_minutes_hot)
     elif bucket_val == "WARM" and lead.created_at:
         is_aging = (now - lead.created_at) > timedelta(hours=24)
 
+    # Delegate to assembler
+    detail = assemble_lead_detail(db, lead_id=lead_id, company_id=getattr(lead, "company_id", None))
+    if detail is None:
+        raise NotFoundException(message="Lead not found", code=ErrorCode.NOT_FOUND_LEAD)
+
+    # Build EnrichedLead from assembler core
     enriched = EnrichedLead(
-        id=lead.id,
-        name=lead.name or "",
-        phone=getattr(lead, "phone", None),
-        score=lead.score,
-        score_bucket=lead.score_bucket,
-        current_state=lead.agent_current_state,
-        source=lead.lead_source_name,
-        address=lead.property_address,
-        listing_url=lead.listing_url,
-        created_at=lead.created_at,
-        last_agent_action_at=lead.last_agent_action_at,
+        id=detail.core.id,
+        name=detail.core.name,
+        phone=detail.core.phone,
+        score=getattr(lead, "score", None),
+        score_bucket=getattr(lead, "score_bucket", None),
+        current_state=detail.core.agent_current_state,
+        source=detail.core.lead_source_name,
+        address=detail.core.property_address,
+        listing_url=detail.core.listing_url,
+        created_at=detail.core.created_at,
+        last_agent_action_at=detail.core.last_agent_action_at,
         is_aging=is_aging,
     )
 
-    # Scoring breakdown from JSON column
+    # Scoring breakdown — prefer qualification summary, fall back to lead column
     scoring_breakdown: Optional[ScoringBreakdown] = None
-    if lead.score_breakdown:
+    if detail.qualification is not None and detail.qualification.breakdown:
+        scoring_breakdown = ScoringBreakdown(
+            total=detail.qualification.score,
+            factors=[
+                ScoreFactor(label=f.label, points=f.points, met=f.met)
+                for f in detail.qualification.breakdown
+            ],
+        )
+    elif getattr(lead, "score_breakdown", None):
         try:
             raw = json.loads(lead.score_breakdown)
             factors = [
@@ -429,55 +436,42 @@ def get_lead_detail(
                 )
                 for f in raw.get("factors", [])
             ]
-            scoring_breakdown = ScoringBreakdown(
-                total=lead.score or 0,
-                factors=factors,
-            )
+            scoring_breakdown = ScoringBreakdown(total=lead.score or 0, factors=factors)
         except (json.JSONDecodeError, TypeError):
             pass
 
-    # Timeline — all events ordered by created_at ASC
-    events = event_write_repo.list_for_lead(lead_id)
-
+    # Build timeline, rendered_emails, notes from unified activity timeline
     timeline: List[TimelineEvent] = []
     rendered_emails: List[RenderedEmail] = []
     notes: List[NoteItem] = []
 
-    for ev in events:
-        payload_dict: Optional[Dict[str, Any]] = None
-        if ev.payload:
-            try:
-                payload_dict = json.loads(ev.payload)
-            except (json.JSONDecodeError, TypeError):
-                payload_dict = None
-
+    for entry in detail.timeline:
         timeline.append(
             TimelineEvent(
-                id=ev.id,
-                event_type=ev.event_type,
-                payload=payload_dict,
-                created_at=ev.created_at,
+                id=entry.id,
+                event_type=entry.event_type,
+                payload=entry.metadata or None,
+                created_at=entry.occurred_at,
             )
         )
 
-        # Extract rendered emails from INVITE_SENT / POST_EMAIL_SENT events
-        if ev.event_type in ("INVITE_SENT", "POST_EMAIL_SENT") and payload_dict:
+        # Extract rendered emails from legacy INVITE_SENT / POST_EMAIL_SENT events
+        if entry.event_type in ("INVITE_SENT", "POST_EMAIL_SENT") and entry.metadata:
             rendered_emails.append(
                 RenderedEmail(
-                    type=ev.event_type,
-                    subject=payload_dict.get("subject", ""),
-                    body=payload_dict.get("body", ""),
-                    sent_at=ev.created_at,
+                    type=entry.event_type,
+                    subject=entry.metadata.get("subject", ""),
+                    body=entry.metadata.get("body", ""),
+                    sent_at=entry.occurred_at,
                 )
             )
 
         # Extract notes from NOTE_ADDED events
-        if ev.event_type == "NOTE_ADDED" and payload_dict:
-            rendered_emails  # noqa — just referencing to avoid unused warning
+        if entry.event_type == "NOTE_ADDED" and entry.metadata:
             notes.append(
                 NoteItem(
-                    text=payload_dict.get("text", ""),
-                    created_at=ev.created_at,
+                    text=entry.metadata.get("text", ""),
+                    created_at=entry.occurred_at,
                 )
             )
 

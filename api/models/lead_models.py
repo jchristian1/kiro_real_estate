@@ -11,7 +11,7 @@ Requirements:
 - 5.7: Display processing status and response status for each Lead
 """
 
-from typing import Optional
+from typing import Any, Dict, List, Optional
 from datetime import datetime
 from pydantic import BaseModel
 
@@ -53,3 +53,64 @@ class LeadListResponse(BaseModel):
     page: int
     per_page: int
     pages: int
+
+
+# ---------------------------------------------------------------------------
+# Unified lead detail response models (Phase 3C)
+# ---------------------------------------------------------------------------
+
+
+class LeadCoreInfoResponse(BaseModel):
+    id: int
+    name: str
+    phone: Optional[str] = None
+    source_email: str
+    created_at: datetime
+    property_address: Optional[str] = None
+    listing_url: Optional[str] = None
+    lead_source_name: Optional[str] = None
+    agent_current_state: Optional[str] = None
+    last_agent_action_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class LeadStageInfoResponse(BaseModel):
+    stage_id: int
+    stage_name: str
+    stage_key: str
+    stage_color: str
+    stage_category: str
+    stage_entered_at: Optional[datetime] = None
+
+
+class ScoreFactorResponse(BaseModel):
+    label: str
+    points: int
+    met: bool
+
+
+class LeadQualificationSummaryResponse(BaseModel):
+    score: int
+    bucket: str
+    explanation_text: Optional[str] = None
+    breakdown: List[ScoreFactorResponse] = []
+    submitted_at: Optional[datetime] = None
+    invitation_sent_at: Optional[datetime] = None
+
+
+class ActivityTimelineEntryResponse(BaseModel):
+    id: int
+    event_type: str
+    actor_source: Optional[str] = None
+    metadata: Dict[str, Any] = {}
+    occurred_at: datetime
+
+
+class UnifiedLeadDetailResponse(BaseModel):
+    """Unified lead detail — single coherent object for agent and admin views."""
+    core: LeadCoreInfoResponse
+    stage: Optional[LeadStageInfoResponse] = None
+    qualification: Optional[LeadQualificationSummaryResponse] = None
+    timeline: List[ActivityTimelineEntryResponse] = []
