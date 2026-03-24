@@ -111,9 +111,9 @@ class TestSendEmailTemplateHandler:
 
         with (
             patch("api.pipelines.handlers.send_email.resolve_lead_company_id", return_value=10),
-            patch("api.pipelines.handlers.send_email._render_admin_template", return_value=("Subject", "Body")),
-            patch("api.pipelines.handlers.send_email._get_smtp_credentials", return_value=("from@x.com", "pw")),
-            patch("api.pipelines.handlers.send_email._send_via_smtp"),
+            patch("api.communications.template_render.TemplateRenderService.render_admin_template", return_value=("Subject", "Body")),
+            patch("api.communications.email_delivery.EmailDeliveryService.send", return_value=True),
+            patch("api.services.lead_activity.record_activity"),
         ):
             result = handler.execute(db, lead_id=1, config={"template_id": 3}, context={})
 
@@ -129,14 +129,13 @@ class TestSendEmailTemplateHandler:
 
         with (
             patch("api.pipelines.handlers.send_email.resolve_lead_company_id", return_value=10),
-            patch("api.pipelines.handlers.send_email._render_admin_template", return_value=("S", "B")),
-            patch("api.pipelines.handlers.send_email._get_smtp_credentials", return_value=("f@x.com", "pw")),
-            patch("api.pipelines.handlers.send_email._send_via_smtp", side_effect=RuntimeError("SMTP failed")),
+            patch("api.communications.template_render.TemplateRenderService.render_admin_template", return_value=("S", "B")),
+            patch("api.communications.email_delivery.EmailDeliveryService.send", return_value=False),
         ):
             result = handler.execute(db, lead_id=1, config={"template_id": 3}, context={})
 
         assert result.success is False
-        assert "SMTP failed" in result.error
+        assert "delivery failed" in result.error
 
 
 # ---------------------------------------------------------------------------
@@ -294,8 +293,8 @@ class TestStageEnterChaining:
 
 
 class TestFormLinkBoundary:
-    """Verify that _render_admin_template delegates {form_link} to the
-    qualification module and does not create invitations inline.
+    """Verify that TemplateRenderService.render_admin_template delegates {form_link}
+    to the qualification module and does not create invitations inline.
     """
 
     def _make_mock_template(self, subject: str, body: str):
@@ -303,8 +302,9 @@ class TestFormLinkBoundary:
 
     def test_form_link_delegates_to_qualification_module(self):
         """{form_link} in template must call get_or_create_form_link, not FormInvitationService directly."""
-        from api.pipelines.handlers.send_email import _render_admin_template
+        from api.communications.template_render import TemplateRenderService
 
+        svc = TemplateRenderService()
         db = MagicMock()
         lead = SimpleNamespace(id=1, name="Alice", company_id=10)
         mock_tpl = SimpleNamespace(subject="Hi {lead_name}", body="Click {form_link}")
@@ -320,15 +320,16 @@ class TestFormLinkBoundary:
             MockRepo.return_value.get_by_id.return_value = mock_tpl
             db.query.return_value.filter.return_value.first.return_value = None
 
-            subject, body = _render_admin_template(db, template_id=1, lead=lead, tenant_id=10)
+            subject, body = svc.render_admin_template(db, template_id=1, lead=lead, tenant_id=10)
 
         mock_get_link.assert_called_once_with(db, 10, 1)
         assert "https://example.com/form/abc123" in body
 
     def test_no_form_link_placeholder_skips_qualification_call(self):
         """Templates without {form_link} must not call get_or_create_form_link at all."""
-        from api.pipelines.handlers.send_email import _render_admin_template
+        from api.communications.template_render import TemplateRenderService
 
+        svc = TemplateRenderService()
         db = MagicMock()
         lead = SimpleNamespace(id=1, name="Bob", company_id=10)
         mock_tpl = SimpleNamespace(subject="Hello {lead_name}", body="No form link here.")
@@ -343,7 +344,7 @@ class TestFormLinkBoundary:
             MockRepo.return_value.get_by_id.return_value = mock_tpl
             db.query.return_value.filter.return_value.first.return_value = None
 
-            _render_admin_template(db, template_id=1, lead=lead, tenant_id=10)
+            svc.render_admin_template(db, template_id=1, lead=lead, tenant_id=10)
 
         mock_get_link.assert_not_called()
 

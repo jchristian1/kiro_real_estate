@@ -366,9 +366,8 @@ class TestPhase3BEmission:
 
         with (
             patch("api.pipelines.handlers.send_email.resolve_lead_company_id", return_value=7),
-            patch("api.pipelines.handlers.send_email._render_admin_template", return_value=("subj", "body")),
-            patch("api.pipelines.handlers.send_email._get_smtp_credentials", return_value=("from@x.com", "pw")),
-            patch("api.pipelines.handlers.send_email._send_via_smtp"),
+            patch("api.communications.template_render.TemplateRenderService.render_admin_template", return_value=("subj", "body")),
+            patch("api.communications.email_delivery.EmailDeliveryService.send", return_value=True),
             patch("api.services.lead_activity.record_activity") as mock_record,
         ):
             db.query.return_value.filter.return_value.first.return_value = mock_lead
@@ -390,9 +389,8 @@ class TestPhase3BEmission:
 
         with (
             patch("api.pipelines.handlers.send_email.resolve_lead_company_id", return_value=7),
-            patch("api.pipelines.handlers.send_email._render_admin_template", return_value=("subj", "body")),
-            patch("api.pipelines.handlers.send_email._get_smtp_credentials", return_value=("from@x.com", "pw")),
-            patch("api.pipelines.handlers.send_email._send_via_smtp", side_effect=RuntimeError("smtp down")),
+            patch("api.communications.template_render.TemplateRenderService.render_admin_template", return_value=("subj", "body")),
+            patch("api.communications.email_delivery.EmailDeliveryService.send", return_value=False),
             patch("api.services.lead_activity.record_activity") as mock_record,
         ):
             db.query.return_value.filter.return_value.first.return_value = mock_lead

@@ -174,7 +174,7 @@ class TestSendEmailHandlerUsesDeliveryService:
 
         with (
             patch("api.pipelines.handlers.send_email.resolve_lead_company_id", return_value=7),
-            patch("api.pipelines.handlers.send_email._render_admin_template", return_value=("subj", "body")),
+            patch("api.communications.template_render.TemplateRenderService.render_admin_template", return_value=("subj", "body")),
             patch("api.communications.email_delivery.EmailDeliveryService.send", return_value=True) as mock_send,
             patch("api.services.lead_activity.record_activity"),
         ):
@@ -194,7 +194,7 @@ class TestSendEmailHandlerUsesDeliveryService:
 
         with (
             patch("api.pipelines.handlers.send_email.resolve_lead_company_id", return_value=7),
-            patch("api.pipelines.handlers.send_email._render_admin_template", return_value=("subj", "body")),
+            patch("api.communications.template_render.TemplateRenderService.render_admin_template", return_value=("subj", "body")),
             patch("api.communications.email_delivery.EmailDeliveryService.send", return_value=False),
         ):
             db.query.return_value.filter.return_value.first.return_value = mock_lead
@@ -230,6 +230,10 @@ class TestQualificationHandlerUsesDeliveryService:
             "_get_tenant_email_credentials must be removed — use EmailDeliveryService"
         assert not hasattr(handlers_module, "_send_email"), \
             "_send_email must be removed — use EmailDeliveryService"
+        assert not hasattr(handlers_module, "_resolve_agent_template"), \
+            "_resolve_agent_template must be removed — use TemplateRenderService"
+        assert not hasattr(handlers_module, "_render_agent_template"), \
+            "_render_agent_template must be removed — use TemplateRenderService"
 
     def test_old_credential_helpers_removed_from_send_email_handler(self):
         import api.pipelines.handlers.send_email as send_email_module
@@ -238,3 +242,141 @@ class TestQualificationHandlerUsesDeliveryService:
             "_get_smtp_credentials must be removed — use EmailDeliveryService"
         assert not hasattr(send_email_module, "_send_via_smtp"), \
             "_send_via_smtp must be removed — use EmailDeliveryService"
+
+
+# ---------------------------------------------------------------------------
+# Phase 4C: TemplateRenderService
+# ---------------------------------------------------------------------------
+
+class TestTemplateRenderService:
+    """Unit tests for TemplateRenderService."""
+
+    # --- render_admin_template ---
+
+    def test_render_admin_template_substitutes_placeholders(self):
+        from api.communications.template_render import TemplateRenderService
+        from types import SimpleNamespace
+
+        svc = TemplateRenderService()
+        db = MagicMock()
+        lead = SimpleNamespace(id=1, name="Alice Smith", source_email="alice@x.com")
+        mock_tpl = SimpleNamespace(subject="Hi {lead_name}", body="Call {agent_phone}")
+        mock_agent = SimpleNamespace(full_name="Bob Agent", phone="555-1234", email="bob@x.com")
+
+        with (
+            patch("api.repositories.template_repository.AdminTemplateRepository") as MockRepo,
+            patch("gmail_lead_sync.agent_models.AgentUser"),
+        ):
+            MockRepo.return_value.get_by_id.return_value = mock_tpl
+            db.query.return_value.filter.return_value.first.return_value = mock_agent
+
+            subject, body = svc.render_admin_template(db, template_id=1, lead=lead, tenant_id=5)
+
+        assert subject == "Hi Alice Smith"
+        assert "555-1234" in body
+
+    def test_render_admin_template_raises_when_not_found(self):
+        from api.communications.template_render import TemplateRenderService
+        from types import SimpleNamespace
+
+        svc = TemplateRenderService()
+        db = MagicMock()
+        lead = SimpleNamespace(id=1, name="Alice", source_email="a@x.com")
+
+        with (
+            patch("api.repositories.template_repository.AdminTemplateRepository") as MockRepo,
+            patch("gmail_lead_sync.agent_models.AgentUser"),
+        ):
+            MockRepo.return_value.get_by_id.return_value = None
+            db.query.return_value.filter.return_value.first.return_value = None
+
+            with pytest.raises(ValueError, match="not found"):
+                svc.render_admin_template(db, template_id=99, lead=lead, tenant_id=5)
+
+    # --- render_agent_template ---
+
+    def test_render_agent_template_returns_none_when_no_agent(self):
+        from api.communications.template_render import TemplateRenderService
+
+        svc = TemplateRenderService()
+        db = MagicMock()
+        db.query.return_value.filter.return_value.first.return_value = None
+
+        with patch("gmail_lead_sync.agent_models.AgentUser"):
+            result = svc.render_agent_template(db, tenant_id=5, template_type="INITIAL_INVITE", context={})
+
+        assert result is None
+
+    def test_render_agent_template_returns_none_when_no_active_template(self):
+        from api.communications.template_render import TemplateRenderService
+        from types import SimpleNamespace
+
+        svc = TemplateRenderService()
+        db = MagicMock()
+        mock_agent = SimpleNamespace(id=10)
+
+        # First query (AgentUser) returns agent, second (AgentTemplate) returns None
+        db.query.return_value.filter.return_value.first.side_effect = [mock_agent, None]
+
+        with (
+            patch("gmail_lead_sync.agent_models.AgentUser"),
+            patch("gmail_lead_sync.agent_models.AgentTemplate"),
+        ):
+            result = svc.render_agent_template(db, tenant_id=5, template_type="INITIAL_INVITE", context={})
+
+        assert result is None
+
+    def test_render_agent_template_substitutes_placeholders(self):
+        from api.communications.template_render import TemplateRenderService
+        from types import SimpleNamespace
+
+        svc = TemplateRenderService()
+        db = MagicMock()
+        mock_agent = SimpleNamespace(id=10)
+        mock_row = SimpleNamespace(subject="Hello {lead_name}", body="Link: {form_link}")
+
+        db.query.return_value.filter.return_value.first.side_effect = [mock_agent, mock_row]
+
+        with (
+            patch("gmail_lead_sync.agent_models.AgentUser"),
+            patch("gmail_lead_sync.agent_models.AgentTemplate"),
+        ):
+            result = svc.render_agent_template(
+                db, tenant_id=5, template_type="INITIAL_INVITE",
+                context={"lead_name": "Jane", "form_link": "https://form.example.com"},
+            )
+
+        assert result is not None
+        subject, body = result
+        assert subject == "Hello Jane"
+        assert "https://form.example.com" in body
+
+    def test_render_agent_template_returns_none_on_exception(self):
+        """render_agent_template must return None (not raise) on unexpected errors."""
+        from api.communications.template_render import TemplateRenderService
+
+        svc = TemplateRenderService()
+        db = MagicMock()
+        db.query.side_effect = RuntimeError("db exploded")
+
+        result = svc.render_agent_template(db, tenant_id=5, template_type="INITIAL_INVITE", context={})
+
+        assert result is None
+
+    # --- send_email handler uses TemplateRenderService ---
+
+    def test_send_email_handler_no_longer_has_render_admin_template(self):
+        """_render_admin_template must not exist in send_email.py — rendering moved to TemplateRenderService."""
+        import api.pipelines.handlers.send_email as send_email_module
+
+        assert not hasattr(send_email_module, "_render_admin_template"), \
+            "_render_admin_template must be removed from send_email.py — use TemplateRenderService"
+
+    def test_qualification_handler_no_longer_has_agent_template_helpers(self):
+        """_resolve_agent_template and _render_agent_template must not exist in handlers.py."""
+        import gmail_lead_sync.preapproval.handlers as handlers_module
+
+        assert not hasattr(handlers_module, "_resolve_agent_template"), \
+            "_resolve_agent_template must be removed — use TemplateRenderService"
+        assert not hasattr(handlers_module, "_render_agent_template"), \
+            "_render_agent_template must be removed — use TemplateRenderService"

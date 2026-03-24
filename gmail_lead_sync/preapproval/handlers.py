@@ -137,60 +137,6 @@ def _resolve_active_message_template(
     )
 
 
-def _resolve_agent_template(
-    db: Session,
-    tenant_id: int,
-    template_type: str,
-) -> tuple[str, str] | None:
-    try:
-        from gmail_lead_sync.agent_models import AgentUser, AgentTemplate
-        agent = db.query(AgentUser).filter(AgentUser.company_id == tenant_id).first()
-        if agent is None:
-            return None
-        row = (
-            db.query(AgentTemplate)
-            .filter(
-                AgentTemplate.agent_user_id == agent.id,
-                AgentTemplate.template_type == template_type,
-                AgentTemplate.is_active.is_(True),
-            )
-            .first()
-        )
-        if row is None:
-            return None
-        return row.subject, row.body
-    except Exception as exc:
-        logger.warning("Could not resolve AgentTemplate tenant=%d type=%s: %s", tenant_id, template_type, exc)
-        return None
-
-
-def _render_agent_template(subject_tpl: str, body_tpl: str, context: dict) -> tuple[str, str]:
-    mapping = {
-        "{lead_name}": context.get("lead_name", ""),
-        "{agent_name}": context.get("agent_name", ""),
-        "{agent_phone}": context.get("agent_phone", ""),
-        "{agent_email}": context.get("agent_email", ""),
-        "{form_link}": context.get("form_link", ""),
-    }
-    subject, body = subject_tpl, body_tpl
-    for placeholder, value in mapping.items():
-        subject = subject.replace(placeholder, value)
-        body = body.replace(placeholder, value)
-    return subject, body
-
-
-_delivery = None
-
-
-def _get_delivery():
-    """Lazy singleton for EmailDeliveryService — avoids circular import at module load."""
-    global _delivery
-    if _delivery is None:
-        from api.communications.email_delivery import EmailDeliveryService
-        _delivery = EmailDeliveryService()
-    return _delivery
-
-
 def _resolve_active_scoring_version(
     db: Session,
     tenant_id: int,
@@ -221,6 +167,30 @@ def _validate_answers(answers_payload: dict, form_version: FormVersion) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Lazy singletons — avoid circular imports at module load
+# ---------------------------------------------------------------------------
+
+_delivery = None
+_renderer = None
+
+
+def _get_delivery():
+    global _delivery
+    if _delivery is None:
+        from api.communications.email_delivery import EmailDeliveryService
+        _delivery = EmailDeliveryService()
+    return _delivery
+
+
+def _get_renderer():
+    global _renderer
+    if _renderer is None:
+        from api.communications.template_render import TemplateRenderService
+        _renderer = TemplateRenderService()
+    return _renderer
+
+
+# ---------------------------------------------------------------------------
 # Handler: send qualification form
 # ---------------------------------------------------------------------------
 
@@ -238,10 +208,11 @@ def on_buyer_lead_email_received(
     Steps:
     1. Resolve active FormVersion; return if none.
     2. Create FormInvitation (raw token for URL).
-    3. Render email via AdminTemplate or AgentTemplate or MessageTemplate.
-    4. Send email via tenant SMTP credentials.
+    3. Render email via AgentTemplate (TemplateRenderService) or MessageTemplate.
+    4. Send email via EmailDeliveryService.
     5. Mark invitation.sent_at; update lead.agent_current_state.
     6. Record outbound LeadInteraction.
+    7. Record structured activity (only when email sent).
     """
     # 1. Resolve active FormVersion
     form_version = resolve_active_form_version(db, tenant_id, IntentType.BUY)
@@ -265,21 +236,25 @@ def on_buyer_lead_email_received(
     tenant_row = db.execute(_text("SELECT name FROM companies WHERE id = :tid"), {"tid": tenant_id}).fetchone()
     tenant_name = tenant_row[0] if tenant_row else ""
 
-    agent_tpl = _resolve_agent_template(db, tenant_id, "INITIAL_INVITE")
-    if agent_tpl is not None:
-        from gmail_lead_sync.agent_models import AgentUser as _AgentUser
-        _agent = db.query(_AgentUser).filter(_AgentUser.company_id == tenant_id).first()
-        rendered_subject, rendered_body = _render_agent_template(
-            agent_tpl[0], agent_tpl[1],
-            {
-                "lead_name": lead.name or first_name,
-                "agent_name": (_agent.full_name if _agent else tenant_name) or "",
-                "agent_phone": (_agent.phone if _agent else "") or "",
-                "agent_email": (_agent.email if _agent else "") or "",
-                "form_link": build_form_url(raw_token),
-            },
-        )
+    # Try AgentTemplate first via TemplateRenderService
+    from gmail_lead_sync.agent_models import AgentUser as _AgentUser
+    _agent = db.query(_AgentUser).filter(_AgentUser.company_id == tenant_id).first()
+
+    agent_rendered = _get_renderer().render_agent_template(
+        db, tenant_id, "INITIAL_INVITE",
+        {
+            "lead_name": lead.name or first_name,
+            "agent_name": (_agent.full_name if _agent else tenant_name) or "",
+            "agent_phone": (_agent.phone if _agent else "") or "",
+            "agent_email": (_agent.email if _agent else "") or "",
+            "form_link": build_form_url(raw_token),
+        },
+    )
+
+    if agent_rendered is not None:
+        rendered_subject, rendered_body = agent_rendered
     else:
+        # Fall back to MessageTemplate (double-brace syntax via TemplateRenderEngine)
         msg_version = _resolve_active_message_template(
             db, tenant_id=tenant_id, intent_type=IntentType.BUY,
             key=MessageTemplateKey.INITIAL_INVITE_EMAIL,

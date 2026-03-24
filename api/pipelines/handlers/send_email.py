@@ -2,7 +2,7 @@
 send_email_template / send_bucket_followup_email action handler.
 
 Validates config, resolves tenant credentials via EmailDeliveryService,
-renders the AdminTemplate, and sends via SMTP.
+renders the AdminTemplate via TemplateRenderService, and sends via SMTP.
 
 Config schema:
     { "template_id": <int> }
@@ -15,60 +15,13 @@ import logging
 from sqlalchemy.orm import Session
 
 from api.communications.email_delivery import EmailDeliveryService
+from api.communications.template_render import TemplateRenderService
 from api.pipelines.handlers.base import ActionResult, resolve_lead_company_id
 
 logger = logging.getLogger(__name__)
 
 _delivery = EmailDeliveryService()
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers (rendering only — delivery is owned by EmailDeliveryService)
-# ---------------------------------------------------------------------------
-
-
-def _render_admin_template(
-    db: Session, template_id: int, lead, tenant_id: int
-) -> tuple[str, str]:
-    """Render AdminTemplate with lead/agent placeholders.
-
-    Handles {form_link} by delegating to the qualification module's public
-    interface (get_or_create_form_link). This handler does not create
-    qualification invitations/tokens directly.
-    Returns (subject, body). Raises ValueError if template not found.
-    """
-    from api.repositories.template_repository import AdminTemplateRepository
-    from gmail_lead_sync.agent_models import AgentUser
-
-    repo = AdminTemplateRepository(db)
-    tpl = repo.get_by_id(template_id)
-    if tpl is None:
-        raise ValueError(f"AdminTemplate {template_id} not found")
-
-    agent = db.query(AgentUser).filter(AgentUser.company_id == tenant_id).first()
-
-    form_link = ""
-    if "{form_link}" in tpl.subject or "{form_link}" in tpl.body:
-        from gmail_lead_sync.preapproval.handlers import get_or_create_form_link
-        form_link = get_or_create_form_link(db, tenant_id, lead.id)
-
-    placeholders = {
-        "{lead_name}": lead.name or "",
-        "{agent_name}": (agent.full_name if agent else "") or "",
-        "{agent_phone}": (agent.phone if agent else "") or "",
-        "{agent_email}": (agent.email if agent else "") or "",
-        "{form_link}": form_link,
-    }
-    subject, body = tpl.subject, tpl.body
-    for key, value in placeholders.items():
-        subject = subject.replace(key, value)
-        body = body.replace(key, value)
-    return subject, body
-
-
-# ---------------------------------------------------------------------------
-# Handler
-# ---------------------------------------------------------------------------
+_renderer = TemplateRenderService()
 
 
 class SendEmailTemplateHandler:
@@ -114,7 +67,7 @@ class SendEmailTemplateHandler:
                     error=f"Cannot resolve company_id for lead {lead_id}",
                 )
 
-            subject, body = _render_admin_template(db, template_id, lead, tenant_id)
+            subject, body = _renderer.render_admin_template(db, template_id, lead, tenant_id)
 
             ok = _delivery.send(db, tenant_id, lead.source_email, subject, body)
             if not ok:
