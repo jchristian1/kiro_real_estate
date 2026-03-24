@@ -37,6 +37,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from api.repositories.audit_repository import AuditRepository
+from api.repositories.watcher_coordination_repository import WatcherStatusRepository
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ class HealthResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Dependencies (imported lazily to avoid circular imports)
+# Dependencies
 # ---------------------------------------------------------------------------
 
 def get_db():
@@ -73,16 +74,6 @@ def get_db():
         db.close()
 
 
-def get_watcher_registry():
-    from api.main import watcher_registry
-    return watcher_registry
-
-
-# Keep private aliases for backward compatibility
-_get_db = get_db
-_get_registry = get_watcher_registry
-
-
 # ---------------------------------------------------------------------------
 # Endpoint
 # ---------------------------------------------------------------------------
@@ -90,7 +81,6 @@ _get_registry = get_watcher_registry
 @router.get("/health", response_model=HealthResponse)
 async def health_check(
     db: Session = Depends(get_db),
-    registry=Depends(get_watcher_registry),
 ):
     """
     Public health check — no authentication required.
@@ -112,7 +102,6 @@ async def health_check(
 
     database_str = "connected" if db_ok else "error"
 
-    # If DB is down return 503 immediately — no point querying further.
     if not db_ok:
         return JSONResponse(
             status_code=503,
@@ -126,26 +115,24 @@ async def health_check(
         )
 
     # ------------------------------------------------------------------
-    # 2. Watcher info from WatcherRegistry
+    # 2. Watcher info from watcher_status DB table
     # ------------------------------------------------------------------
-    try:
-        all_statuses = await registry.get_all_statuses()
-    except Exception as exc:
-        logger.error("Health check: could not retrieve watcher statuses: %s", exc, exc_info=True)
-        all_statuses = {}
-
     active_watchers = 0
     watchers: Dict[str, WatcherEntry] = {}
 
-    for agent_id, info in all_statuses.items():
-        status_str = info.get("status", "unknown")
-        last_heartbeat = info.get("last_heartbeat")  # already ISO string or None
-        if status_str == "running":
-            active_watchers += 1
-        watchers[agent_id] = WatcherEntry(
-            status=status_str,
-            last_heartbeat=last_heartbeat,
-        )
+    try:
+        status_repo = WatcherStatusRepository(db)
+        all_rows = status_repo.list_all()
+        for row in all_rows:
+            last_hb = row.last_heartbeat.isoformat() + "Z" if row.last_heartbeat else None
+            if row.status == "running":
+                active_watchers += 1
+            watchers[row.agent_id] = WatcherEntry(
+                status=row.status,
+                last_heartbeat=last_hb,
+            )
+    except Exception as exc:
+        logger.error("Health check: could not retrieve watcher statuses: %s", exc, exc_info=True)
 
     # ------------------------------------------------------------------
     # 3. Error count from the last 24 hours (via AuditRepository)
@@ -161,9 +148,7 @@ async def health_check(
     # ------------------------------------------------------------------
     # 4. Overall status
     # ------------------------------------------------------------------
-    failed_watchers = sum(
-        1 for info in all_statuses.values() if info.get("status") == "failed"
-    )
+    failed_watchers = sum(1 for w in watchers.values() if w.status == "failed")
     if failed_watchers > 0 or errors_last_24h > 50:
         overall_status = "degraded"
     else:
