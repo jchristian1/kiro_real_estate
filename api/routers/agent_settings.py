@@ -436,10 +436,13 @@ def save_template_by_type(
         )
         return TemplateSaveResponse(ok=True, template_id=new_tmpl.id, version=new_tmpl.version)
     else:
+        update_data: dict = {"subject": body.subject, "body": body.body}
+        if body.tone is not None:
+            update_data["tone"] = body.tone
         updated = repo.update(
             existing.id,
             agent.id,
-            TemplateUpdate(subject=body.subject, body=body.body, tone=body.tone),
+            TemplateUpdate(**update_data),
         )
         if updated is None:
             updated = existing

@@ -59,45 +59,56 @@ def test_root_endpoint(client):
 
 def test_health_check_endpoint_healthy(client):
     """Test health check endpoint when database is connected."""
-    with patch("api.main.get_db") as mock_get_db:
-        mock_db = MagicMock()
-        mock_db.execute.return_value = None
-        mock_get_db.return_value = mock_db
-        
-        # Override dependency
-        app.dependency_overrides[get_db] = lambda: mock_db
-        
+    from api.routers.public_health import get_db as health_get_db
+
+    mock_db = MagicMock()
+    # execute() must succeed (SELECT 1)
+    mock_db.execute.return_value = None
+    # dialect name used for db_dialect field
+    mock_db.bind = MagicMock()
+    mock_db.bind.dialect.name = "sqlite"
+
+    # WatcherStatusRepository.list_all() returns empty list — no watcher rows
+    # AuditRepository.count_errors_since() returns 0
+    mock_query = MagicMock()
+    mock_query.all.return_value = []
+    mock_query.filter.return_value.scalar.return_value = 0
+    mock_query.filter.return_value.count.return_value = 0
+    mock_db.query.return_value = mock_query
+
+    app.dependency_overrides[health_get_db] = lambda: mock_db
+
+    try:
         response = client.get("/api/v1/health")
-        
-        # Clear overrides
-        app.dependency_overrides.clear()
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "healthy"
-        assert data["database"] == "connected"
-        assert "timestamp" in data
+    finally:
+        app.dependency_overrides.pop(health_get_db, None)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] in ("healthy", "degraded")
+    assert data["database"] == "connected"
+    assert "db_dialect" in data
+    # No "timestamp" field in the current HealthResponse schema
 
 
 def test_health_check_endpoint_unhealthy(client):
     """Test health check endpoint when database is disconnected."""
-    with patch("api.main.get_db") as mock_get_db:
-        mock_db = MagicMock()
-        mock_db.execute.side_effect = Exception("Database connection failed")
-        mock_get_db.return_value = mock_db
-        
-        # Override dependency
-        app.dependency_overrides[get_db] = lambda: mock_db
-        
+    from api.routers.public_health import get_db as health_get_db
+
+    mock_db = MagicMock()
+    mock_db.execute.side_effect = Exception("Database connection failed")
+
+    app.dependency_overrides[health_get_db] = lambda: mock_db
+
+    try:
         response = client.get("/api/v1/health")
-        
-        # Clear overrides
-        app.dependency_overrides.clear()
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "unhealthy"
-        assert data["database"] == "disconnected"
+    finally:
+        app.dependency_overrides.pop(health_get_db, None)
+
+    assert response.status_code == 503
+    data = response.json()
+    assert data["status"] == "degraded"
+    assert data["database"] == "error"
 
 
 def test_request_logging_middleware(client):

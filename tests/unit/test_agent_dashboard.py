@@ -58,6 +58,8 @@ app.dependency_overrides[get_db] = override_get_db
 def setup_db():
     """Create all tables before each test and drop after."""
     Base.metadata.create_all(bind=engine)
+    # Re-register override every test — other test files may overwrite it
+    app.dependency_overrides[get_db] = override_get_db
     # Create a default LeadSource so Lead FK is satisfied
     db = TestingSessionLocal()
     ls = LeadSource(

@@ -56,6 +56,8 @@ client = TestClient(app, raise_server_exceptions=True)
 @pytest.fixture(autouse=True)
 def setup_db():
     Base.metadata.create_all(bind=engine)
+    # Re-register override every test — other test files may overwrite it
+    app.dependency_overrides[get_db] = override_get_db
     db = TestingSessionLocal()
     ls = LeadSource(
         sender_email="leads@test.com",
@@ -169,7 +171,7 @@ def test_list_templates_with_override_is_custom_true():
 
 def test_put_template_unauthenticated():
     resp = client.put(
-        "/api/v1/agent/templates/INITIAL_INVITE",
+        "/api/v1/agent/templates/by-type/INITIAL_INVITE",
         json={"subject": "Hi", "body": "Body"},
     )
     assert resp.status_code == 401
@@ -178,7 +180,7 @@ def test_put_template_unauthenticated():
 def test_put_template_creates_with_version_1():
     _, token = _create_agent()
     resp = client.put(
-        "/api/v1/agent/templates/INITIAL_INVITE",
+        "/api/v1/agent/templates/by-type/INITIAL_INVITE",
         json={"subject": "Hello {lead_name}", "body": "Welcome!"},
         cookies=_auth_cookies(token),
     )
@@ -193,7 +195,7 @@ def test_put_template_increments_version_on_update():
     _, token = _create_agent()
     # First save
     resp1 = client.put(
-        "/api/v1/agent/templates/POST_HOT",
+        "/api/v1/agent/templates/by-type/POST_HOT",
         json={"subject": "v1 subject", "body": "v1 body"},
         cookies=_auth_cookies(token),
     )
@@ -201,7 +203,7 @@ def test_put_template_increments_version_on_update():
 
     # Second save — version should be 2
     resp2 = client.put(
-        "/api/v1/agent/templates/POST_HOT",
+        "/api/v1/agent/templates/by-type/POST_HOT",
         json={"subject": "v2 subject", "body": "v2 body"},
         cookies=_auth_cookies(token),
     )
@@ -213,7 +215,7 @@ def test_put_template_multiple_saves_increment_monotonically():
     _, token = _create_agent()
     for expected_version in range(1, 5):
         resp = client.put(
-            "/api/v1/agent/templates/POST_WARM",
+            "/api/v1/agent/templates/by-type/POST_WARM",
             json={"subject": f"v{expected_version}", "body": "body"},
             cookies=_auth_cookies(token),
         )
@@ -224,7 +226,7 @@ def test_put_template_multiple_saves_increment_monotonically():
 def test_put_template_invalid_type_returns_422():
     _, token = _create_agent()
     resp = client.put(
-        "/api/v1/agent/templates/INVALID_TYPE",
+        "/api/v1/agent/templates/by-type/INVALID_TYPE",
         json={"subject": "Hi", "body": "Body"},
         cookies=_auth_cookies(token),
     )
@@ -234,7 +236,7 @@ def test_put_template_invalid_type_returns_422():
 def test_put_template_case_insensitive_type():
     _, token = _create_agent()
     resp = client.put(
-        "/api/v1/agent/templates/initial_invite",
+        "/api/v1/agent/templates/by-type/initial_invite",
         json={"subject": "Hi {lead_name}", "body": "Body"},
         cookies=_auth_cookies(token),
     )
@@ -245,7 +247,7 @@ def test_put_template_case_insensitive_type():
 def test_put_template_with_tone():
     _, token = _create_agent()
     resp = client.put(
-        "/api/v1/agent/templates/POST_NURTURE",
+        "/api/v1/agent/templates/by-type/POST_NURTURE",
         json={"subject": "Hi", "body": "Body", "tone": "FRIENDLY"},
         cookies=_auth_cookies(token),
     )
@@ -332,7 +334,7 @@ def test_preview_no_unresolved_placeholders():
 
 
 def test_delete_template_unauthenticated():
-    resp = client.delete("/api/v1/agent/templates/POST_HOT")
+    resp = client.delete("/api/v1/agent/templates/by-type/POST_HOT")
     assert resp.status_code == 401
 
 
@@ -340,7 +342,7 @@ def test_delete_template_removes_override():
     agent, token = _create_agent()
     # Create override first
     client.put(
-        "/api/v1/agent/templates/POST_HOT",
+        "/api/v1/agent/templates/by-type/POST_HOT",
         json={"subject": "Custom", "body": "Custom body"},
         cookies=_auth_cookies(token),
     )
@@ -350,7 +352,7 @@ def test_delete_template_removes_override():
     assert by_type["POST_HOT"]["is_custom"] is True
 
     # Delete
-    del_resp = client.delete("/api/v1/agent/templates/POST_HOT", cookies=_auth_cookies(token))
+    del_resp = client.delete("/api/v1/agent/templates/by-type/POST_HOT", cookies=_auth_cookies(token))
     assert del_resp.status_code == 200
     assert del_resp.json() == {"ok": True, "reverted_to": "platform_default"}
 
@@ -363,7 +365,7 @@ def test_delete_template_removes_override():
 def test_delete_template_idempotent_no_override():
     _, token = _create_agent()
     # No override exists — should still return 200
-    resp = client.delete("/api/v1/agent/templates/POST_NURTURE", cookies=_auth_cookies(token))
+    resp = client.delete("/api/v1/agent/templates/by-type/POST_NURTURE", cookies=_auth_cookies(token))
     assert resp.status_code == 200
     assert resp.json()["ok"] is True
     assert resp.json()["reverted_to"] == "platform_default"
@@ -371,7 +373,7 @@ def test_delete_template_idempotent_no_override():
 
 def test_delete_template_invalid_type_returns_422():
     _, token = _create_agent()
-    resp = client.delete("/api/v1/agent/templates/UNKNOWN", cookies=_auth_cookies(token))
+    resp = client.delete("/api/v1/agent/templates/by-type/UNKNOWN", cookies=_auth_cookies(token))
     assert resp.status_code == 422
 
 
@@ -379,20 +381,20 @@ def test_delete_then_recreate_starts_at_version_1():
     _, token = _create_agent()
     # Create, then delete, then recreate
     client.put(
-        "/api/v1/agent/templates/INITIAL_INVITE",
+        "/api/v1/agent/templates/by-type/INITIAL_INVITE",
         json={"subject": "v1", "body": "body"},
         cookies=_auth_cookies(token),
     )
     client.put(
-        "/api/v1/agent/templates/INITIAL_INVITE",
+        "/api/v1/agent/templates/by-type/INITIAL_INVITE",
         json={"subject": "v2", "body": "body"},
         cookies=_auth_cookies(token),
     )
-    client.delete("/api/v1/agent/templates/INITIAL_INVITE", cookies=_auth_cookies(token))
+    client.delete("/api/v1/agent/templates/by-type/INITIAL_INVITE", cookies=_auth_cookies(token))
 
     # Recreate — should start at version 1 again
     resp = client.put(
-        "/api/v1/agent/templates/INITIAL_INVITE",
+        "/api/v1/agent/templates/by-type/INITIAL_INVITE",
         json={"subject": "fresh", "body": "body"},
         cookies=_auth_cookies(token),
     )

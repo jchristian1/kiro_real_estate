@@ -65,30 +65,29 @@ def db_session(db_engine):
 
 @pytest.fixture
 def client(db_session):
-    """Create a test client with database dependency override."""
-    # Create a generator function that yields the same session
+    """Create a test client with database dependency override and authenticated session."""
+    from api.dependencies.db import get_db
+    from api.routers.admin_audit import get_db_dependency
+    from api.auth import create_session, SESSION_COOKIE_NAME
+
     def override_get_db():
         yield db_session
-    
-    def override_get_current_user() -> User:
-        """Mock authentication - returns first user."""
-        # Use the db_session directly
-        return db_session.query(User).first()
-    
-    # Import the dependency functions from the audit router
-    from api.routers.admin_audit import get_db_dependency, get_current_user_dependency
-    
-    # Override dependencies at the app level
+
+    app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_db_dependency] = override_get_db
-    app.dependency_overrides[get_current_user_dependency] = override_get_current_user
-    
-    # Create test client
-    client = TestClient(app)
-    
-    yield client
-    
-    # Clean up - clear overrides
-    app.dependency_overrides.clear()
+
+    # Create a session for the first user so the session cookie works
+    user = db_session.query(User).first()
+    session = create_session(db_session, user.id)
+
+    test_client = TestClient(app)
+    # Set the session cookie so require_role passes
+    test_client.cookies.set(SESSION_COOKIE_NAME, session.id)
+
+    yield test_client
+
+    app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_db_dependency, None)
 
 
 @pytest.fixture
