@@ -5,6 +5,7 @@ This process owns the WatcherRegistry and all watcher lifecycle:
   - auto-start on boot for every credentialed agent
   - graceful shutdown on SIGTERM/SIGINT
   - auto-restart of failed watchers (via WatcherRegistry)
+  - DB-backed coordination: polls watcher_control, writes watcher_status
 
 It does NOT serve HTTP. It shares the same database as the API process
 but owns no in-memory state that the API needs to read directly.
@@ -22,23 +23,24 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import signal
-import sys
+from datetime import datetime
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from api.config import load_config
-from api.services.watcher_registry import WatcherRegistry
+from api.services.watcher_registry import WatcherRegistry, WatcherStatus
 from gmail_lead_sync.credentials import EncryptedDBCredentialsStore
 
 logger = logging.getLogger("worker")
 
+# How often the reconciliation loop polls watcher_control and writes watcher_status
+RECONCILE_INTERVAL_SECONDS = 10
+
 
 def _setup_logging(log_level: str) -> None:
     import json
-    from datetime import datetime
 
     class JSONFormatter(logging.Formatter):
         def format(self, record: logging.LogRecord) -> str:
@@ -98,6 +100,119 @@ async def _auto_start_watchers(registry: WatcherRegistry, SessionLocal) -> None:
         db.close()
 
 
+def _reconcile_sync(registry: WatcherRegistry, SessionLocal) -> None:
+    """
+    Synchronous reconciliation — called via asyncio.to_thread().
+
+    1. Read watcher_control rows and start/stop watchers to match desired_status.
+    2. Act on pending sync requests.
+    3. Write current in-memory watcher status back to watcher_status table.
+
+    This runs in a thread pool so it doesn't block the event loop.
+    The asyncio calls (start_watcher, stop_watcher, trigger_sync) are
+    scheduled back onto the event loop via asyncio.run_coroutine_threadsafe().
+    """
+    import asyncio as _asyncio
+    from api.repositories.watcher_coordination_repository import (
+        WatcherControlRepository,
+        WatcherStatusRepository,
+    )
+
+    db = SessionLocal()
+    try:
+        ctrl_repo = WatcherControlRepository(db)
+        status_repo = WatcherStatusRepository(db)
+        loop = _asyncio.get_event_loop()
+
+        # --- 1. Reconcile desired state ---
+        for ctrl in ctrl_repo.list_all():
+            agent_id = ctrl.agent_id
+            current = registry._watchers.get(agent_id)
+            current_status = current.status if current else None
+
+            if ctrl.desired_status == "running":
+                if current_status not in (WatcherStatus.RUNNING, WatcherStatus.STARTING):
+                    future = _asyncio.run_coroutine_threadsafe(
+                        registry.start_watcher(agent_id), loop
+                    )
+                    try:
+                        started = future.result(timeout=5)
+                        if started:
+                            logger.info("Reconciler started watcher for agent %s", agent_id)
+                    except Exception as exc:
+                        logger.warning("Reconciler could not start watcher %s: %s", agent_id, exc)
+
+            elif ctrl.desired_status == "stopped":
+                if current_status in (WatcherStatus.RUNNING, WatcherStatus.STARTING):
+                    future = _asyncio.run_coroutine_threadsafe(
+                        registry.stop_watcher(agent_id), loop
+                    )
+                    try:
+                        future.result(timeout=10)
+                        logger.info("Reconciler stopped watcher for agent %s", agent_id)
+                    except Exception as exc:
+                        logger.warning("Reconciler could not stop watcher %s: %s", agent_id, exc)
+
+            # --- 2. Act on pending sync requests ---
+            if ctrl.sync_requested_at is not None:
+                future = _asyncio.run_coroutine_threadsafe(
+                    registry.trigger_sync(agent_id), loop
+                )
+                try:
+                    triggered = future.result(timeout=5)
+                    if triggered:
+                        logger.info("Reconciler triggered sync for agent %s", agent_id)
+                except Exception as exc:
+                    logger.warning("Reconciler could not trigger sync for %s: %s", agent_id, exc)
+                # Always clear the request so we don't re-trigger on next cycle
+                ctrl_repo.clear_sync_request(agent_id)
+
+        # --- 3. Write live status to DB ---
+        all_statuses = registry._watchers
+        for agent_id, info in all_statuses.items():
+            try:
+                status_repo.upsert(
+                    agent_id,
+                    status=info.status.value,
+                    last_heartbeat=info.last_heartbeat,
+                    last_sync=info.last_sync,
+                    started_at=info.started_at,
+                    error=info.error,
+                )
+            except Exception as exc:
+                logger.warning("Could not write status for agent %s: %s", agent_id, exc)
+
+    except Exception as exc:
+        logger.warning("Reconciliation cycle failed: %s", exc)
+    finally:
+        db.close()
+
+
+async def _reconciliation_loop(
+    registry: WatcherRegistry,
+    SessionLocal,
+    stop_event: asyncio.Event,
+) -> None:
+    """
+    Async loop that runs _reconcile_sync() every RECONCILE_INTERVAL_SECONDS.
+    Exits cleanly when stop_event is set.
+    """
+    logger.info("Reconciliation loop started (interval=%ds)", RECONCILE_INTERVAL_SECONDS)
+    while not stop_event.is_set():
+        try:
+            await asyncio.to_thread(_reconcile_sync, registry, SessionLocal)
+        except Exception as exc:
+            logger.warning("Reconciliation loop error: %s", exc)
+        try:
+            await asyncio.wait_for(
+                asyncio.shield(stop_event.wait()),
+                timeout=RECONCILE_INTERVAL_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            pass  # normal — keep looping
+    logger.info("Reconciliation loop stopped")
+
+
 async def run() -> None:
     """Main worker coroutine — runs until SIGTERM/SIGINT."""
     config = load_config()
@@ -113,11 +228,8 @@ async def run() -> None:
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
     # Build credentials store with a fresh short-lived session (not held forever)
-    def _make_credentials_store():
-        db = SessionLocal()
-        return EncryptedDBCredentialsStore(db, encryption_key=config.encryption_key), db
-
-    creds_store, creds_db = _make_credentials_store()
+    creds_db = SessionLocal()
+    creds_store = EncryptedDBCredentialsStore(creds_db, encryption_key=config.encryption_key)
 
     registry = WatcherRegistry(
         get_db_session=SessionLocal,
@@ -135,17 +247,28 @@ async def run() -> None:
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, _handle_signal, sig)
 
-    # Auto-start watchers
+    # Auto-start watchers from DB state on boot
     try:
         await _auto_start_watchers(registry, SessionLocal)
     except Exception as exc:
         logger.warning("Auto-start watchers failed: %s", exc)
+
+    # Start DB reconciliation loop
+    reconcile_task = asyncio.create_task(
+        _reconciliation_loop(registry, SessionLocal, stop_event)
+    )
 
     logger.info("Worker running — waiting for shutdown signal")
     await stop_event.wait()
 
     # Graceful shutdown
     logger.info("Worker shutting down — stopping all watchers")
+    reconcile_task.cancel()
+    try:
+        await reconcile_task
+    except asyncio.CancelledError:
+        pass
+
     try:
         await registry.stop_all()
     except Exception as exc:
