@@ -227,13 +227,16 @@ async def run() -> None:
     )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-    # Build credentials store with a fresh short-lived session (not held forever)
-    creds_db = SessionLocal()
-    creds_store = EncryptedDBCredentialsStore(creds_db, encryption_key=config.encryption_key)
+    # Phase 6B: use a per-watcher credentials store factory instead of a single
+    # long-lived session.  Each watcher task gets its own EncryptedDBCredentialsStore
+    # backed by a fresh short-lived session that it owns and closes on exit.
+    def _make_credentials_store() -> "EncryptedDBCredentialsStore":
+        db = SessionLocal()
+        return EncryptedDBCredentialsStore(db, encryption_key=config.encryption_key)
 
     registry = WatcherRegistry(
         get_db_session=SessionLocal,
-        credentials_store=creds_store,
+        make_credentials_store=_make_credentials_store,
     )
 
     # Graceful shutdown on SIGTERM / SIGINT
@@ -273,11 +276,6 @@ async def run() -> None:
         await registry.stop_all()
     except Exception as exc:
         logger.error("Error stopping watchers during shutdown: %s", exc, exc_info=True)
-    finally:
-        try:
-            creds_db.close()
-        except Exception:
-            pass
 
     logger.info("Worker stopped")
 
