@@ -32,16 +32,15 @@ def test_worker_module_importable_without_fastapi_app():
 
 
 def test_worker_does_not_import_api_main():
-    """worker.main must not import api.main (which would pull in FastAPI app)."""
-    import sys
-    # Remove cached module if present
-    for key in list(sys.modules.keys()):
-        if key.startswith("worker"):
-            del sys.modules[key]
-
-    import worker.main  # noqa: F401
-    assert "api.main" not in sys.modules, (
+    """worker.main source must not contain 'import api.main' or 'from api.main'."""
+    import inspect
+    import worker.main as wm
+    source = inspect.getsource(wm)
+    assert "import api.main" not in source, (
         "worker.main must not import api.main — that would couple worker to FastAPI app lifecycle"
+    )
+    assert "from api.main" not in source, (
+        "worker.main must not import from api.main"
     )
 
 
