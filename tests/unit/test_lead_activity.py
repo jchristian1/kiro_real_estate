@@ -423,13 +423,13 @@ class TestPhase3BEmission:
     # --- qualification_form_sent — only emits when email actually sent ---
 
     def test_qualification_form_sent_not_emitted_when_no_smtp_creds(self):
-        """qualification_form_sent must NOT emit if SMTP credentials are missing."""
+        """qualification_form_sent must NOT emit if email was not sent (delivery failed)."""
         import gmail_lead_sync.preapproval.handlers as handlers_module
         import inspect
 
         source = inspect.getsource(handlers_module.on_buyer_lead_email_received)
-        # The activity call must be inside the email_sent branch
-        assert "if email_sent" in source
+        # Activity emission must be gated on result.sent (not unconditional)
+        assert "if result.sent" in source
 
     def test_qualification_form_sent_source_is_qualification(self):
         """qualification_form_sent must use actor_source='qualification'."""

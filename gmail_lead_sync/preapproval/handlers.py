@@ -137,6 +137,17 @@ def _resolve_active_message_template(
     )
 
 
+_invite_service = None
+
+
+def _get_invite_service():
+    global _invite_service
+    if _invite_service is None:
+        from api.communications.qualification_invite import QualificationInviteService
+        _invite_service = QualificationInviteService()
+    return _invite_service
+
+
 def _resolve_active_scoring_version(
     db: Session,
     tenant_id: int,
@@ -205,108 +216,54 @@ def on_buyer_lead_email_received(
     Called exclusively by the pipeline engine (send_qualification_form action).
     Does NOT fire any pipeline events — the pipeline is already running.
 
-    Steps:
-    1. Resolve active FormVersion; return if none.
-    2. Create FormInvitation (raw token for URL).
-    3. Render email via AgentTemplate (TemplateRenderService) or MessageTemplate.
-    4. Send email via EmailDeliveryService.
-    5. Mark invitation.sent_at; update lead.agent_current_state.
-    6. Record outbound LeadInteraction.
-    7. Record structured activity (only when email sent).
+    Delegates invite creation, rendering, and delivery to QualificationInviteService.
+    Retains ownership of:
+      - Lead state mutation (agent_current_state)
+      - LeadInteraction recording
+      - Activity emission
     """
-    # 1. Resolve active FormVersion
-    form_version = resolve_active_form_version(db, tenant_id, IntentType.BUY)
-    if form_version is None:
-        logger.warning("No active BUY form for tenant %d, skipping invite (lead_id=%d)", tenant_id, lead_id)
-        return
-
-    # 2. Create FormInvitation
-    raw_token, invitation = _invitation_service.create_invitation(
-        db, tenant_id=tenant_id, lead_id=lead_id, form_version_id=form_version.id,
+    result = _get_invite_service().send_invite(
+        db=db,
+        tenant_id=tenant_id,
+        lead_id=lead_id,
+        parsed_metadata=parsed_metadata,
     )
 
-    # 3. Render email
+    if result.skipped:
+        return
+
+    # Load lead for state mutation and interaction logging
     lead: Lead = db.get(Lead, lead_id)
     if lead is None:
-        logger.error("Lead %d not found, cannot send form invite", lead_id)
+        logger.error("Lead %d not found after invite send — cannot update state", lead_id)
         return
 
-    first_name = lead.name.split()[0] if lead.name else ""
-    from sqlalchemy import text as _text
-    tenant_row = db.execute(_text("SELECT name FROM companies WHERE id = :tid"), {"tid": tenant_id}).fetchone()
-    tenant_name = tenant_row[0] if tenant_row else ""
+    if result.rendered_subject is None:
+        # No template was configured — record error interaction and bail
+        db.add(LeadInteraction(
+            tenant_id=tenant_id, lead_id=lead_id,
+            intent_type=IntentType.BUY.value, channel=Channel.EMAIL.value,
+            direction="outbound", occurred_at=datetime.utcnow(),
+            content_text="[ERROR: no active INITIAL_INVITE_EMAIL template]",
+        ))
+        db.commit()
+        return
 
-    # Try AgentTemplate first via TemplateRenderService
-    from gmail_lead_sync.agent_models import AgentUser as _AgentUser
-    _agent = db.query(_AgentUser).filter(_AgentUser.company_id == tenant_id).first()
-
-    agent_rendered = _get_renderer().render_agent_template(
-        db, tenant_id, "INITIAL_INVITE",
-        {
-            "lead_name": lead.name or first_name,
-            "agent_name": (_agent.full_name if _agent else tenant_name) or "",
-            "agent_phone": (_agent.phone if _agent else "") or "",
-            "agent_email": (_agent.email if _agent else "") or "",
-            "form_link": build_form_url(raw_token),
-        },
-    )
-
-    if agent_rendered is not None:
-        rendered_subject, rendered_body = agent_rendered
-    else:
-        # Fall back to MessageTemplate (double-brace syntax via TemplateRenderEngine)
-        msg_version = _resolve_active_message_template(
-            db, tenant_id=tenant_id, intent_type=IntentType.BUY,
-            key=MessageTemplateKey.INITIAL_INVITE_EMAIL,
-        )
-        if msg_version is None:
-            logger.error(
-                "No active INITIAL_INVITE_EMAIL template for tenant %d (lead_id=%d); skipping.",
-                tenant_id, lead_id,
-            )
-            db.add(LeadInteraction(
-                tenant_id=tenant_id, lead_id=lead_id,
-                intent_type=IntentType.BUY.value, channel=Channel.EMAIL.value,
-                direction="outbound", occurred_at=datetime.utcnow(),
-                content_text="[ERROR: no active INITIAL_INVITE_EMAIL template]",
-            ))
-            db.commit()
-            return
-        rendered_obj = _template_engine.render(
-            msg_version,
-            {
-                "lead.first_name": first_name,
-                "lead.email": lead.source_email,
-                "form.link": build_form_url(raw_token),
-                "tenant.name": tenant_name,
-                **parsed_metadata,
-            },
-        )
-        rendered_subject, rendered_body = rendered_obj.subject, rendered_obj.body
-
-    # 4. Send email via EmailDeliveryService
-    email_sent = _get_delivery().send(
-        db, tenant_id, lead.source_email, rendered_subject, rendered_body
-    )
-    if not email_sent:
-        logger.error("No SMTP credentials or delivery failed for tenant %d (lead_id=%d).", tenant_id, lead_id)
-
-    # 5. Mark invitation sent + update lead state
-    invitation.sent_at = datetime.utcnow()
+    # Update lead state
     lead.agent_current_state = "INVITE_SENT"
     db.commit()
 
-    # 6. Record outbound interaction
+    # Record outbound interaction
     db.add(LeadInteraction(
         tenant_id=tenant_id, lead_id=lead_id,
         intent_type=IntentType.BUY.value, channel=Channel.EMAIL.value,
         direction="outbound", occurred_at=datetime.utcnow(),
-        content_text=rendered_subject,
+        content_text=result.rendered_subject,
     ))
     db.commit()
 
-    # 7. Record structured activity — only when email was actually sent.
-    if email_sent:
+    # Record structured activity — only when email was actually sent.
+    if result.sent:
         try:
             from api.services.lead_activity import record_activity
             record_activity(
@@ -315,7 +272,10 @@ def on_buyer_lead_email_received(
                 event_type="qualification_form_sent",
                 company_id=tenant_id,
                 actor_source="qualification",
-                metadata={"invitation_id": invitation.id, "form_version_id": form_version.id},
+                metadata={
+                    "invitation_id": result.invitation_id,
+                    "form_version_id": result.form_version_id,
+                },
             )
         except Exception as exc:
             logger.warning(
@@ -323,7 +283,10 @@ def on_buyer_lead_email_received(
                 lead_id, exc,
             )
 
-    logger.info("Form invite sent: tenant=%d lead=%d invitation=%d", tenant_id, lead_id, invitation.id)
+    logger.info(
+        "Form invite sent: tenant=%d lead=%d invitation=%d sent=%s",
+        tenant_id, lead_id, result.invitation_id, result.sent,
+    )
 
 
 # ---------------------------------------------------------------------------

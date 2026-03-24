@@ -217,11 +217,11 @@ class TestQualificationHandlerUsesDeliveryService:
         import inspect
 
         source = inspect.getsource(handlers_module.on_buyer_lead_email_received)
-        # Must not contain the old direct credential/send helpers
+        # Must not contain old direct credential/send helpers
         assert "_get_tenant_email_credentials" not in source
         assert "_send_email(" not in source
-        # Must use the delivery service
-        assert "_get_delivery" in source or "email_delivery" in source or "EmailDeliveryService" in source
+        # Must delegate to QualificationInviteService (not inline delivery)
+        assert "_get_invite_service" in source or "QualificationInviteService" in source
 
     def test_old_credential_helpers_removed_from_handlers(self):
         import gmail_lead_sync.preapproval.handlers as handlers_module
@@ -380,3 +380,227 @@ class TestTemplateRenderService:
             "_resolve_agent_template must be removed — use TemplateRenderService"
         assert not hasattr(handlers_module, "_render_agent_template"), \
             "_render_agent_template must be removed — use TemplateRenderService"
+
+
+# ---------------------------------------------------------------------------
+# Phase 4D: QualificationInviteService
+# ---------------------------------------------------------------------------
+
+class TestQualificationInviteService:
+    """Unit tests for QualificationInviteService."""
+
+    def _make_lead(self, lead_id=1, name="Alice Smith", email="alice@x.com"):
+        from types import SimpleNamespace
+        return SimpleNamespace(id=lead_id, name=name, source_email=email)
+
+    def _make_form_version(self, fv_id=7):
+        from types import SimpleNamespace
+        return SimpleNamespace(id=fv_id)
+
+    # --- skipped when no active form version ---
+
+    def test_returns_skipped_when_no_active_form_version(self):
+        from api.communications.qualification_invite import QualificationInviteService
+
+        svc = QualificationInviteService()
+        db = MagicMock()
+        db.query.return_value.join.return_value.filter.return_value.first.return_value = None
+
+        result = svc.send_invite(db, tenant_id=5, lead_id=1, parsed_metadata={})
+
+        assert result.skipped is True
+        assert result.sent is False
+
+    # --- invitation created and sent_at marked ---
+
+    def test_marks_invitation_sent_at_on_success(self):
+        from api.communications.qualification_invite import QualificationInviteService
+        from types import SimpleNamespace
+
+        svc = QualificationInviteService()
+        db = MagicMock()
+        mock_fv = self._make_form_version()
+        mock_lead = self._make_lead()
+        mock_invitation = SimpleNamespace(id=99, sent_at=None)
+
+        db.query.return_value.join.return_value.filter.return_value.first.return_value = mock_fv
+        db.get.return_value = mock_lead
+
+        with (
+            patch("gmail_lead_sync.preapproval.invitation_service.FormInvitationService.create_invitation",
+                  return_value=("tok123", mock_invitation)),
+            patch.object(svc, "_render_invite_email", return_value=("Subj", "Body")),
+            patch("api.communications.email_delivery.EmailDeliveryService.send", return_value=True),
+        ):
+            result = svc.send_invite(db, tenant_id=5, lead_id=1, parsed_metadata={})
+
+        assert result.sent is True
+        assert result.invitation_id == 99
+        assert mock_invitation.sent_at is not None
+
+    # --- returns sent=False when delivery fails ---
+
+    def test_returns_sent_false_when_delivery_fails(self):
+        from api.communications.qualification_invite import QualificationInviteService
+        from types import SimpleNamespace
+
+        svc = QualificationInviteService()
+        db = MagicMock()
+        mock_fv = self._make_form_version()
+        mock_lead = self._make_lead()
+        mock_invitation = SimpleNamespace(id=10, sent_at=None)
+
+        db.query.return_value.join.return_value.filter.return_value.first.return_value = mock_fv
+        db.get.return_value = mock_lead
+
+        with (
+            patch("gmail_lead_sync.preapproval.invitation_service.FormInvitationService.create_invitation",
+                  return_value=("tok", mock_invitation)),
+            patch.object(svc, "_render_invite_email", return_value=("S", "B")),
+            patch("api.communications.email_delivery.EmailDeliveryService.send", return_value=False),
+        ):
+            result = svc.send_invite(db, tenant_id=5, lead_id=1, parsed_metadata={})
+
+        assert result.sent is False
+        assert result.invitation_id == 10
+
+    # --- returns rendered_subject=None when no template ---
+
+    def test_returns_none_rendered_subject_when_no_template(self):
+        from api.communications.qualification_invite import QualificationInviteService
+        from types import SimpleNamespace
+
+        svc = QualificationInviteService()
+        db = MagicMock()
+        mock_fv = self._make_form_version()
+        mock_lead = self._make_lead()
+        mock_invitation = SimpleNamespace(id=5, sent_at=None)
+
+        db.query.return_value.join.return_value.filter.return_value.first.return_value = mock_fv
+        db.get.return_value = mock_lead
+
+        with (
+            patch("gmail_lead_sync.preapproval.invitation_service.FormInvitationService.create_invitation",
+                  return_value=("tok", mock_invitation)),
+            patch.object(svc, "_render_invite_email", return_value=None),
+        ):
+            result = svc.send_invite(db, tenant_id=5, lead_id=1, parsed_metadata={})
+
+        assert result.rendered_subject is None
+        assert result.sent is False
+
+    # --- rendering boundary: AgentTemplate preferred over MessageTemplate ---
+
+    def test_render_uses_agent_template_when_available(self):
+        from api.communications.qualification_invite import QualificationInviteService
+        from types import SimpleNamespace
+
+        svc = QualificationInviteService()
+        db = MagicMock()
+        mock_fv = self._make_form_version()
+        mock_lead = self._make_lead()
+
+        with (
+            patch("api.communications.template_render.TemplateRenderService.render_agent_template",
+                  return_value=("AgentSubj", "AgentBody")) as mock_agent_render,
+            patch("gmail_lead_sync.agent_models.AgentUser"),
+        ):
+            db.query.return_value.filter.return_value.first.return_value = None
+            result = svc._render_invite_email(
+                db=db, tenant_id=5, lead=mock_lead,
+                first_name="Alice", tenant_name="Acme",
+                form_url="https://form.example.com",
+                form_version=mock_fv, parsed_metadata={},
+            )
+
+        assert result == ("AgentSubj", "AgentBody")
+        mock_agent_render.assert_called_once()
+
+    def test_render_falls_back_to_message_template_when_no_agent_template(self):
+        from api.communications.qualification_invite import QualificationInviteService
+        from types import SimpleNamespace
+
+        svc = QualificationInviteService()
+        db = MagicMock()
+        mock_fv = self._make_form_version()
+        mock_lead = self._make_lead()
+        mock_msg_version = SimpleNamespace(
+            id=3, subject_template="Hi {{lead.first_name}}", body_template="Link: {{form.link}}",
+            variants_json=None,
+        )
+
+        with (
+            patch("api.communications.template_render.TemplateRenderService.render_agent_template",
+                  return_value=None),
+            patch("gmail_lead_sync.agent_models.AgentUser"),
+            patch("gmail_lead_sync.preapproval.template_engine.TemplateRenderEngine.render") as mock_engine,
+        ):
+            from types import SimpleNamespace as SN
+            mock_engine.return_value = SN(subject="Hi Alice", body="Link: https://form.example.com")
+            db.query.return_value.filter.return_value.first.return_value = None
+            db.query.return_value.join.return_value.filter.return_value.first.return_value = mock_msg_version
+
+            result = svc._render_invite_email(
+                db=db, tenant_id=5, lead=mock_lead,
+                first_name="Alice", tenant_name="Acme",
+                form_url="https://form.example.com",
+                form_version=mock_fv, parsed_metadata={},
+            )
+
+        assert result is not None
+        mock_engine.assert_called_once()
+
+    def test_render_returns_none_when_neither_template_configured(self):
+        from api.communications.qualification_invite import QualificationInviteService
+
+        svc = QualificationInviteService()
+        db = MagicMock()
+        mock_fv = self._make_form_version()
+        mock_lead = self._make_lead()
+
+        with (
+            patch("api.communications.template_render.TemplateRenderService.render_agent_template",
+                  return_value=None),
+            patch("gmail_lead_sync.agent_models.AgentUser"),
+        ):
+            db.query.return_value.filter.return_value.first.return_value = None
+            db.query.return_value.join.return_value.filter.return_value.first.return_value = None
+
+            result = svc._render_invite_email(
+                db=db, tenant_id=5, lead=mock_lead,
+                first_name="Alice", tenant_name="Acme",
+                form_url="https://form.example.com",
+                form_version=mock_fv, parsed_metadata={},
+            )
+
+        assert result is None
+
+    # --- structural: old mixed invite logic removed from handlers ---
+
+    def test_handlers_no_longer_own_invite_rendering_or_delivery(self):
+        """on_buyer_lead_email_received must not contain inline rendering or delivery logic."""
+        import gmail_lead_sync.preapproval.handlers as handlers_module
+        import inspect
+
+        source = inspect.getsource(handlers_module.on_buyer_lead_email_received)
+        # Must not contain inline rendering
+        assert "render_agent_template" not in source
+        assert "_template_engine" not in source
+        assert "TemplateRenderEngine" not in source
+        # Must not contain inline delivery
+        assert "EmailDeliveryService" not in source
+        assert "_get_delivery" not in source
+        # Must delegate to QualificationInviteService
+        assert "_get_invite_service" in source
+
+    def test_qualification_invite_service_lives_in_communications(self):
+        """QualificationInviteService must be importable from api.communications."""
+        from api.communications.qualification_invite import QualificationInviteService
+        assert QualificationInviteService is not None
+
+    def test_invite_result_exposes_sent_and_invitation_id(self):
+        from api.communications.qualification_invite import InviteResult
+        r = InviteResult(sent=True, invitation_id=42, form_version_id=7, rendered_subject="Hi")
+        assert r.sent is True
+        assert r.invitation_id == 42
+        assert r.skipped is False
