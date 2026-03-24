@@ -299,3 +299,14 @@ def downgrade() -> None:
         op.drop_table("buyer_automation_configs")
     if _table_exists(conn, "agent_users"):
         op.drop_table("agent_users")
+
+    # Drop PostgreSQL enum types created by this migration.
+    # These are not dropped automatically when the tables are dropped, so they
+    # must be cleaned up explicitly.  checkfirst=True makes this a no-op on
+    # SQLite and on PostgreSQL when the type was already removed.
+    import sqlalchemy as sa
+    sa.Enum(name="lead_event_type_enum").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="agent_template_type_enum").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="agent_template_tone_enum").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="lead_score_bucket_enum").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="lead_agent_state_enum").drop(op.get_bind(), checkfirst=True)
