@@ -81,6 +81,7 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --cov=gmail_lead_sync --cov-report=html --cov-report=term"
+norecursedirs = ["api", "worker", "migrations", ".venv", ".git"]
 
 [tool.coverage.run]
 source = ["gmail_lead_sync"]

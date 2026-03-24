@@ -133,7 +133,7 @@ class TestProperty19TemplateVersionMonotonicity:
         payload = {"subject": subject or "Subject", "body": body or "Body", "tone": "PROFESSIONAL"}
 
         for k in range(1, num_saves + 1):
-            resp = client.put(f"/api/v1/agent/templates/{template_type}", json=payload)
+            resp = client.put(f"/api/v1/agent/templates/by-type/{template_type}", json=payload)
             assert resp.status_code == 200, f"Save {k} failed: {resp.text}"
             data = resp.json()
             assert data["version"] == k, (
@@ -158,7 +158,7 @@ class TestProperty19TemplateVersionMonotonicity:
 
         versions = []
         for _ in range(num_saves):
-            resp = client.put("/api/v1/agent/templates/INITIAL_INVITE", json=payload)
+            resp = client.put("/api/v1/agent/templates/by-type/INITIAL_INVITE", json=payload)
             assert resp.status_code == 200
             versions.append(resp.json()["version"])
 
@@ -184,7 +184,7 @@ class TestProperty19TemplateVersionMonotonicity:
         client = TestClient(app, cookies={"agent_session": token})
         payload = {"subject": "Initial Subject", "body": "Initial body", "tone": "FRIENDLY"}
 
-        resp = client.put(f"/api/v1/agent/templates/{template_type}", json=payload)
+        resp = client.put(f"/api/v1/agent/templates/by-type/{template_type}", json=payload)
         assert resp.status_code == 200
         assert resp.json()["version"] == 1, (
             f"First save of {template_type} should produce version=1, "

@@ -96,6 +96,9 @@ def authenticated_client(client):
     db = TestingSessionLocal()
     agent = db.query(AgentUser).filter_by(email="agent@example.com").first()
     reset_imap_rate_limit(agent.id)
+    # Advance onboarding_step to 1 so the gmail endpoint's guard passes
+    agent.onboarding_step = 1
+    db.commit()
     db.close()
 
     return client

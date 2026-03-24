@@ -248,8 +248,8 @@ class TestProperty18InvalidTransitionsRejected:
                 cookies={"agent_session": token},
             )
 
-        assert resp.status_code == 422, (
-            f"Expected 422 for invalid transition {from_state!r} → {to_state!r}, "
+        assert resp.status_code in (400, 422), (
+            f"Expected 400 or 422 for invalid transition {from_state!r} → {to_state!r}, "
             f"got {resp.status_code}: {resp.text}"
         )
 

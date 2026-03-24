@@ -101,6 +101,14 @@ def authenticated_client(client):
     assert resp.status_code == 201
     token = resp.cookies[AGENT_SESSION_COOKIE_NAME]
     client.cookies.set(AGENT_SESSION_COOKIE_NAME, token)
+
+    # Advance onboarding_step to 4 so the templates endpoint's guard passes
+    db = TestingSessionLocal()
+    agent = db.query(AgentUser).filter_by(email="agent@example.com").first()
+    agent.onboarding_step = 4
+    db.commit()
+    db.close()
+
     return client
 
 
