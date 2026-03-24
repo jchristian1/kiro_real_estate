@@ -28,16 +28,12 @@ from gmail_lead_sync.preapproval.models_preapproval import (
     FormVersion,
     IntentType,
     LeadInteraction,
-    MessageTemplate,
-    MessageTemplateKey,
-    MessageTemplateVersion,
     ScoringConfig,
     ScoringVersion,
     SubmissionAnswer,
     SubmissionScore,
 )
 from gmail_lead_sync.preapproval.scoring_engine import ScoringEngine
-from gmail_lead_sync.preapproval.template_engine import TemplateRenderEngine
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +42,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _invitation_service = FormInvitationService()
-_template_engine = TemplateRenderEngine()
 _scoring_engine = ScoringEngine()
 
 
@@ -118,24 +113,6 @@ def get_or_create_form_link(db: Session, tenant_id: int, lead_id: int) -> str:
         return fallback
 
 
-def _resolve_active_message_template(
-    db: Session,
-    tenant_id: int,
-    intent_type: IntentType,
-    key: MessageTemplateKey,
-) -> MessageTemplateVersion | None:
-    return (
-        db.query(MessageTemplateVersion)
-        .join(MessageTemplate, MessageTemplateVersion.template_id == MessageTemplate.id)
-        .filter(
-            MessageTemplate.tenant_id == tenant_id,
-            MessageTemplate.intent_type == intent_type.value,
-            MessageTemplate.key == key.value,
-            MessageTemplateVersion.is_active.is_(True),
-        )
-        .first()
-    )
-
 
 _invite_service = None
 
@@ -175,30 +152,6 @@ def _validate_answers(answers_payload: dict, form_version: FormVersion) -> None:
             errors[key] = "This field is required."
     if errors:
         raise ValueError(errors)
-
-
-# ---------------------------------------------------------------------------
-# Lazy singletons — avoid circular imports at module load
-# ---------------------------------------------------------------------------
-
-_delivery = None
-_renderer = None
-
-
-def _get_delivery():
-    global _delivery
-    if _delivery is None:
-        from api.communications.email_delivery import EmailDeliveryService
-        _delivery = EmailDeliveryService()
-    return _delivery
-
-
-def _get_renderer():
-    global _renderer
-    if _renderer is None:
-        from api.communications.template_render import TemplateRenderService
-        _renderer = TemplateRenderService()
-    return _renderer
 
 
 # ---------------------------------------------------------------------------
