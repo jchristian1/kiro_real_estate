@@ -66,37 +66,65 @@ def pg_engine(pg_base_url):
     Session-scoped SQLAlchemy engine connected to the test Postgres DB.
 
     Applies all Alembic migrations on setup and drops all tables on teardown.
+
+    We set DATABASE_URL in the environment before invoking Alembic so that
+    migrations/env.py picks up the Postgres URL (it reads DATABASE_URL and
+    falls back to the alembic.ini SQLite default otherwise).
     """
+    import os as _os
+
     engine = create_engine(pg_base_url, echo=False)
 
-    # Apply migrations via Alembic
+    # Apply migrations via Alembic — must set DATABASE_URL so env.py uses Postgres
     from alembic.config import Config as AlembicConfig
     from alembic import command as alembic_command
 
-    alembic_cfg = AlembicConfig("alembic.ini")
-    alembic_cfg.set_main_option("sqlalchemy.url", pg_base_url)
-    alembic_command.upgrade(alembic_cfg, "head")
+    _prev_db_url = _os.environ.get("DATABASE_URL")
+    _os.environ["DATABASE_URL"] = pg_base_url
+    try:
+        alembic_cfg = AlembicConfig("alembic.ini")
+        alembic_command.upgrade(alembic_cfg, "head")
+    finally:
+        if _prev_db_url is None:
+            _os.environ.pop("DATABASE_URL", None)
+        else:
+            _os.environ["DATABASE_URL"] = _prev_db_url
 
     yield engine
 
-    # Teardown: drop all tables so the DB is clean for the next run
-    alembic_command.downgrade(alembic_cfg, "base")
+    # Teardown: drop and recreate the public schema — faster and more reliable
+    # than running `alembic downgrade base` through the full historical chain
+    # (many old migrations have SQLite-specific DDL in their downgrade paths).
+    with engine.connect() as conn:
+        conn.execute(text("DROP SCHEMA public CASCADE"))
+        conn.execute(text("CREATE SCHEMA public"))
+        conn.commit()
+
     engine.dispose()
 
 
 @pytest.fixture(scope="function")
 def pg_session(pg_engine):
     """
-    Function-scoped session — each test gets a fresh transaction that is
+    Function-scoped session — each test gets a fresh savepoint that is
     rolled back on teardown so tests are fully isolated.
+
+    We use begin_nested() (SAVEPOINT) so that repository calls to
+    session.commit() flush to the savepoint without committing the outer
+    transaction.  The outer transaction is rolled back at teardown.
     """
     connection = pg_engine.connect()
-    transaction = connection.begin()
-    Session = sessionmaker(bind=connection)
+    outer_transaction = connection.begin()
+    # Wrap in a savepoint so repo commits don't escape to the real DB
+    nested = connection.begin_nested()
+    Session = sessionmaker(bind=connection, join_transaction_mode="create_savepoint")
     session = Session()
 
     yield session
 
     session.close()
-    transaction.rollback()
+    # Roll back to the savepoint, then roll back the outer transaction
+    if nested.is_active:
+        nested.rollback()
+    outer_transaction.rollback()
     connection.close()

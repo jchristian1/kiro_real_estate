@@ -218,6 +218,23 @@ def upgrade() -> None:
     # ------------------------------------------------------------------
     # 7. New columns on leads table
     # ------------------------------------------------------------------
+    # On PostgreSQL, enum types used in ADD COLUMN must be created explicitly
+    # before the column is added.  SQLite stores enums as plain text and never
+    # validates them, so this was invisible until the Postgres test path.
+    bind = op.get_bind()
+    dialect = bind.dialect.name
+
+    if dialect == "postgresql":
+        # Create enum types if they don't already exist
+        _score_bucket_enum = sa.Enum("HOT", "WARM", "NURTURE", name="lead_score_bucket_enum")
+        _score_bucket_enum.create(bind, checkfirst=True)
+        _agent_state_enum = sa.Enum(
+            "NEW", "INVITE_SENT", "FORM_SUBMITTED", "SCORED",
+            "CONTACTED", "APPOINTMENT_SET", "LOST", "CLOSED",
+            name="lead_agent_state_enum",
+        )
+        _agent_state_enum.create(bind, checkfirst=True)
+
     if not _column_exists(conn, "leads", "property_address"):
         op.add_column("leads", sa.Column("property_address", sa.String(length=500), nullable=True))
     if not _column_exists(conn, "leads", "listing_url"):
