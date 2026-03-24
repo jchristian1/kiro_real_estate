@@ -220,11 +220,21 @@ async def run() -> None:
 
     logger.info("Worker starting — DATABASE_URL=%s", config.database_url[:40])
 
-    # Build DB session factory
-    engine = create_engine(
-        config.database_url,
-        connect_args={"check_same_thread": False} if "sqlite" in config.database_url else {},
-    )
+    # Build DB session factory — dialect-aware pool config.
+    # pool_pre_ping prevents stale-connection 500s after a DB restart or
+    # network interruption.  pool_recycle avoids hitting server-side
+    # idle_in_transaction_session_timeout on long-running worker processes.
+    if "sqlite" in config.database_url:
+        engine = create_engine(
+            config.database_url,
+            connect_args={"check_same_thread": False},
+        )
+    else:
+        engine = create_engine(
+            config.database_url,
+            pool_pre_ping=True,
+            pool_recycle=1800,
+        )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
     # Phase 6B: use a per-watcher credentials store factory instead of a single

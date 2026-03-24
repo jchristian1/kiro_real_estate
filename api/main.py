@@ -10,7 +10,7 @@ This module initializes the FastAPI application with:
 - Health check and metrics endpoints
 
 Environment Configuration:
-- DATABASE_URL: SQLite database path
+- DATABASE_URL: Database connection URL (postgresql:// for production, sqlite:/// for local dev)
 - CORS_ORIGINS: Comma-separated list of allowed origins
 - CORS_ALLOW_CREDENTIALS: Enable credentials in CORS
 - STATIC_FILES_DIR: Directory for frontend static files
@@ -215,10 +215,32 @@ def increment_leads_processed(count: int = 1) -> None:
 
 
 # Database setup
-engine = create_engine(
-    config.database_url,
-    connect_args={"check_same_thread": False} if "sqlite" in config.database_url else {}
-)
+# ---------------------------------------------------------------------------
+# Dialect-aware engine factory.
+#
+# SQLite:   check_same_thread=False (required for FastAPI's thread-per-request
+#           model sharing a single file-based connection).
+#
+# PostgreSQL: pool_pre_ping=True — SQLAlchemy tests each connection with a
+#             cheap "SELECT 1" before handing it to a request.  This prevents
+#             "connection was closed" 500s after a DB restart or network blip.
+#             pool_recycle=1800 — recycle connections after 30 minutes to avoid
+#             hitting server-side idle_in_transaction_session_timeout limits.
+# ---------------------------------------------------------------------------
+def _make_engine(database_url: str):
+    if "sqlite" in database_url:
+        return create_engine(
+            database_url,
+            connect_args={"check_same_thread": False},
+        )
+    return create_engine(
+        database_url,
+        pool_pre_ping=True,
+        pool_recycle=1800,
+    )
+
+
+engine = _make_engine(config.database_url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

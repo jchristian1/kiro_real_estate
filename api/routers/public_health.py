@@ -56,6 +56,7 @@ class WatcherEntry(BaseModel):
 class HealthResponse(BaseModel):
     status: str                          # "healthy" | "degraded"
     database: str                        # "connected" | "error"
+    db_dialect: str                      # "postgresql" | "sqlite" | "unknown"
     active_watchers: int
     errors_last_24h: int
     watchers: Dict[str, WatcherEntry]
@@ -91,12 +92,14 @@ async def health_check(
     Requirements: 1.6, 2.3, 2.5
     """
     # ------------------------------------------------------------------
-    # 1. Database connectivity
+    # 1. Database connectivity + dialect
     # ------------------------------------------------------------------
     db_ok = False
+    db_dialect = "unknown"
     try:
         db.execute(text("SELECT 1"))
         db_ok = True
+        db_dialect = db.bind.dialect.name if db.bind else "unknown"
     except Exception as exc:
         logger.error("Health check: database unreachable: %s", exc, exc_info=True)
 
@@ -108,6 +111,7 @@ async def health_check(
             content={
                 "status": "degraded",
                 "database": "error",
+                "db_dialect": db_dialect,
                 "active_watchers": 0,
                 "errors_last_24h": 0,
                 "watchers": {},
@@ -157,6 +161,7 @@ async def health_check(
     return HealthResponse(
         status=overall_status,
         database=database_str,
+        db_dialect=db_dialect,
         active_watchers=active_watchers,
         errors_last_24h=errors_last_24h,
         watchers=watchers,
