@@ -1,4 +1,4 @@
-.PHONY: help up down migrate test lint typecheck build generate-secrets
+.PHONY: help up down migrate test test-postgres lint typecheck build generate-secrets
 
 help: ## Show available targets
 	@echo "Usage: make <target>"
@@ -15,8 +15,16 @@ down: ## Stop all services
 migrate: ## Run database migrations
 	alembic upgrade head
 
-test: ## Run all tests (stops on first failure)
-	pytest tests/ -x
+test: ## Run all tests (SQLite-backed, fast — skips Postgres suite)
+	pytest tests/ -x --ignore=tests/postgres
+
+test-postgres: ## Run Postgres-backed tests (requires POSTGRES_TEST_URL env var)
+	@if [ -z "$$POSTGRES_TEST_URL" ]; then \
+		echo "ERROR: POSTGRES_TEST_URL is not set."; \
+		echo "  export POSTGRES_TEST_URL=postgresql://user:pass@localhost:5432/test_db"; \
+		exit 1; \
+	fi
+	pytest tests/postgres/ -v -m postgres
 
 lint: ## Lint Python and TypeScript sources
 	ruff check . && cd frontend && npx eslint src/

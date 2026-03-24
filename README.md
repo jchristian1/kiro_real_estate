@@ -225,7 +225,8 @@ For local development (without Docker) see [docs/FIRST_START.md](docs/FIRST_STAR
 make up               # Build and start all services (Docker)
 make down             # Stop all services
 make migrate          # Run pending Alembic migrations
-make test             # Run full test suite
+make test             # Run SQLite-backed test suite (fast, no Postgres required)
+make test-postgres    # Run Postgres-backed tests (requires POSTGRES_TEST_URL)
 make lint             # Lint Python (ruff) and TypeScript (eslint)
 make typecheck        # Type-check Python (mypy) and TypeScript (tsc)
 make build            # Build the production frontend bundle

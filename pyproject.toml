@@ -45,6 +45,9 @@ dev = [
     "sphinx>=7.2.0",
     "sphinx-rtd-theme>=2.0.0",
 ]
+postgres = [
+    "psycopg2-binary>=2.9.0",
+]
 
 [project.scripts]
 gmail-lead-sync = "gmail_lead_sync.__main__:main"
@@ -82,6 +85,9 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --cov=gmail_lead_sync --cov-report=html --cov-report=term"
 norecursedirs = ["api", "worker", "migrations", ".venv", ".git"]
+markers = [
+    "postgres: marks tests that require a real PostgreSQL instance (set POSTGRES_TEST_URL to run)",
+]
 
 [tool.coverage.run]
 source = ["gmail_lead_sync"]
