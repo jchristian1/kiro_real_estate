@@ -555,14 +555,6 @@ def update_lead_status(
     # Normalize 'NEW' to None — both represent the initial state
     current_for_transition = None if current == "NEW" else current
 
-    # Idempotency: if already in target state, return success without creating duplicate event
-    if current == new_status or current_for_transition == new_status:
-        return StatusUpdateResponse(
-            ok=True,
-            current_state=lead.agent_current_state,
-            updated_at=datetime.utcnow(),
-        )
-
     allowed = VALID_TRANSITIONS.get(current_for_transition, VALID_TRANSITIONS.get(current, []))
     if new_status not in allowed:
         from api.exceptions import ValidationException
