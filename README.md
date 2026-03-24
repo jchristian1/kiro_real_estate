@@ -141,9 +141,11 @@ Everything is managed through two separate web interfaces — one for platform o
 - Health endpoint (`/api/v1/health`) — database connectivity, active watcher count, 24h error count
 
 **Database**
-- SQLite with Alembic migrations
-- Migrations run automatically on startup
-- Seed data runs automatically on first boot (idempotent)
+- PostgreSQL is the recommended production database
+- SQLite is supported for local development and single-server deployments
+- Alembic migrations work against both — set `DATABASE_URL` before running `alembic upgrade head`
+- `psycopg2-binary` is included in `requirements.txt`; no extra install needed
+- Migrations run automatically on startup via the Docker entrypoint
 
 ---
 
@@ -153,7 +155,7 @@ Everything is managed through two separate web interfaces — one for platform o
 |-------|-----------|
 | Backend | Python 3.11, FastAPI, SQLAlchemy, Alembic |
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS |
-| Database | SQLite |
+| Database | PostgreSQL (production), SQLite (local dev / single-server) |
 | Auth | Session cookies, bcrypt, Fernet encryption |
 | Monitoring | Prometheus, structured JSON logs |
 | Deployment | Docker, Docker Compose, nginx |
@@ -172,8 +174,12 @@ git checkout final-user-ui
 cp .env.example .env
 # Fill in ENCRYPTION_KEY and SECRET_KEY in .env (see docs/FIRST_START.md)
 
-# 3. Start everything
+# 3a. Start with SQLite (zero-config, good for local dev)
 docker compose up --build
+
+# 3b. Start with Postgres (production-equivalent)
+#     Set DATABASE_URL=postgresql://app:app@postgres:5432/kiro in .env first
+docker compose --profile postgres up --build
 ```
 
 Frontend: http://localhost:80 — API: http://localhost:8000
@@ -222,9 +228,10 @@ For local development (without Docker) see [docs/FIRST_START.md](docs/FIRST_STAR
 ## Makefile Targets
 
 ```bash
-make up               # Build and start all services (Docker)
+make up               # Build and start all services (Docker, SQLite)
 make down             # Stop all services
-make migrate          # Run pending Alembic migrations
+make migrate          # Run pending Alembic migrations (uses DATABASE_URL)
+make migrate-postgres # Run migrations against Postgres (DATABASE_URL must be set)
 make test             # Run SQLite-backed test suite (fast, no Postgres required)
 make test-postgres    # Run Postgres-backed tests (requires POSTGRES_TEST_URL)
 make lint             # Lint Python (ruff) and TypeScript (eslint)

@@ -12,7 +12,16 @@ up: ## Start all services (builds images, runs in background)
 down: ## Stop all services
 	docker compose down
 
-migrate: ## Run database migrations
+migrate: ## Run database migrations (uses DATABASE_URL env var; falls back to SQLite)
+	alembic upgrade head
+
+migrate-postgres: ## Run migrations against Postgres (DATABASE_URL must be set to a postgresql:// URL)
+	@if [ -z "$(DATABASE_URL)" ]; then \
+		echo "ERROR: DATABASE_URL is not set."; \
+		echo "  export DATABASE_URL=postgresql://user:pass@localhost:5432/dbname"; \
+		exit 1; \
+	fi
+	@echo "Running migrations against: $(DATABASE_URL)"
 	alembic upgrade head
 
 test: ## Run all tests (SQLite-backed, fast — skips Postgres suite)
