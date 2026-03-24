@@ -104,16 +104,26 @@ def _assert_agent_access(agent_id: str, current_user: User, db: Session) -> None
 
 def get_watcher_registry():
     """
-    Get the global WatcherRegistry instance.
-    
-    This dependency will be initialized in main.py and injected here.
-    For now, we'll import it directly.
-    
-    Returns:
-        WatcherRegistry instance
+    Transitional stub — watcher control is not yet cross-process.
+
+    The WatcherRegistry now lives in the worker process. Until Phase 5C
+    introduces a DB-backed coordination layer, watcher control endpoints
+    return 503 Service Unavailable so callers know the feature is
+    temporarily unavailable rather than silently broken.
+
+    Phase 5C will replace this with a DB-backed desired-state mechanism
+    that the worker polls, making start/stop/sync work across processes.
     """
-    from api.main import watcher_registry
-    return watcher_registry
+    from api.exceptions import APIException
+    raise APIException(
+        status_code=503,
+        message=(
+            "Watcher control is temporarily unavailable. "
+            "The watcher runtime now runs in a separate worker process. "
+            "Cross-process control will be available in the next release."
+        ),
+        code="WATCHER_CONTROL_UNAVAILABLE",
+    )
 
 
 @router.post("/watchers/{agent_id}/start", response_model=WatcherStartResponse, status_code=status.HTTP_200_OK)

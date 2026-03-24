@@ -19,6 +19,19 @@ services:
       retries: 3
       start_period: 15s
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: ["/app/docker-worker-entrypoint.sh"]
+    env_file: .env
+    volumes:
+      - db_data:/data
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+
   frontend:
     build:
       context: frontend
