@@ -25,7 +25,13 @@ from sqlalchemy.orm import Session
 
 from api.models.lead_models import (
     LeadResponse,
-    LeadListResponse
+    LeadListResponse,
+    UnifiedLeadDetailResponse,
+    LeadCoreInfoResponse,
+    LeadStageInfoResponse,
+    LeadQualificationSummaryResponse,
+    ScoreFactorResponse,
+    ActivityTimelineEntryResponse,
 )
 from api.models.error_models import ErrorCode
 from api.exceptions import NotFoundException
@@ -209,27 +215,79 @@ def export_leads_csv(
     )
 
 
-@router.get("/leads/{lead_id}", response_model=LeadResponse)
+@router.get("/leads/{lead_id}", response_model=UnifiedLeadDetailResponse)
 def get_lead(
     lead_id: int,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     """
-    Get full details for a specific lead.
+    Get full details for a specific lead — unified read model.
+
+    Returns core identity, current pipeline stage, qualification summary,
+    and activity timeline. Delegates assembly to lead_detail_service.
 
     Requirements:
         - 5.4: Provide detail view showing full Lead content and metadata
     """
+    from api.services.lead_detail_service import assemble_lead_detail
+
     lead_repo = LeadRepository(db)
-    cred_repo = CredentialRepository(db)
-
     lead = lead_repo.get_by_agent_id_str(lead_id)
-
     if not lead:
         raise NotFoundException(
             message=f"Lead with ID {lead_id} not found",
             code=ErrorCode.NOT_FOUND_RESOURCE
         )
 
-    return _enrich_lead(lead, cred_repo)
+    company_id = getattr(lead, "company_id", None)
+    detail = assemble_lead_detail(db, lead_id=lead_id, company_id=company_id)
+    if detail is None:
+        raise NotFoundException(
+            message=f"Lead with ID {lead_id} not found",
+            code=ErrorCode.NOT_FOUND_RESOURCE
+        )
+
+    return UnifiedLeadDetailResponse(
+        core=LeadCoreInfoResponse(
+            id=detail.core.id,
+            name=detail.core.name,
+            phone=detail.core.phone,
+            source_email=detail.core.source_email,
+            created_at=detail.core.created_at,
+            property_address=detail.core.property_address,
+            listing_url=detail.core.listing_url,
+            lead_source_name=detail.core.lead_source_name,
+            agent_current_state=detail.core.agent_current_state,
+            last_agent_action_at=detail.core.last_agent_action_at,
+        ),
+        stage=LeadStageInfoResponse(
+            stage_id=detail.stage.stage_id,
+            stage_name=detail.stage.stage_name,
+            stage_key=detail.stage.stage_key,
+            stage_color=detail.stage.stage_color,
+            stage_category=detail.stage.stage_category,
+            stage_entered_at=detail.stage.stage_entered_at,
+        ) if detail.stage else None,
+        qualification=LeadQualificationSummaryResponse(
+            score=detail.qualification.score,
+            bucket=detail.qualification.bucket,
+            explanation_text=detail.qualification.explanation_text,
+            breakdown=[
+                ScoreFactorResponse(label=f.label, points=f.points, met=f.met)
+                for f in detail.qualification.breakdown
+            ],
+            submitted_at=detail.qualification.submitted_at,
+            invitation_sent_at=detail.qualification.invitation_sent_at,
+        ) if detail.qualification else None,
+        timeline=[
+            ActivityTimelineEntryResponse(
+                id=e.id,
+                event_type=e.event_type,
+                actor_source=e.actor_source,
+                metadata=e.metadata,
+                occurred_at=e.occurred_at,
+            )
+            for e in detail.timeline
+        ],
+    )

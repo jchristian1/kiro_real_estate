@@ -1,9 +1,14 @@
 """
 Main application entry point for Gmail Lead Sync & Response Engine.
 
+NOTE: This is a local-development / SQLite-only CLI tool.  It is NOT the
+production entry point.  Production runs the API via ``api/main.py`` and the
+watcher worker via ``worker/main.py``, both of which read ``DATABASE_URL``
+from the environment and support PostgreSQL.
+
 This module provides the command-line interface for the Gmail Lead Sync system,
 including commands for:
-- Starting the watcher service
+- Starting the watcher service (SQLite only)
 - Testing parser patterns
 - Managing lead sources
 - Managing email templates
@@ -79,10 +84,15 @@ def signal_handler(signum: int, frame) -> None:
 def get_db_session(db_path: str = 'gmail_lead_sync.db') -> Session:
     """
     Create and return a database session.
-    
+
+    This function is used by the legacy CLI entry point (``python -m gmail_lead_sync``)
+    which is a local-dev / SQLite-only tool.  It is NOT used by the production API
+    or worker processes — those build their sessions from ``DATABASE_URL`` via
+    ``api/config.py`` and ``api/dependencies/db.py``.
+
     Args:
         db_path: Path to the SQLite database file
-        
+
     Returns:
         SQLAlchemy Session object
     """

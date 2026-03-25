@@ -299,7 +299,7 @@ class TestSettingsValidation:
         
         assert response.status_code == 422  # Validation error
         data = response.json()
-        assert "detail" in data
+        assert "details" in data
     
     def test_sync_interval_above_maximum(self, client):
         """Test sync_interval_seconds above maximum (3600) fails."""
@@ -514,7 +514,7 @@ class TestSettingsEdgeCases:
         # Should return 422 Validation error
         assert response.status_code == 422
         data = response.json()
-        assert "detail" in data
+        assert "details" in data
     
     def test_update_with_null_value(self, client):
         """Test updating setting with null value is ignored."""
@@ -626,6 +626,6 @@ class TestSettingsEdgeCases:
         
         assert response.status_code == 422
         data = response.json()
-        assert "detail" in data
+        assert "details" in data
         # Pydantic validation errors include field location
-        assert any("sync_interval_seconds" in str(error) for error in data["detail"])
+        assert any("sync_interval_seconds" in str(error) for error in data["details"])

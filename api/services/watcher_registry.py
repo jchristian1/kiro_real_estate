@@ -14,9 +14,11 @@ import logging
 import os
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional
 from dataclasses import dataclass
 
+
+from typing import Callable
 
 from gmail_lead_sync.watcher import GmailWatcher
 from gmail_lead_sync.credentials import EncryptedDBCredentialsStore
@@ -62,18 +64,33 @@ class WatcherRegistry:
     
     MAX_RETRIES = 5
     
-    def __init__(self, get_db_session: callable, credentials_store: EncryptedDBCredentialsStore):
+    def __init__(
+        self,
+        get_db_session: Callable,
+        credentials_store: Optional[EncryptedDBCredentialsStore] = None,
+        make_credentials_store: Optional[Callable[[], EncryptedDBCredentialsStore]] = None,
+    ):
         """
         Initialize the watcher registry.
-        
+
         Args:
-            get_db_session: Callable that returns a database session (context manager)
-            credentials_store: Store for retrieving Gmail credentials
+            get_db_session: Callable that returns a new database session.
+            credentials_store: Pre-built credentials store (legacy; shared session).
+                Prefer make_credentials_store for PostgreSQL-safe operation.
+            make_credentials_store: Factory that returns a fresh EncryptedDBCredentialsStore
+                (with its own short-lived session) each time it is called.  When provided,
+                each watcher task gets its own store and session, avoiding the long-lived
+                shared-session problem under PostgreSQL.
         """
+        if credentials_store is None and make_credentials_store is None:
+            raise ValueError(
+                "Provide either credentials_store or make_credentials_store"
+            )
         self._watchers: Dict[str, WatcherInfo] = {}
         self._lock = asyncio.Lock()
         self.get_db_session = get_db_session
         self.credentials_store = credentials_store
+        self.make_credentials_store = make_credentials_store
         logger.info("WatcherRegistry initialized")
     
     async def start_watcher(self, agent_id: str) -> bool:
@@ -279,16 +296,26 @@ class WatcherRegistry:
         Background task that runs the GmailWatcher for an agent.
         """
         logger.info(f"Watcher task started for agent {agent_id}")
-        
+
         watcher = None
         db_session = None
-        
+        creds_session = None  # separate session owned by the credentials store
+
         try:
             # Create database session (SessionLocal() returns a plain session, not a context manager)
             db_session = self.get_db_session()
-            
+
+            # Build a credentials store for this watcher.
+            # When make_credentials_store is provided (Phase 6B+), each watcher gets
+            # its own short-lived session so no long-lived shared session is held.
+            if self.make_credentials_store is not None:
+                creds_store = self.make_credentials_store()
+                creds_session = creds_store.db_session  # track for cleanup
+            else:
+                creds_store = self.credentials_store
+
             watcher = GmailWatcher(
-                credentials_store=self.credentials_store,
+                credentials_store=creds_store,
                 db_session=db_session,
                 agent_id=agent_id
             )
@@ -421,6 +448,12 @@ class WatcherRegistry:
             if db_session:
                 try:
                     db_session.close()
+                except Exception:
+                    pass
+            # Close the per-watcher credentials session if we own it
+            if creds_session is not None:
+                try:
+                    creds_session.close()
                 except Exception:
                     pass
             logger.info(f"Watcher task stopped for agent {agent_id}")

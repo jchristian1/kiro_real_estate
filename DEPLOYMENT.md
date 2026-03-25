@@ -51,12 +51,13 @@ sudo passwd gmail-sync
 **Ubuntu/Debian:**
 ```bash
 sudo apt update
-sudo apt install -y python3.10 python3.10-venv python3-pip git sqlite3
+sudo apt install -y python3.10 python3.10-venv python3-pip git sqlite3 \
+    postgresql-client libpq-dev
 ```
 
 **CentOS/RHEL:**
 ```bash
-sudo dnf install -y python3.10 python3-pip git sqlite
+sudo dnf install -y python3.10 python3-pip git sqlite postgresql libpq-devel
 ```
 
 ### 3. Configure Firewall
@@ -372,84 +373,117 @@ sudo systemctl restart gmail-lead-sync
 
 ## Database Management
 
-### Database Location
+PostgreSQL is the recommended database for production deployments. SQLite is supported for simple single-server setups or local development.
 
-Default location: `/opt/gmail-lead-sync/gmail_lead_sync.db`
+### PostgreSQL (Recommended for Production)
 
-### Database Permissions
+#### Install PostgreSQL
+
+**Ubuntu/Debian:**
+```bash
+sudo apt install -y postgresql postgresql-contrib
+sudo systemctl enable postgresql
+sudo systemctl start postgresql
+```
+
+**CentOS/RHEL:**
+```bash
+sudo dnf install -y postgresql-server postgresql-contrib
+sudo postgresql-setup --initdb
+sudo systemctl enable postgresql
+sudo systemctl start postgresql
+```
+
+#### Create Database and User
 
 ```bash
-# Set restrictive permissions
+sudo -u postgres psql << 'EOF'
+CREATE USER kiro WITH PASSWORD 'change-me-strong-password';
+CREATE DATABASE kiro OWNER kiro;
+GRANT ALL PRIVILEGES ON DATABASE kiro TO kiro;
+EOF
+```
+
+#### Set DATABASE_URL
+
+In `/opt/gmail-lead-sync/.env`:
+
+```bash
+DATABASE_URL=postgresql://kiro:change-me-strong-password@localhost:5432/kiro
+```
+
+#### Run Migrations
+
+```bash
+source /opt/gmail-lead-sync/venv/bin/activate
+export DATABASE_URL=postgresql://kiro:change-me-strong-password@localhost:5432/kiro
+alembic upgrade head
+```
+
+Migrations also run automatically on every container/service startup via the entrypoint script.
+
+#### Verify Schema
+
+```bash
+psql postgresql://kiro:change-me-strong-password@localhost:5432/kiro \
+  -c "\dt" | head -30
+```
+
+#### PostgreSQL Maintenance
+
+```bash
+# Check database size
+psql $DATABASE_URL -c "SELECT pg_size_pretty(pg_database_size('kiro'));"
+
+# Vacuum and analyze (Postgres does this automatically via autovacuum, but can be run manually)
+psql $DATABASE_URL -c "VACUUM ANALYZE;"
+
+# Check active connections
+psql $DATABASE_URL -c "SELECT count(*) FROM pg_stat_activity WHERE datname = 'kiro';"
+```
+
+#### PostgreSQL Backup
+
+```bash
+# Dump database
+pg_dump $DATABASE_URL -Fc -f /opt/gmail-lead-sync/backups/kiro_$(date +%Y%m%d_%H%M%S).dump
+
+# Restore
+pg_restore -d $DATABASE_URL /opt/gmail-lead-sync/backups/kiro_20240115_020000.dump
+```
+
+---
+
+### SQLite (Simple / Single-Server Deployments)
+
+SQLite requires no server process and is suitable for low-traffic single-server deployments.
+
+Set `DATABASE_URL` in `.env`:
+
+```bash
+DATABASE_URL=sqlite:////opt/gmail-lead-sync/gmail_lead_sync.db
+```
+
+**Permissions:**
+```bash
 chmod 600 /opt/gmail-lead-sync/gmail_lead_sync.db
 chown gmail-sync:gmail-sync /opt/gmail-lead-sync/gmail_lead_sync.db
 ```
 
-### Database Maintenance
-
-**Vacuum database (reclaim space):**
-
+**Maintenance:**
 ```bash
+# Reclaim space
 sqlite3 /opt/gmail-lead-sync/gmail_lead_sync.db "VACUUM;"
-```
 
-**Analyze database (optimize queries):**
-
-```bash
-sqlite3 /opt/gmail-lead-sync/gmail_lead_sync.db "ANALYZE;"
-```
-
-**Check database integrity:**
-
-```bash
+# Check integrity
 sqlite3 /opt/gmail-lead-sync/gmail_lead_sync.db "PRAGMA integrity_check;"
 ```
 
-**Clean old processing logs:**
-
+**Backup:**
 ```bash
-# Delete logs older than 90 days
+# Hot backup (safe while service is running)
 sqlite3 /opt/gmail-lead-sync/gmail_lead_sync.db \
-  "DELETE FROM processing_logs WHERE timestamp < datetime('now', '-90 days');"
-
-# Vacuum after deletion
-sqlite3 /opt/gmail-lead-sync/gmail_lead_sync.db "VACUUM;"
-```
-
-### Database Monitoring
-
-**Check database size:**
-
-```bash
-du -h /opt/gmail-lead-sync/gmail_lead_sync.db
-```
-
-**View table sizes:**
-
-```bash
-sqlite3 /opt/gmail-lead-sync/gmail_lead_sync.db << 'EOF'
-SELECT 
-    name,
-    (SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=m.name) as row_count
-FROM sqlite_master m
-WHERE type='table'
-ORDER BY name;
-EOF
-```
-
-**View recent activity:**
-
-```bash
-sqlite3 /opt/gmail-lead-sync/gmail_lead_sync.db << 'EOF'
-SELECT 
-    DATE(timestamp) as date,
-    COUNT(*) as total_processed,
-    SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful,
-    SUM(CASE WHEN status != 'success' THEN 1 ELSE 0 END) as failed
-FROM processing_logs
-WHERE timestamp > datetime('now', '-7 days')
-GROUP BY DATE(timestamp)
-ORDER BY date DESC;
-EOF
+  ".backup '/opt/gmail-lead-sync/backups/kiro_$(date +%Y%m%d).db'"
 ```
 
 ## Security Best Practices

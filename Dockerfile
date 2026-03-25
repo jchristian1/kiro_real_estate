@@ -28,6 +28,8 @@ ENV PATH=/root/.local/bin:$PATH
 COPY gmail_lead_sync/ ./gmail_lead_sync/
 COPY api/ ./api/
 COPY migrations/ ./migrations/
+COPY worker/ ./worker/
+COPY scripts/ ./scripts/
 COPY alembic.ini ./
 
 # Create directory for database and static files
@@ -45,5 +47,8 @@ EXPOSE 8000
 # Entrypoint: run migrations then start server
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
+
+COPY docker-worker-entrypoint.sh ./
+RUN chmod +x docker-worker-entrypoint.sh
 
 ENTRYPOINT ["./docker-entrypoint.sh"]

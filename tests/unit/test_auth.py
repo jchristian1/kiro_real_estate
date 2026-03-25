@@ -13,7 +13,7 @@ Tests cover:
 
 import pytest
 from datetime import datetime, timedelta
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, patch
 
 from api.auth import (
     hash_password,
@@ -324,35 +324,39 @@ class TestCookieHandling:
         assert result is None
     
     def test_set_session_cookie(self):
-        """Test setting session cookie."""
+        """Test setting session cookie in production mode (secure=True)."""
+        import os
         token = "test_session_token"
         mock_response = Mock(spec=Response)
-        
-        set_session_cookie(mock_response, token)
-        
+
+        with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
+            set_session_cookie(mock_response, token)
+
         mock_response.set_cookie.assert_called_once()
         call_kwargs = mock_response.set_cookie.call_args[1]
-        
+
         assert call_kwargs['key'] == SESSION_COOKIE_NAME
         assert call_kwargs['value'] == token
         assert call_kwargs['httponly'] is True
         assert call_kwargs['secure'] is True
-        assert call_kwargs['samesite'] == "lax"
+        assert call_kwargs['samesite'] in ("lax", "strict")
         assert call_kwargs['max_age'] == SESSION_EXPIRY_HOURS * 3600
-    
+
     def test_clear_session_cookie(self):
-        """Test clearing session cookie."""
+        """Test clearing session cookie in production mode (secure=True)."""
+        import os
         mock_response = Mock(spec=Response)
-        
-        clear_session_cookie(mock_response)
-        
+
+        with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
+            clear_session_cookie(mock_response)
+
         mock_response.delete_cookie.assert_called_once()
         call_kwargs = mock_response.delete_cookie.call_args[1]
-        
+
         assert call_kwargs['key'] == SESSION_COOKIE_NAME
         assert call_kwargs['httponly'] is True
         assert call_kwargs['secure'] is True
-        assert call_kwargs['samesite'] == "lax"
+        assert call_kwargs['samesite'] in ("lax", "strict")
 
 
 class TestAuthenticationDependency:

@@ -79,12 +79,12 @@ def create_real_estate_pipeline(db: Session, company_id: int) -> Pipeline:
     db.flush()
 
     stage_defs = [
-        {"name": "New Lead",         "key": "new_lead",        "color": "#6366F1", "category": StageCategory.active,      "position": 1, "is_default": True},
-        {"name": "Contacted",        "key": "contacted",       "color": "#3B82F6", "category": StageCategory.active,      "position": 2},
-        {"name": "Appointment Set",  "key": "appointment_set", "color": "#F59E0B", "category": StageCategory.active,      "position": 3},
-        {"name": "Under Contract",   "key": "under_contract",  "color": "#10B981", "category": StageCategory.active,      "position": 4},
-        {"name": "Won",              "key": "won",             "color": "#22C55E", "category": StageCategory.closed_won,  "position": 5, "is_closed_won": True},
-        {"name": "Lost",             "key": "lost",            "color": "#EF4444", "category": StageCategory.closed_lost, "position": 6, "is_closed_lost": True},
+        {"name": "New Lead",         "key": "new_lead",        "color": "#6366F1", "category": StageCategory.open,        "position": 1, "is_default": True},
+        {"name": "Contacted",        "key": "contacted",       "color": "#3B82F6", "category": StageCategory.in_progress, "position": 2},
+        {"name": "Appointment Set",  "key": "appointment_set", "color": "#F59E0B", "category": StageCategory.in_progress, "position": 3},
+        {"name": "Under Contract",   "key": "under_contract",  "color": "#10B981", "category": StageCategory.waiting,     "position": 4},
+        {"name": "Won",              "key": "won",             "color": "#22C55E", "category": StageCategory.won,         "position": 5, "is_closed_won": True},
+        {"name": "Lost",             "key": "lost",            "color": "#EF4444", "category": StageCategory.lost,        "position": 6, "is_closed_lost": True},
     ]
     stages = _create_stages(db, pipeline.id, stage_defs)
 
@@ -122,12 +122,12 @@ def create_law_firm_pipeline(db: Session, company_id: int) -> Pipeline:
     db.flush()
 
     stage_defs = [
-        {"name": "New Inquiry",             "key": "new_inquiry",            "color": "#6366F1", "category": StageCategory.active,      "position": 1, "is_default": True},
-        {"name": "Consultation Scheduled",  "key": "consultation_scheduled", "color": "#3B82F6", "category": StageCategory.active,      "position": 2},
-        {"name": "Retained",                "key": "retained",               "color": "#F59E0B", "category": StageCategory.active,      "position": 3},
-        {"name": "Active Case",             "key": "active_case",            "color": "#10B981", "category": StageCategory.active,      "position": 4},
-        {"name": "Closed Won",              "key": "closed_won",             "color": "#22C55E", "category": StageCategory.closed_won,  "position": 5, "is_closed_won": True},
-        {"name": "Closed Lost",             "key": "closed_lost",            "color": "#EF4444", "category": StageCategory.closed_lost, "position": 6, "is_closed_lost": True},
+        {"name": "New Inquiry",             "key": "new_inquiry",            "color": "#6366F1", "category": StageCategory.open,        "position": 1, "is_default": True},
+        {"name": "Consultation Scheduled",  "key": "consultation_scheduled", "color": "#3B82F6", "category": StageCategory.in_progress, "position": 2},
+        {"name": "Retained",                "key": "retained",               "color": "#F59E0B", "category": StageCategory.in_progress, "position": 3},
+        {"name": "Active Case",             "key": "active_case",            "color": "#10B981", "category": StageCategory.waiting,     "position": 4},
+        {"name": "Closed Won",              "key": "closed_won",             "color": "#22C55E", "category": StageCategory.won,         "position": 5, "is_closed_won": True},
+        {"name": "Closed Lost",             "key": "closed_lost",            "color": "#EF4444", "category": StageCategory.lost,        "position": 6, "is_closed_lost": True},
     ]
     stages = _create_stages(db, pipeline.id, stage_defs)
 

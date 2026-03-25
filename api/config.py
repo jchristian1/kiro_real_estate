@@ -8,7 +8,7 @@ This module provides:
 - Secure logging of configuration (excluding sensitive values)
 
 Environment Variables:
-- DATABASE_URL: SQLite database path (required)
+- DATABASE_URL: Database connection URL, e.g. postgresql://user:pass@host/db or sqlite:///./dev.db (required)
 - ENCRYPTION_KEY: Key for credential encryption (required)
 - SECRET_KEY: Key for session signing (required)
 - API_HOST: Host to bind to (default: 0.0.0.0)
@@ -42,7 +42,7 @@ class Config:
     Application configuration loaded from environment variables.
     
     Attributes:
-        database_url: SQLite database path
+        database_url: Database connection URL (PostgreSQL in production, SQLite for local dev)
         encryption_key: Key for credential encryption
         secret_key: Key for session signing
         api_host: Host to bind to

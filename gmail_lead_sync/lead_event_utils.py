@@ -1,17 +1,31 @@
 """
-Shared utility for inserting LeadEvent records into the audit trail.
+Shared utility for inserting LeadEvent records.
 
-This module provides a single helper function used by the watcher pipeline
-and preapproval handlers to insert immutable lead event records.
+COMPATIBILITY SHIM — do not use in new code.
+
+New code must call api.services.lead_activity.record_activity() directly,
+which accepts the full structured event shape including company_id and
+actor_source. This shim exists only for callers that predate Phase 3A and
+have not been updated yet.
+
+What this shim passes through to record_activity():
+  - lead_id       → lead_id
+  - event_type    → event_type
+  - payload_dict  → metadata
+  - agent_user_id → actor_id
+
+What this shim does NOT pass through (callers must migrate to record_activity
+to supply these):
+  - company_id    (always None via this shim — tenant scoping lost)
+  - actor_source  (always None via this shim)
+  - occurred_at   (always defaults to utcnow)
 
 Requirements: 20.1, 20.2
 """
 
 from __future__ import annotations
 
-import json
 import logging
-from datetime import datetime
 from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
@@ -26,43 +40,24 @@ def insert_lead_event(
     payload_dict: Optional[Dict[str, Any]] = None,
     agent_user_id: Optional[int] = None,
 ) -> None:
-    """Insert a single LeadEvent record into the audit trail.
+    """Compatibility shim — delegates to record_activity().
 
-    This is an append-only operation — existing records are never modified.
+    DO NOT USE IN NEW CODE. Call record_activity() directly so that
+    company_id and actor_source are properly supplied.
 
-    Args:
-        db: SQLAlchemy session (must be active).
-        lead_id: ID of the lead this event belongs to.
-        event_type: One of the valid LeadEvent event_type enum values.
-        payload_dict: Optional dict to serialize as JSON payload.
-        agent_user_id: Optional FK to agent_users.id (nullable per schema).
-
-    Requirements: 20.1, 20.2
+    This shim intentionally omits company_id and actor_source because
+    legacy callers do not have that context. Events written via this shim
+    will not appear in company-scoped timeline queries until the caller
+    is migrated to record_activity().
     """
-    from gmail_lead_sync.agent_models import LeadEvent  # local import to avoid circular deps
+    from api.services.lead_activity import record_activity
 
-    try:
-        event = LeadEvent(
-            lead_id=lead_id,
-            agent_user_id=agent_user_id,
-            event_type=event_type,
-            payload=json.dumps(payload_dict) if payload_dict is not None else None,
-            created_at=datetime.utcnow(),
-        )
-        db.add(event)
-        db.flush()  # write to DB within current transaction without committing
-        logger.debug(
-            "LeadEvent inserted: lead_id=%d event_type=%s agent_user_id=%s",
-            lead_id,
-            event_type,
-            agent_user_id,
-        )
-    except Exception as exc:
-        # Never let event insertion break the main pipeline
-        logger.error(
-            "Failed to insert LeadEvent (lead_id=%d event_type=%s): %s",
-            lead_id,
-            event_type,
-            exc,
-            exc_info=True,
-        )
+    record_activity(
+        db,
+        lead_id=lead_id,
+        event_type=event_type,
+        actor_id=agent_user_id,
+        metadata=payload_dict,
+        # company_id and actor_source intentionally omitted —
+        # legacy callers do not have this context.
+    )

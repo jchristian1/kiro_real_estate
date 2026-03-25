@@ -1,374 +1,279 @@
 """
-Watcher control API endpoints.
+Watcher control API endpoints (Phase 5C — DB-backed coordination).
 
-This module provides REST API endpoints for controlling watcher processes:
-- Starting watchers for agents
-- Stopping watchers
-- Triggering manual sync operations
-- Getting watcher status for all agents
-
-All endpoints require authentication and integrate with the WatcherRegistry
-service for background task management.
+The watcher runtime lives in the worker process. The API coordinates with
+it through two DB tables:
+  - watcher_control: API writes desired state; worker reconciles
+  - watcher_status:  Worker writes live status; API reads for status endpoint
 
 Endpoints:
-- POST /api/v1/watchers/{agent_id}/start - Start watcher
-- POST /api/v1/watchers/{agent_id}/stop - Stop watcher
-- POST /api/v1/watchers/{agent_id}/sync - Trigger manual sync
-- GET /api/v1/watchers/status - Get all watcher statuses
+- POST /api/v1/watchers/{agent_id}/start  — set desired_status=running
+- POST /api/v1/watchers/{agent_id}/stop   — set desired_status=stopped
+- POST /api/v1/watchers/{agent_id}/sync   — request immediate sync
+- GET  /api/v1/watchers/status            — read live status from DB
 
 Requirements:
 - 4.1: Provide endpoints for starting, stopping, and triggering sync operations
 - 4.5: Execute single sync operation when manual sync is triggered
 - 4.6: Display real-time Watcher status for each Agent
-- 21.1: Use existing gmail_lead_sync modules
-- 21.2: Maintain idempotent processing guarantees
+- 4.7: Track Watcher heartbeats and last sync timestamps
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
+from api.dependencies.auth import require_role
+from api.dependencies.db import get_db
+from api.exceptions import NotFoundException
+from api.models.error_models import ErrorCode
 from api.models.web_ui_models import User
 from api.models.watcher_models import (
     WatcherStartResponse,
+    WatcherStatusListResponse,
+    WatcherStatusResponse,
     WatcherStopResponse,
     WatcherSyncResponse,
-    WatcherStatusResponse,
-    WatcherStatusListResponse
-)
-from api.models.error_models import ErrorCode
-from api.exceptions import (
-    NotFoundException,
-    ConflictException,
-    ValidationException
 )
 from api.repositories import CredentialRepository
+from api.repositories.watcher_coordination_repository import (
+    WatcherControlRepository,
+    WatcherStatusRepository,
+)
 from api.services.audit_log import record_audit_log
-from api.dependencies.auth import require_role
 
 
 router = APIRouter(dependencies=[Depends(require_role("company_admin"))])
 
 
-# Dependencies that will be injected by FastAPI
-def get_db():
-    """Database dependency - will be overridden in tests."""
-    from api.main import SessionLocal
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
-    """Authentication dependency - will be overridden in tests."""
-    from api.auth import get_current_user as auth_get_current_user
-    return auth_get_current_user(request, db)
+    """Authentication dependency."""
+    from api.auth import get_current_user as _auth
+    return _auth(request, db)
 
 
 def _assert_agent_access(agent_id: str, current_user: User, db: Session) -> None:
     """
-    Validate that the authenticated user has permission to access the specified agent.
-    
-    Platform admins (role='admin' or 'platform_admin') can access all agents.
-    Company-scoped admins can only access agents in their own company.
-    
-    Raises NotFoundException if agent not found or user lacks permission.
-    
-    Requirements: 6.1, 6.2
+    Validate that the authenticated user can access the specified agent.
+
+    Platform admins can access all agents. Company-scoped admins can only
+    access agents in their own company.
     """
-    from api.models.error_models import ErrorCode
-    from api.exceptions import NotFoundException
-    
-    # Platform admins can access all agents
-    if getattr(current_user, 'role', None) in ('admin', 'platform_admin'):
+    if getattr(current_user, "role", None) in ("admin", "platform_admin"):
         return
-    
-    # Company-scoped admins can only access agents in their company
+
     cred_repo = CredentialRepository(db)
     credentials = cred_repo.get_by_agent_id(agent_id)
-    
+
     if not credentials:
         raise NotFoundException(
             message=f"Agent '{agent_id}' not found",
-            code=ErrorCode.NOT_FOUND_RESOURCE
+            code=ErrorCode.NOT_FOUND_RESOURCE,
         )
-    
     if credentials.company_id != current_user.company_id:
         raise NotFoundException(
             message=f"Agent '{agent_id}' not found",
-            code=ErrorCode.NOT_FOUND_RESOURCE
+            code=ErrorCode.NOT_FOUND_RESOURCE,
         )
 
 
-def get_watcher_registry():
-    """
-    Get the global WatcherRegistry instance.
-    
-    This dependency will be initialized in main.py and injected here.
-    For now, we'll import it directly.
-    
-    Returns:
-        WatcherRegistry instance
-    """
-    from api.main import watcher_registry
-    return watcher_registry
+def _require_agent_credentials(agent_id: str, db: Session):
+    """Return credentials or raise 404."""
+    cred_repo = CredentialRepository(db)
+    credentials = cred_repo.get_by_agent_id(agent_id)
+    if not credentials:
+        raise NotFoundException(
+            message=f"Agent '{agent_id}' not found",
+            code=ErrorCode.NOT_FOUND_RESOURCE,
+        )
+    return credentials
 
 
-@router.post("/watchers/{agent_id}/start", response_model=WatcherStartResponse, status_code=status.HTTP_200_OK)
+# ---------------------------------------------------------------------------
+# Start
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/watchers/{agent_id}/start",
+    response_model=WatcherStartResponse,
+    status_code=status.HTTP_200_OK,
+)
 async def start_watcher(
     agent_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    registry = Depends(get_watcher_registry)
 ):
     """
-    Start a watcher background task for the specified agent.
-    
-    Creates a background task that monitors the agent's Gmail inbox for
-    new lead emails. Prevents starting multiple concurrent watchers for
-    the same agent.
-    
-    Args:
-        agent_id: Agent identifier
-        db: Database session
-        current_user: Authenticated user
-        registry: WatcherRegistry instance
-        
-    Returns:
-        Watcher start confirmation with status
-        
-    Raises:
-        NotFoundException: If agent not found or user lacks permission
-        ConflictException: If watcher already running
-        
-    Requirements:
-        - 4.1: Provide endpoints for starting watcher
-        - 4.2: Create background task for agent when watcher is started
-        - 4.4: Prevent multiple concurrent watchers for same agent
-        - 4.8: Record all watcher start operations
-        - 6.1, 6.2: Enforce tenant isolation
+    Request the worker to start a watcher for the specified agent.
+
+    Sets desired_status=running in watcher_control. The worker will
+    start the watcher on its next reconciliation cycle (~10s).
+
+    Requirements: 4.1, 4.2, 4.4, 4.8, 6.1, 6.2
     """
-    # Validate tenant access
     _assert_agent_access(agent_id, current_user, db)
-    
-    # Verify agent exists
-    cred_repo = CredentialRepository(db)
-    credentials = cred_repo.get_by_agent_id(agent_id)
-    if not credentials:
-        raise NotFoundException(
-            message=f"Agent '{agent_id}' not found",
-            code=ErrorCode.NOT_FOUND_RESOURCE
-        )
-    
-    # Attempt to start watcher
-    started = await registry.start_watcher(agent_id)
-    
-    if not started:
-        raise ConflictException(
-            message=f"Watcher for agent '{agent_id}' is already running",
-            code=ErrorCode.CONFLICT_RESOURCE_EXISTS
-        )
-    
-    # Record audit log
+    credentials = _require_agent_credentials(agent_id, db)
+
+    ctrl_repo = WatcherControlRepository(db)
+    ctrl_repo.set_desired_status(agent_id, "running")
+
     record_audit_log(
         db_session=db,
         user_id=current_user.id,
-        action="watcher_started",
+        action="watcher_start_requested",
         resource_type="watcher",
         resource_id=credentials.id,
-        details=f"Started watcher for agent {agent_id}"
+        details=f"Requested watcher start for agent {agent_id}",
     )
-    
-    # Get current status
-    watcher_status = await registry.get_status(agent_id)
-    
+
+    # Return current DB status (may still show stopped until worker reconciles)
+    status_repo = WatcherStatusRepository(db)
+    status_row = status_repo.get(agent_id)
+    current_status = status_row.status if status_row else "starting"
+    started_at = (
+        status_row.started_at.isoformat() + "Z"
+        if status_row and status_row.started_at
+        else datetime.utcnow().isoformat() + "Z"
+    )
+
     return WatcherStartResponse(
         agent_id=agent_id,
-        status=watcher_status["status"],
-        started_at=watcher_status["started_at"],
-        message=f"Watcher started successfully for agent '{agent_id}'"
+        status=current_status,
+        started_at=started_at,
+        message=f"Watcher start requested for agent '{agent_id}'. Worker will start it shortly.",
     )
 
 
-@router.post("/watchers/{agent_id}/stop", response_model=WatcherStopResponse, status_code=status.HTTP_200_OK)
+# ---------------------------------------------------------------------------
+# Stop
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/watchers/{agent_id}/stop",
+    response_model=WatcherStopResponse,
+    status_code=status.HTTP_200_OK,
+)
 async def stop_watcher(
     agent_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    registry = Depends(get_watcher_registry)
 ):
     """
-    Gracefully stop the watcher task for the specified agent.
-    
-    Cancels the background task and waits for it to complete gracefully.
-    
-    Args:
-        agent_id: Agent identifier
-        db: Database session
-        current_user: Authenticated user
-        registry: WatcherRegistry instance
-        
-    Returns:
-        Watcher stop confirmation
-        
-    Raises:
-        NotFoundException: If agent or watcher not found, or user lacks permission
-        
-    Requirements:
-        - 4.1: Provide endpoints for stopping watcher
-        - 4.3: Gracefully terminate background task when watcher is stopped
-        - 4.8: Record all watcher stop operations
-        - 6.1, 6.2: Enforce tenant isolation
+    Request the worker to stop a watcher for the specified agent.
+
+    Sets desired_status=stopped in watcher_control. The worker will
+    stop the watcher on its next reconciliation cycle (~10s).
+
+    Requirements: 4.1, 4.3, 4.8, 6.1, 6.2
     """
-    # Validate tenant access
     _assert_agent_access(agent_id, current_user, db)
-    
-    # Verify agent exists
-    cred_repo = CredentialRepository(db)
-    credentials = cred_repo.get_by_agent_id(agent_id)
-    if not credentials:
-        raise NotFoundException(
-            message=f"Agent '{agent_id}' not found",
-            code=ErrorCode.NOT_FOUND_RESOURCE
-        )
-    
-    # Attempt to stop watcher
-    stopped = await registry.stop_watcher(agent_id)
-    
-    if not stopped:
-        raise NotFoundException(
-            message=f"No running watcher found for agent '{agent_id}'",
-            code=ErrorCode.NOT_FOUND_RESOURCE
-        )
-    
-    # Record audit log
+    credentials = _require_agent_credentials(agent_id, db)
+
+    ctrl_repo = WatcherControlRepository(db)
+    ctrl_repo.set_desired_status(agent_id, "stopped")
+
     record_audit_log(
         db_session=db,
         user_id=current_user.id,
-        action="watcher_stopped",
+        action="watcher_stop_requested",
         resource_type="watcher",
         resource_id=credentials.id,
-        details=f"Stopped watcher for agent {agent_id}"
+        details=f"Requested watcher stop for agent {agent_id}",
     )
-    
+
     return WatcherStopResponse(
         agent_id=agent_id,
-        status="stopped",
-        message=f"Watcher stopped successfully for agent '{agent_id}'"
+        status="stopping",
+        message=f"Watcher stop requested for agent '{agent_id}'. Worker will stop it shortly.",
     )
 
 
-@router.post("/watchers/{agent_id}/sync", response_model=WatcherSyncResponse, status_code=status.HTTP_200_OK)
+# ---------------------------------------------------------------------------
+# Sync
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/watchers/{agent_id}/sync",
+    response_model=WatcherSyncResponse,
+    status_code=status.HTTP_200_OK,
+)
 async def trigger_sync(
     agent_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    registry = Depends(get_watcher_registry)
 ):
     """
-    Trigger a manual sync operation for the specified agent.
-    
-    Signals the watcher to perform an immediate sync operation outside
-    of its normal schedule.
-    
-    Args:
-        agent_id: Agent identifier
-        db: Database session
-        current_user: Authenticated user
-        registry: WatcherRegistry instance
-        
-    Returns:
-        Sync trigger confirmation
-        
-    Raises:
-        NotFoundException: If agent not found or user lacks permission
-        ValidationException: If watcher not running
-        
-    Requirements:
-        - 4.1: Provide endpoints for triggering sync operations
-        - 4.5: Execute single sync operation when manual sync is triggered
-        - 4.8: Record all watcher sync operations
-        - 6.1, 6.2: Enforce tenant isolation
+    Request an immediate sync for the specified agent.
+
+    Sets sync_requested_at in watcher_control. The worker will trigger
+    an immediate sync cycle on its next reconciliation pass (~10s).
+
+    Requirements: 4.1, 4.5, 4.8, 6.1, 6.2
     """
-    # Validate tenant access
     _assert_agent_access(agent_id, current_user, db)
-    
-    # Verify agent exists
-    cred_repo = CredentialRepository(db)
-    credentials = cred_repo.get_by_agent_id(agent_id)
-    if not credentials:
-        raise NotFoundException(
-            message=f"Agent '{agent_id}' not found",
-            code=ErrorCode.NOT_FOUND_RESOURCE
-        )
-    
-    # Attempt to trigger sync
-    triggered = await registry.trigger_sync(agent_id)
-    
-    if not triggered:
-        raise ValidationException(
-            message=f"Cannot trigger sync: watcher for agent '{agent_id}' is not running",
-            code=ErrorCode.VALIDATION_ERROR
-        )
-    
-    # Record audit log
+    credentials = _require_agent_credentials(agent_id, db)
+
+    ctrl_repo = WatcherControlRepository(db)
+    ctrl_repo.request_sync(agent_id)
+
     record_audit_log(
         db_session=db,
         user_id=current_user.id,
-        action="watcher_sync_triggered",
+        action="watcher_sync_requested",
         resource_type="watcher",
         resource_id=credentials.id,
-        details=f"Triggered manual sync for agent {agent_id}"
+        details=f"Requested manual sync for agent {agent_id}",
     )
-    
-    timestamp = datetime.utcnow().isoformat() + "Z"
-    
+
+    timestamp = datetime.now(timezone.utc).isoformat()
+
     return WatcherSyncResponse(
         agent_id=agent_id,
         sync_triggered=True,
         timestamp=timestamp,
-        message=f"Manual sync triggered successfully for agent '{agent_id}'"
+        message=f"Sync requested for agent '{agent_id}'. Worker will execute it shortly.",
     )
 
 
-@router.get("/watchers/status", response_model=WatcherStatusListResponse, status_code=status.HTTP_200_OK)
+# ---------------------------------------------------------------------------
+# Status
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/watchers/status",
+    response_model=WatcherStatusListResponse,
+    status_code=status.HTTP_200_OK,
+)
 async def get_all_watcher_statuses(
     current_user: User = Depends(get_current_user),
-    registry = Depends(get_watcher_registry)
+    db: Session = Depends(get_db),
 ):
     """
-    Get the status of all watchers.
-    
-    Returns real-time status information for all registered watchers
-    including heartbeat timestamps, last sync times, and error states.
-    
-    Args:
-        current_user: Authenticated user
-        registry: WatcherRegistry instance
-        
-    Returns:
-        List of all watcher statuses
-        
-    Requirements:
-        - 4.6: Display real-time Watcher status for each Agent
-        - 4.7: Track Watcher heartbeats and last sync timestamps
+    Get the live status of all watchers from the DB.
+
+    Reads from watcher_status table written by the worker process.
+    Status is eventually-consistent (updated every ~10s by the worker).
+
+    Requirements: 4.6, 4.7
     """
-    # Get all watcher statuses from registry
-    all_statuses = await registry.get_all_statuses()
-    
-    # Convert to response models
+    status_repo = WatcherStatusRepository(db)
+    rows = status_repo.list_all()
+
     watchers = [
         WatcherStatusResponse(
-            agent_id=status_data["agent_id"],
-            status=status_data["status"],
-            last_heartbeat=status_data["last_heartbeat"],
-            last_sync=status_data["last_sync"],
-            error=status_data["error"],
-            started_at=status_data["started_at"]
+            agent_id=row.agent_id,
+            status=row.status,
+            last_heartbeat=row.last_heartbeat.isoformat() + "Z" if row.last_heartbeat else None,
+            last_sync=row.last_sync.isoformat() + "Z" if row.last_sync else None,
+            error=row.error,
+            started_at=row.started_at.isoformat() + "Z" if row.started_at else None,
         )
-        for status_data in all_statuses.values()
+        for row in rows
     ]
-    
+
     return WatcherStatusListResponse(watchers=watchers)

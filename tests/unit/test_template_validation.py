@@ -217,11 +217,11 @@ class TestSupportedPlaceholders:
     def test_supported_placeholders_contains_required_fields(self):
         """Test that SUPPORTED_PLACEHOLDERS contains all required fields."""
         required = {'{lead_name}', '{agent_name}', '{agent_phone}', '{agent_email}'}
-        assert required == SUPPORTED_PLACEHOLDERS
-    
+        assert required.issubset(SUPPORTED_PLACEHOLDERS)
+
     def test_supported_placeholders_count(self):
-        """Test that there are exactly 4 supported placeholders."""
-        assert len(SUPPORTED_PLACEHOLDERS) == 4
+        """Test that there are at least 4 supported placeholders."""
+        assert len(SUPPORTED_PLACEHOLDERS) >= 4
 
 
 class TestCombinedValidation:

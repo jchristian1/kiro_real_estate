@@ -826,7 +826,7 @@ class PreconditionsNotMetResponse(BaseModel):
     },
     dependencies=[Depends(require_onboarding_step(5))],
 )
-async def complete_onboarding(
+def complete_onboarding(
     db: Session = Depends(get_db),
     agent: AgentUser = Depends(get_current_agent),
 ):
@@ -898,13 +898,13 @@ async def complete_onboarding(
         agent_repo = AgentRepository(db)
         agent = agent_repo.complete_onboarding(agent)
 
-        # Auto-start the watcher for this agent so email monitoring begins immediately
+        # Signal worker to start the watcher for this agent via DB
         try:
-            from api.main import watcher_registry as _registry
-            await _registry.start_watcher(str(agent.id))
+            from api.repositories.watcher_coordination_repository import WatcherControlRepository
+            WatcherControlRepository(db).set_desired_status(str(agent.id), "running")
         except Exception as _e:
             import logging as _logging
-            _logging.getLogger(__name__).warning(f"Could not auto-start watcher for agent {agent.id}: {_e}")
+            _logging.getLogger(__name__).warning(f"Could not signal watcher start for agent {agent.id}: {_e}")
 
         return CompleteResponse(ok=True, onboarding_completed=True)
 

@@ -213,7 +213,7 @@ def create_agent(
 
 
 @router.get("/agents", response_model=AgentListResponse)
-async def list_agents(
+def list_agents(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     credentials_store: EncryptedDBCredentialsStore = Depends(get_credentials_store)
@@ -225,7 +225,7 @@ async def list_agents(
     
     Requirements: 6.1, 6.2 - Enforce tenant isolation
     """
-    from api.main import watcher_registry
+    from api.repositories.watcher_coordination_repository import WatcherStatusRepository
 
     cred_repo = CredentialRepository(db)
     agent_repo = AgentRepository(db)
@@ -238,10 +238,12 @@ async def list_agents(
     if getattr(current_user, 'role', None) not in ('admin', 'platform_admin'):
         all_credentials = [c for c in all_credentials if c.company_id == current_user.company_id]
 
+    # Build status dict from DB (eventually-consistent, written by worker)
     try:
-        all_statuses = await watcher_registry.get_all_statuses()
+        status_rows = WatcherStatusRepository(db).list_all()
+        db_statuses = {row.agent_id: row.status for row in status_rows}
     except Exception:
-        all_statuses = {}
+        db_statuses = {}
 
     agents = []
     for creds in all_credentials:
@@ -250,8 +252,7 @@ async def list_agents(
         except (ValueError, Exception):
             email = "[decryption-error]"
 
-        watcher_info = all_statuses.get(creds.agent_id)
-        watcher_status = watcher_info["status"] if watcher_info else None
+        watcher_status = db_statuses.get(creds.agent_id)
 
         try:
             numeric_id = int(creds.agent_id)
@@ -440,19 +441,19 @@ def update_agent(
         details=f"Updated agent {agent_id} ({', '.join(details)})"
     )
     
-    # If email or password changed, restart the watcher so it picks up new credentials
+    # If email or password changed, signal worker to restart the watcher via DB
     if agent_data.email or agent_data.app_password:
         try:
-            from api.main import watcher_registry
-            import asyncio
-            try:
-                loop = asyncio.get_running_loop()
-                loop.create_task(_restart_watcher(watcher_registry, agent_id))
-            except RuntimeError:
-                pass  # not in async context, skip restart
+            from api.repositories.watcher_coordination_repository import WatcherControlRepository
+            ctrl_repo = WatcherControlRepository(db)
+            # Stop then re-start: worker reconciler will pick this up within ~10s
+            ctrl_repo.set_desired_status(agent_id, "stopped")
+            ctrl_repo.set_desired_status(agent_id, "running")
         except Exception as e:
             import logging
-            logging.getLogger(__name__).warning(f"Could not restart watcher after credential update for {agent_id}: {e}")
+            logging.getLogger(__name__).warning(
+                "Could not signal watcher restart after credential update for %s: %s", agent_id, e
+            )
 
     # Return updated agent details
     return AgentResponse(
@@ -468,19 +469,6 @@ def update_agent(
         watcher_status=None
     )
 
-
-async def _restart_watcher(registry, agent_id: str) -> None:
-    """Stop and restart a watcher to pick up new credentials."""
-    import logging
-    logger = logging.getLogger(__name__)
-    try:
-        status = await registry.get_status(agent_id)
-        if status and status["status"] == "running":
-            await registry.stop_watcher(agent_id)
-            await registry.start_watcher(agent_id)
-            logger.info(f"Watcher for agent {agent_id} restarted after credential update")
-    except Exception as e:
-        logger.error(f"Error restarting watcher for {agent_id}: {e}", exc_info=True)
 
 
 @router.delete("/agents/{agent_id}", response_model=AgentDeleteResponse)
@@ -525,26 +513,10 @@ def delete_agent(
             code=ErrorCode.NOT_FOUND_RESOURCE
         )
     
-    # TODO (Task 9): Stop watcher if running before deleting agent
-    # When the watcher controller is implemented in Task 9, add the following:
-    # 1. Check if a watcher is running for this agent_id
-    # 2. If running, gracefully stop the watcher process
-    # 3. Wait for watcher to fully terminate before proceeding with deletion
-    # Example code (to be implemented):
-    #   from api.services.watcher_controller import get_watcher_registry
-    #   watcher_registry = get_watcher_registry()
-    #   if await watcher_registry.is_running(agent_id):
-    #       await watcher_registry.stop_watcher(agent_id)
-    
-    # Stop watcher if running before deleting agent
+    # Signal worker to stop the watcher via DB before deleting agent
     try:
-        import asyncio as _asyncio
-        from api.main import watcher_registry as _registry
-        try:
-            loop = _asyncio.get_running_loop()
-            loop.create_task(_registry.stop_watcher(agent_id))
-        except RuntimeError:
-            pass  # not in async context, skip
+        from api.repositories.watcher_coordination_repository import WatcherControlRepository
+        WatcherControlRepository(db).set_desired_status(agent_id, "stopped")
     except Exception:
         pass
 

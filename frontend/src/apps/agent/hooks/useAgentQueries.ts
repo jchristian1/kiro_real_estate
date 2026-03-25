@@ -30,7 +30,7 @@ export interface ScoreFactor { label: string; points: number; met: boolean; }
 
 export interface LeadDetail {
   lead: {
-    id: number; name: string; phone?: string;
+    id: number; name: string; phone?: string; email?: string;
     score?: number; score_bucket?: string; current_state?: string;
     source?: string; address?: string; listing_url?: string;
     created_at: string; last_agent_action_at?: string; is_aging: boolean;
