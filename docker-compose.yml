@@ -1,5 +1,16 @@
 version: '3.8'
 
+# ---------------------------------------------------------------------------
+# Default stack (SQLite — zero-config local dev):
+#   docker compose up --build
+#
+# Postgres stack (production-equivalent local dev):
+#   docker compose --profile postgres up --build
+#
+# When using the postgres profile, set DATABASE_URL in .env to:
+#   DATABASE_URL=postgresql://app:app@postgres:5432/kiro
+# ---------------------------------------------------------------------------
+
 services:
   api:
     build:
@@ -18,6 +29,26 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false   # only enforced when the postgres profile is active
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: ["/app/docker-worker-entrypoint.sh"]
+    env_file: .env
+    volumes:
+      - db_data:/data
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+        required: false   # only enforced when the postgres profile is active
 
   frontend:
     build:
@@ -29,5 +60,29 @@ services:
       - api
     restart: unless-stopped
 
+  # ---------------------------------------------------------------------------
+  # Postgres service — only started when --profile postgres is passed.
+  # Provides a production-equivalent database for local development and CI.
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: kiro
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d kiro"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
 volumes:
   db_data:
+  pg_data:

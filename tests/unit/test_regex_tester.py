@@ -13,11 +13,21 @@ Tests cover:
 import pytest
 import platform
 from api.utils.regex_tester import (
-    test_regex_pattern,
-    test_regex_unix,
-    test_regex_windows,
+    test_regex_pattern as _test_regex_pattern,
+    test_regex_unix as _test_regex_unix,
+    test_regex_windows as _test_regex_windows,
     RegexTimeoutError
 )
+
+# Re-export with original names for use in tests
+test_regex_pattern = _test_regex_pattern
+test_regex_unix = _test_regex_unix
+test_regex_windows = _test_regex_windows
+
+# Prevent pytest from collecting these as test functions
+test_regex_pattern.__test__ = False  # type: ignore[attr-defined]
+test_regex_unix.__test__ = False  # type: ignore[attr-defined]
+test_regex_windows.__test__ = False  # type: ignore[attr-defined]
 
 
 class TestRegexTester:

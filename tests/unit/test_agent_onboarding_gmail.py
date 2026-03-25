@@ -72,6 +72,8 @@ VALID_GMAIL_PAYLOAD = {
 @pytest.fixture(autouse=True)
 def setup_db():
     Base.metadata.create_all(bind=engine)
+    # Re-register override every test — other test files may overwrite it
+    app.dependency_overrides[get_db] = override_get_db
     yield
     Base.metadata.drop_all(bind=engine)
 
@@ -96,6 +98,9 @@ def authenticated_client(client):
     db = TestingSessionLocal()
     agent = db.query(AgentUser).filter_by(email="agent@example.com").first()
     reset_imap_rate_limit(agent.id)
+    # Advance onboarding_step to 1 so the gmail endpoint's guard passes
+    agent.onboarding_step = 1
+    db.commit()
     db.close()
 
     return client

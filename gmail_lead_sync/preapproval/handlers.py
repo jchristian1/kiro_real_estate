@@ -19,7 +19,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from gmail_lead_sync.models import Credentials, Lead
+from gmail_lead_sync.models import Lead
 from gmail_lead_sync.preapproval.invitation_service import FormInvitationService
 from gmail_lead_sync.preapproval.models_preapproval import (
     Channel,
@@ -28,16 +28,12 @@ from gmail_lead_sync.preapproval.models_preapproval import (
     FormVersion,
     IntentType,
     LeadInteraction,
-    MessageTemplate,
-    MessageTemplateKey,
-    MessageTemplateVersion,
     ScoringConfig,
     ScoringVersion,
     SubmissionAnswer,
     SubmissionScore,
 )
 from gmail_lead_sync.preapproval.scoring_engine import ScoringEngine
-from gmail_lead_sync.preapproval.template_engine import TemplateRenderEngine
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +42,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _invitation_service = FormInvitationService()
-_template_engine = TemplateRenderEngine()
 _scoring_engine = ScoringEngine()
 
 
@@ -54,12 +49,15 @@ _scoring_engine = ScoringEngine()
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _build_form_url(raw_token: str) -> str:
+def build_form_url(raw_token: str) -> str:
     base = os.environ.get("PUBLIC_BASE_URL", "http://localhost:5173").rstrip("/")
     return f"{base}/public/buyer-qualification/{raw_token}"
 
+# Keep underscore alias for internal callers that haven't been updated yet
+_build_form_url = build_form_url
 
-def _resolve_active_form_version(
+
+def resolve_active_form_version(
     db: Session,
     tenant_id: int,
     intent_type: IntentType = IntentType.BUY,
@@ -75,90 +73,56 @@ def _resolve_active_form_version(
         .first()
     )
 
-
-def _resolve_active_message_template(
-    db: Session,
-    tenant_id: int,
-    intent_type: IntentType,
-    key: MessageTemplateKey,
-) -> MessageTemplateVersion | None:
-    return (
-        db.query(MessageTemplateVersion)
-        .join(MessageTemplate, MessageTemplateVersion.template_id == MessageTemplate.id)
-        .filter(
-            MessageTemplate.tenant_id == tenant_id,
-            MessageTemplate.intent_type == intent_type.value,
-            MessageTemplate.key == key.value,
-            MessageTemplateVersion.is_active.is_(True),
-        )
-        .first()
-    )
+# Keep underscore alias for internal callers that haven't been updated yet
+_resolve_active_form_version = resolve_active_form_version
 
 
-def _resolve_agent_template(
-    db: Session,
-    tenant_id: int,
-    template_type: str,
-) -> tuple[str, str] | None:
+def get_or_create_form_link(db: Session, tenant_id: int, lead_id: int) -> str:
+    """Return a form invitation URL for the given lead/tenant.
+
+    Public interface for callers that need a {form_link} value but are not
+    themselves qualification-module code (e.g. the generic email handler).
+
+    Creates a FormInvitation token if an active BUY form version exists.
+    Falls back to the generic public qualification URL if no active form is
+    configured for the tenant.
+
+    Ownership: qualification module owns all invitation/token creation.
+    """
+    base_url = os.environ.get("PUBLIC_BASE_URL", "http://localhost:5173").rstrip("/")
+    fallback = f"{base_url}/public/buyer-qualification"
+
+    form_version = resolve_active_form_version(db, tenant_id, IntentType.BUY)
+    if form_version is None:
+        return fallback
+
     try:
-        from gmail_lead_sync.agent_models import AgentUser, AgentTemplate
-        agent = db.query(AgentUser).filter(AgentUser.company_id == tenant_id).first()
-        if agent is None:
-            return None
-        row = (
-            db.query(AgentTemplate)
-            .filter(
-                AgentTemplate.agent_user_id == agent.id,
-                AgentTemplate.template_type == template_type,
-                AgentTemplate.is_active.is_(True),
-            )
-            .first()
+        raw_token, _ = _invitation_service.create_invitation(
+            db,
+            tenant_id=tenant_id,
+            lead_id=lead_id,
+            form_version_id=form_version.id,
         )
-        if row is None:
-            return None
-        return row.subject, row.body
+        return build_form_url(raw_token)
     except Exception as exc:
-        logger.warning("Could not resolve AgentTemplate tenant=%d type=%s: %s", tenant_id, template_type, exc)
-        return None
+        logger.warning(
+            "get_or_create_form_link: could not create invitation "
+            "for lead %s tenant %s: %s — using fallback URL",
+            lead_id, tenant_id, exc,
+        )
+        return fallback
 
 
-def _render_agent_template(subject_tpl: str, body_tpl: str, context: dict) -> tuple[str, str]:
-    mapping = {
-        "{lead_name}": context.get("lead_name", ""),
-        "{agent_name}": context.get("agent_name", ""),
-        "{agent_phone}": context.get("agent_phone", ""),
-        "{agent_email}": context.get("agent_email", ""),
-        "{form_link}": context.get("form_link", ""),
-    }
-    subject, body = subject_tpl, body_tpl
-    for placeholder, value in mapping.items():
-        subject = subject.replace(placeholder, value)
-        body = body.replace(placeholder, value)
-    return subject, body
+
+_invite_service = None
 
 
-def _get_tenant_email_credentials(db: Session, tenant_id: int) -> tuple[str, str] | None:
-    creds = db.query(Credentials).filter(Credentials.company_id == tenant_id).first()
-    if creds is None:
-        return None
-    encryption_key = os.environ.get("ENCRYPTION_KEY")
-    if encryption_key:
-        from gmail_lead_sync.credentials import EncryptedDBCredentialsStore
-        store = EncryptedDBCredentialsStore(db, encryption_key)
-        return store.get_credentials(creds.agent_id)
-    return creds.email_encrypted, creds.app_password_encrypted
-
-
-def _send_email(to_address: str, subject: str, body: str, from_address: str, app_password: str) -> bool:
-    from gmail_lead_sync.responder import AutoResponder
-    responder = object.__new__(AutoResponder)
-    return responder.send_email(
-        to_address=to_address,
-        subject=subject,
-        body=body,
-        from_address=from_address,
-        app_password=app_password,
-    )
+def _get_invite_service():
+    global _invite_service
+    if _invite_service is None:
+        from api.communications.qualification_invite import QualificationInviteService
+        _invite_service = QualificationInviteService()
+    return _invite_service
 
 
 def _resolve_active_scoring_version(
@@ -205,102 +169,77 @@ def on_buyer_lead_email_received(
     Called exclusively by the pipeline engine (send_qualification_form action).
     Does NOT fire any pipeline events — the pipeline is already running.
 
-    Steps:
-    1. Resolve active FormVersion; return if none.
-    2. Create FormInvitation (raw token for URL).
-    3. Render email via AdminTemplate or AgentTemplate or MessageTemplate.
-    4. Send email via tenant SMTP credentials.
-    5. Mark invitation.sent_at; update lead.agent_current_state.
-    6. Record outbound LeadInteraction.
+    Delegates invite creation, rendering, and delivery to QualificationInviteService.
+    Retains ownership of:
+      - Lead state mutation (agent_current_state)
+      - LeadInteraction recording
+      - Activity emission
     """
-    # 1. Resolve active FormVersion
-    form_version = _resolve_active_form_version(db, tenant_id, IntentType.BUY)
-    if form_version is None:
-        logger.warning("No active BUY form for tenant %d, skipping invite (lead_id=%d)", tenant_id, lead_id)
-        return
-
-    # 2. Create FormInvitation
-    raw_token, invitation = _invitation_service.create_invitation(
-        db, tenant_id=tenant_id, lead_id=lead_id, form_version_id=form_version.id,
+    result = _get_invite_service().send_invite(
+        db=db,
+        tenant_id=tenant_id,
+        lead_id=lead_id,
+        parsed_metadata=parsed_metadata,
     )
 
-    # 3. Render email
-    lead: Lead = db.get(Lead, lead_id)
-    if lead is None:
-        logger.error("Lead %d not found, cannot send form invite", lead_id)
+    if result.skipped:
         return
 
-    first_name = lead.name.split()[0] if lead.name else ""
-    from sqlalchemy import text as _text
-    tenant_row = db.execute(_text("SELECT name FROM companies WHERE id = :tid"), {"tid": tenant_id}).fetchone()
-    tenant_name = tenant_row[0] if tenant_row else ""
+    # Load lead for state mutation and interaction logging
+    lead: Lead = db.get(Lead, lead_id)
+    if lead is None:
+        logger.error("Lead %d not found after invite send — cannot update state", lead_id)
+        return
 
-    agent_tpl = _resolve_agent_template(db, tenant_id, "INITIAL_INVITE")
-    if agent_tpl is not None:
-        from gmail_lead_sync.agent_models import AgentUser as _AgentUser
-        _agent = db.query(_AgentUser).filter(_AgentUser.company_id == tenant_id).first()
-        rendered_subject, rendered_body = _render_agent_template(
-            agent_tpl[0], agent_tpl[1],
-            {
-                "lead_name": lead.name or first_name,
-                "agent_name": (_agent.full_name if _agent else tenant_name) or "",
-                "agent_phone": (_agent.phone if _agent else "") or "",
-                "agent_email": (_agent.email if _agent else "") or "",
-                "form_link": _build_form_url(raw_token),
-            },
-        )
-    else:
-        msg_version = _resolve_active_message_template(
-            db, tenant_id=tenant_id, intent_type=IntentType.BUY,
-            key=MessageTemplateKey.INITIAL_INVITE_EMAIL,
-        )
-        if msg_version is None:
-            logger.error(
-                "No active INITIAL_INVITE_EMAIL template for tenant %d (lead_id=%d); skipping.",
-                tenant_id, lead_id,
-            )
-            db.add(LeadInteraction(
-                tenant_id=tenant_id, lead_id=lead_id,
-                intent_type=IntentType.BUY.value, channel=Channel.EMAIL.value,
-                direction="outbound", occurred_at=datetime.utcnow(),
-                content_text="[ERROR: no active INITIAL_INVITE_EMAIL template]",
-            ))
-            db.commit()
-            return
-        rendered_obj = _template_engine.render(
-            msg_version,
-            {
-                "lead.first_name": first_name,
-                "lead.email": lead.source_email,
-                "form.link": _build_form_url(raw_token),
-                "tenant.name": tenant_name,
-                **parsed_metadata,
-            },
-        )
-        rendered_subject, rendered_body = rendered_obj.subject, rendered_obj.body
+    if result.rendered_subject is None:
+        # No template was configured — record error interaction and bail
+        db.add(LeadInteraction(
+            tenant_id=tenant_id, lead_id=lead_id,
+            intent_type=IntentType.BUY.value, channel=Channel.EMAIL.value,
+            direction="outbound", occurred_at=datetime.utcnow(),
+            content_text="[ERROR: no active INITIAL_INVITE_EMAIL template]",
+        ))
+        db.commit()
+        return
 
-    # 4. Send email
-    creds = _get_tenant_email_credentials(db, tenant_id)
-    if creds is None:
-        logger.error("No SMTP credentials for tenant %d; cannot send form invite (lead_id=%d).", tenant_id, lead_id)
-    else:
-        _send_email(lead.source_email, rendered_subject, rendered_body, creds[0], creds[1])
-
-    # 5. Mark invitation sent + update lead state
-    invitation.sent_at = datetime.utcnow()
+    # Update lead state
     lead.agent_current_state = "INVITE_SENT"
     db.commit()
 
-    # 6. Record outbound interaction
+    # Record outbound interaction
     db.add(LeadInteraction(
         tenant_id=tenant_id, lead_id=lead_id,
         intent_type=IntentType.BUY.value, channel=Channel.EMAIL.value,
         direction="outbound", occurred_at=datetime.utcnow(),
-        content_text=rendered_subject,
+        content_text=result.rendered_subject,
     ))
     db.commit()
 
-    logger.info("Form invite sent: tenant=%d lead=%d invitation=%d", tenant_id, lead_id, invitation.id)
+    # Record structured activity — only when email was actually sent.
+    if result.sent:
+        try:
+            from api.services.lead_activity import record_activity
+            record_activity(
+                db,
+                lead_id=lead_id,
+                event_type="qualification_form_sent",
+                company_id=tenant_id,
+                actor_source="qualification",
+                metadata={
+                    "invitation_id": result.invitation_id,
+                    "form_version_id": result.form_version_id,
+                },
+            )
+        except Exception as exc:
+            logger.warning(
+                "on_buyer_lead_email_received: record_activity failed for lead %s: %s",
+                lead_id, exc,
+            )
+
+    logger.info(
+        "Form invite sent: tenant=%d lead=%d invitation=%d sent=%s",
+        tenant_id, lead_id, result.invitation_id, result.sent,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -376,6 +315,21 @@ def on_buyer_form_submitted(
             invitation.tenant_id, invitation.lead_id, submission.id,
         )
         db.commit()
+        try:
+            from api.services.lead_activity import record_activity
+            record_activity(
+                db,
+                lead_id=invitation.lead_id,
+                event_type="qualification_form_submitted",
+                company_id=invitation.tenant_id,
+                actor_source="qualification",
+                metadata={"submission_id": submission.id, "scored": False},
+            )
+        except Exception as exc:
+            logger.warning(
+                "on_buyer_form_submitted (unscored): record_activity failed for lead %s: %s",
+                invitation.lead_id, exc,
+            )
         _fire_post_submission_events(db, invitation.lead_id, invitation.tenant_id, bucket=None)
         return {"submission_id": submission.id, "score": None}
 
@@ -419,6 +373,35 @@ def on_buyer_form_submitted(
         score_result.bucket.value, score_result.total,
     )
 
+    # Record structured activity for form submission and bucket assignment.
+    try:
+        from api.services.lead_activity import record_activity
+        record_activity(
+            db,
+            lead_id=invitation.lead_id,
+            event_type="qualification_form_submitted",
+            company_id=invitation.tenant_id,
+            actor_source="qualification",
+            metadata={"submission_id": submission.id},
+        )
+        record_activity(
+            db,
+            lead_id=invitation.lead_id,
+            event_type="qualification_bucket_assigned",
+            company_id=invitation.tenant_id,
+            actor_source="qualification",
+            metadata={
+                "bucket": score_result.bucket.value,
+                "score": score_result.total,
+                "submission_id": submission.id,
+            },
+        )
+    except Exception as exc:
+        logger.warning(
+            "on_buyer_form_submitted: record_activity failed for lead %s: %s",
+            invitation.lead_id, exc,
+        )
+
     # 9. Fire pipeline events — pipeline handles all post-submission emails
     _fire_post_submission_events(db, invitation.lead_id, invitation.tenant_id, bucket=score_result.bucket.value)
 
@@ -433,21 +416,6 @@ def on_buyer_form_submitted(
 
 
 def _fire_post_submission_events(db: Session, lead_id: int, tenant_id: int, bucket: str | None) -> None:
-    """Fire qualification_form_submitted + bucket pipeline events."""
-    try:
-        from api.models.pipeline_models import BuiltInEventType
-        from api.services.lead_stage_transition_engine import fire_event
-
-        fire_event(db, lead_id, BuiltInEventType.qualification_form_submitted, {"tenant_id": tenant_id})
-
-        if bucket is not None:
-            bucket_event_map = {
-                "HOT": BuiltInEventType.qualification_bucket_hot,
-                "WARM": BuiltInEventType.qualification_bucket_warm,
-                "NURTURE": BuiltInEventType.qualification_bucket_nurture,
-            }
-            bucket_event = bucket_event_map.get(bucket)
-            if bucket_event:
-                fire_event(db, lead_id, bucket_event, {"tenant_id": tenant_id})
-    except Exception as exc:
-        logger.warning("Pipeline fire_event failed after form submitted for lead %d: %s", lead_id, exc, exc_info=True)
+    """Delegate post-submission pipeline events to the orchestrator."""
+    from api.orchestration.lead_lifecycle_orchestrator import fire_post_submission_events
+    fire_post_submission_events(db, lead_id, tenant_id, bucket)

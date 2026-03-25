@@ -58,6 +58,8 @@ VALID_PAYLOAD = {
 @pytest.fixture(autouse=True)
 def setup_db():
     Base.metadata.create_all(bind=engine)
+    # Re-register override every test — other test files may overwrite it
+    app.dependency_overrides[get_db] = override_get_db
     yield
     Base.metadata.drop_all(bind=engine)
 
@@ -76,6 +78,14 @@ def authenticated_client(client):
     assert resp.status_code == 201
     token = resp.cookies[AGENT_SESSION_COOKIE_NAME]
     client.cookies.set(AGENT_SESSION_COOKIE_NAME, token)
+
+    # Advance onboarding_step to 3 so the automation endpoint's guard passes
+    db = TestingSessionLocal()
+    agent = db.query(AgentUser).filter_by(email="agent@example.com").first()
+    agent.onboarding_step = 3
+    db.commit()
+    db.close()
+
     return client
 
 

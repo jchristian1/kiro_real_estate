@@ -40,6 +40,8 @@ app.dependency_overrides[get_db] = override_get_db
 @pytest.fixture(autouse=True)
 def setup_db():
     Base.metadata.create_all(bind=engine)
+    # Re-register override every test — other test files may overwrite it
+    app.dependency_overrides[get_db] = override_get_db
     yield
     Base.metadata.drop_all(bind=engine)
 
@@ -155,7 +157,8 @@ class TestInputValidation:
         resp = client.post(SIGNUP_URL, json=payload)
         assert resp.status_code == 422
 
-    def test_missing_full_name_returns_422(self, client):
+    def test_missing_full_name_succeeds(self, client):
+        """full_name is optional — signup without it should succeed (set during onboarding)."""
         payload = {"email": "a@b.com", "password": "securepass"}
         resp = client.post(SIGNUP_URL, json=payload)
-        assert resp.status_code == 422
+        assert resp.status_code == 201

@@ -64,6 +64,8 @@ client = TestClient(app, raise_server_exceptions=True)
 @pytest.fixture(autouse=True)
 def setup_db():
     Base.metadata.create_all(bind=engine)
+    # Re-register override every test — other test files may overwrite it
+    app.dependency_overrides[get_db] = override_get_db
     db = TestingSessionLocal()
     ls = LeadSource(
         sender_email="leads@test.com",

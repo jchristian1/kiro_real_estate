@@ -98,10 +98,11 @@ def client(db_session, test_user, auth_session):
     
     from api.routers import admin_templates as templates
     from api.main import get_db as main_get_db
+    from api.dependencies.auth import get_current_admin
     
     app.dependency_overrides[main_get_db] = override_get_db
     app.dependency_overrides[templates.get_db] = override_get_db
-    app.dependency_overrides[templates.get_current_user] = override_get_current_user
+    app.dependency_overrides[get_current_admin] = override_get_current_user
     
     client = TestClient(app)
     client.cookies.set("session_token", auth_session.id)

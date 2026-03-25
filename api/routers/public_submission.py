@@ -30,7 +30,7 @@ from gmail_lead_sync.preapproval.invitation_service import (
     TokenNotFoundError,
     TokenUsedError,
 )
-from gmail_lead_sync.preapproval.handlers import on_buyer_form_submitted
+from api.orchestration.lead_lifecycle_orchestrator import notify_form_submitted
 from api.repositories.buyer_leads_repository import FormInvitationRepository
 
 logger = logging.getLogger(__name__)
@@ -185,9 +185,9 @@ async def submit_buyer_qualification(
     if body.time_to_submit_seconds is not None:
         request_metadata["time_to_submit_seconds"] = body.time_to_submit_seconds
 
-    # -- Delegate to handler -------------------------------------------------
+    # -- Delegate to orchestrator --------------------------------------------
     try:
-        result = on_buyer_form_submitted(
+        result = notify_form_submitted(
             db=db,
             raw_token=token,
             answers_payload=body.answers,

@@ -1046,9 +1046,9 @@ class TestProperty8DisabledMappingDoesNotMoveLead:
         # Activate the pipeline so fire_event can find it
         set_active_pipeline(db, pipeline.id, company.id)
 
-        # Clear the module-level rule cache to avoid stale ORM objects from prior tests
-        import api.services.pipeline_action_rule_service as _rule_svc
-        _rule_svc._cache.clear()
+        # Clear the module-level mapping cache to avoid stale ORM objects from prior tests
+        import api.services.pipeline_event_mapping_service as _mapping_svc
+        _mapping_svc._cache.clear()
 
         # Fire the event
         fire_event(db, lead.id, BuiltInEventType.lead_created, {})
@@ -1126,9 +1126,9 @@ class TestProperty10FailedActionStepDoesNotHaltRemainingSteps:
         # Activate the pipeline
         set_active_pipeline(db, pipeline.id, company.id)
 
-        # Clear the module-level rule cache to avoid stale ORM objects from prior tests
-        import api.services.pipeline_action_rule_service as _rule_svc
-        _rule_svc._cache.clear()
+        # Clear the module-level mapping cache to avoid stale ORM objects from prior tests
+        import api.services.pipeline_event_mapping_service as _mapping_svc
+        _mapping_svc._cache.clear()
 
         # Create a rule with 3 steps:
         #   step 1: move_to_stage → stage_2 (will succeed)
@@ -1312,8 +1312,8 @@ class TestProperty11AgentEndpointTenantIsolation:
         db.refresh(lead_a)
 
         # Fire event to assign initial stage.
-        import api.services.pipeline_action_rule_service as _rule_svc
-        _rule_svc._cache.clear()
+        import api.services.pipeline_event_mapping_service as _mapping_svc
+        _mapping_svc._cache.clear()
         fire_event(db, lead_a.id, BuiltInEventType.lead_created, {})
         db.refresh(lead_a)
 

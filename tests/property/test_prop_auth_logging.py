@@ -171,6 +171,9 @@ class TestProperty19AuthFailureLogging:
         auth_logger = logging.getLogger("api.auth")
         auth_logger.addHandler(handler)
 
+        # pytest's logging plugin may set logger.disabled=True; re-enable for this request
+        auth_logger.disabled = False
+        logging.disable(logging.NOTSET)
         try:
             with TestClient(app, raise_server_exceptions=False) as client:
                 resp = client.post(
@@ -241,6 +244,9 @@ class TestProperty19AuthFailureLogging:
         auth_logger = logging.getLogger("api.auth")
         auth_logger.addHandler(handler)
 
+        # pytest's logging plugin may set logger.disabled=True; re-enable for this request
+        auth_logger.disabled = False
+        logging.disable(logging.NOTSET)
         try:
             with TestClient(app, raise_server_exceptions=False) as client:
                 resp = client.post(
@@ -293,6 +299,10 @@ class TestProperty19AuthFailureLogging:
         auth_logger = logging.getLogger("api.auth")
         auth_logger.addHandler(handler)
 
+        prev_disabled = auth_logger.disabled
+        auth_logger.disabled = False
+        prev_disable = logging.root.manager.disable
+        logging.disable(logging.NOTSET)
         try:
             with TestClient(app, raise_server_exceptions=False) as client:
                 resp = client.post(
@@ -300,6 +310,8 @@ class TestProperty19AuthFailureLogging:
                     json={"username": "nonexistent_user_xyz", "password": "wrongpass"},
                 )
         finally:
+            auth_logger.disabled = prev_disabled
+            logging.disable(prev_disable)
             auth_logger.removeHandler(handler)
 
         if resp.status_code == 401:
@@ -340,6 +352,10 @@ class TestProperty19AuthFailureLogging:
         auth_logger = logging.getLogger("api.auth")
         auth_logger.addHandler(handler)
 
+        prev_disabled = auth_logger.disabled
+        auth_logger.disabled = False
+        prev_disable = logging.root.manager.disable
+        logging.disable(logging.NOTSET)
         try:
             with TestClient(app, raise_server_exceptions=False) as client:
                 resp = client.post(
@@ -347,6 +363,8 @@ class TestProperty19AuthFailureLogging:
                     json={"email": "nonexistent@example.com", "password": "wrongpass123"},
                 )
         finally:
+            auth_logger.disabled = prev_disabled
+            logging.disable(prev_disable)
             auth_logger.removeHandler(handler)
 
         if resp.status_code == 401:
@@ -388,6 +406,8 @@ class TestProperty19AuthFailureLogging:
         root_logger = logging.getLogger()
         root_logger.addHandler(handler)
 
+        prev_disable = logging.root.manager.disable
+        logging.disable(logging.NOTSET)
         try:
             with TestClient(app, raise_server_exceptions=False) as client:
                 client.post(
@@ -395,6 +415,7 @@ class TestProperty19AuthFailureLogging:
                     json={"username": "testuser", "password": unique_password},
                 )
         finally:
+            logging.disable(prev_disable)
             root_logger.removeHandler(handler)
 
         # The unique password must not appear in any log message

@@ -384,11 +384,10 @@ class TestAgentUpdateRequestValidation:
             AgentUpdateRequest(email="not-an-email")
         assert "email" in str(exc_info.value).lower()
     
-    def test_rejects_empty_password(self):
-        """Test that empty password is rejected."""
-        with pytest.raises(ValidationError) as exc_info:
-            AgentUpdateRequest(app_password="")
-        assert "app_password" in str(exc_info.value).lower()
+    def test_empty_password_treated_as_none(self):
+        """Test that empty password is treated as None (no change) in update requests."""
+        req = AgentUpdateRequest(app_password="")
+        assert req.app_password is None
     
     def test_rejects_too_long_email(self):
         """Test that email exceeding max length is rejected."""

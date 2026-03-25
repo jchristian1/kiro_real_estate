@@ -17,6 +17,9 @@ from datetime import datetime, timedelta
 from api.main import app, get_db
 from api.auth import hash_password, SESSION_COOKIE_NAME
 from gmail_lead_sync.models import Base
+import gmail_lead_sync.agent_models  # noqa: F401 — registers agent tables
+import gmail_lead_sync.preapproval.models_preapproval  # noqa: F401 — registers form_versions FK dep
+import api.models.watcher_state_models  # noqa: F401 — registers watcher tables
 from api.models.web_ui_models import User, Session as SessionModel
 
 
@@ -43,6 +46,13 @@ def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 
 
+@pytest.fixture(autouse=True)
+def ensure_db_override():
+    """Re-register the get_db override before each test (other test files may clear it)."""
+    app.dependency_overrides[get_db] = override_get_db
+    yield
+
+
 @pytest.fixture(scope="function")
 def test_db():
     """Create test database and tables."""
@@ -66,8 +76,8 @@ def test_user(test_db):
 
 
 @pytest.fixture(scope="function")
-def client():
-    """Create test client."""
+def client(test_db):
+    """Create test client (depends on test_db to ensure tables exist)."""
     return TestClient(app)
 
 

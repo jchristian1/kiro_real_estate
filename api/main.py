@@ -10,7 +10,7 @@ This module initializes the FastAPI application with:
 - Health check and metrics endpoints
 
 Environment Configuration:
-- DATABASE_URL: SQLite database path
+- DATABASE_URL: Database connection URL (postgresql:// for production, sqlite:/// for local dev)
 - CORS_ORIGINS: Comma-separated list of allowed origins
 - CORS_ALLOW_CREDENTIALS: Enable credentials in CORS
 - STATIC_FILES_DIR: Directory for frontend static files
@@ -48,8 +48,6 @@ from api.exceptions import (
 from slowapi.errors import RateLimitExceeded  # noqa: E402 (must be after app deps)
 from slowapi.middleware import SlowAPIMiddleware  # noqa: E402
 from api.utils.rate_limiter import limiter  # noqa: E402
-from gmail_lead_sync.credentials import EncryptedDBCredentialsStore  # noqa: E402
-from api.services.watcher_registry import WatcherRegistry  # noqa: E402
 from api.routers.admin_auth import router as admin_auth_router  # noqa: E402
 from api.routers.admin_register import router as admin_register_router  # noqa: E402
 from api.routers.admin_agents import router as admin_agents_router  # noqa: E402
@@ -217,10 +215,32 @@ def increment_leads_processed(count: int = 1) -> None:
 
 
 # Database setup
-engine = create_engine(
-    config.database_url,
-    connect_args={"check_same_thread": False} if "sqlite" in config.database_url else {}
-)
+# ---------------------------------------------------------------------------
+# Dialect-aware engine factory.
+#
+# SQLite:   check_same_thread=False (required for FastAPI's thread-per-request
+#           model sharing a single file-based connection).
+#
+# PostgreSQL: pool_pre_ping=True — SQLAlchemy tests each connection with a
+#             cheap "SELECT 1" before handing it to a request.  This prevents
+#             "connection was closed" 500s after a DB restart or network blip.
+#             pool_recycle=1800 — recycle connections after 30 minutes to avoid
+#             hitting server-side idle_in_transaction_session_timeout limits.
+# ---------------------------------------------------------------------------
+def _make_engine(database_url: str):
+    if "sqlite" in database_url:
+        return create_engine(
+            database_url,
+            connect_args={"check_same_thread": False},
+        )
+    return create_engine(
+        database_url,
+        pool_pre_ping=True,
+        pool_recycle=1800,
+    )
+
+
+engine = _make_engine(config.database_url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -626,17 +646,10 @@ async def metrics():
     
     Requirements: 8.2, 29.1, 29.2, 29.3, 29.4, 29.5, 29.6, 29.7
     """
-    # Update watcher count gauge
-    try:
-        watcher_statuses = await watcher_registry.get_all_statuses()
-        active_count = sum(
-            1 for info in watcher_statuses.values()
-            if info["status"] == "running"
-        )
-        watchers_active.set(active_count)
-    except Exception as e:
-        logger.error(f"Error updating watcher count metric: {e}", exc_info=True)
-    
+    # Watcher count is now owned by the worker process.
+    # The gauge is not updated here — it will be 0 unless the worker
+    # writes to a shared store (Phase 5C).
+
     # Generate Prometheus text format
     return Response(
         content=generate_latest(),
@@ -654,14 +667,6 @@ async def root():
         "docs": "/api/docs"
     }
 
-
-# Initialize WatcherRegistry
-# Create global WatcherRegistry instance
-credentials_store = EncryptedDBCredentialsStore(SessionLocal(), encryption_key=config.encryption_key)
-watcher_registry = WatcherRegistry(
-    get_db_session=SessionLocal,
-    credentials_store=credentials_store
-)
 
 # Mount API routes — all imports now from api/routers/ only
 # Create wrapper for get_current_user that works with FastAPI dependency injection
@@ -817,45 +822,8 @@ async def startup_event():
     except Exception as e:
         logger.warning(f"Could not auto-seed on startup: {e}")
 
-    # Auto-start watchers for all agents that have credentials configured
-    try:
-        from api.models.web_ui_models import User as _User
-        from api.repositories.credential_repository import CredentialRepository
-        db = SessionLocal()
-        try:
-            cred_repo = CredentialRepository(db)
-
-            # Legacy: admin-panel agents in the users table
-            agents = db.query(_User).filter(_User.role == "agent").all()
-            for agent in agents:
-                agent_id_str = str(agent.id)
-                cred = cred_repo.get_by_agent_id(agent_id_str)
-                if cred is not None:
-                    started = await watcher_registry.start_watcher(agent_id_str)
-                    if started:
-                        logger.info(f"Auto-started watcher for legacy agent {agent_id_str} on startup")
-
-            # Agent-app users in the agent_users table
-            try:
-                from gmail_lead_sync.agent_models import AgentUser as _AgentUser, AgentPreferences as _AgentPrefs
-                agent_users = db.query(_AgentUser).all()
-                for au in agent_users:
-                    # Skip if watcher is disabled via preferences
-                    prefs = db.query(_AgentPrefs).filter(_AgentPrefs.agent_user_id == au.id).first()
-                    if prefs and not prefs.watcher_enabled:
-                        continue
-                    agent_id_str = str(au.id)
-                    cred = cred_repo.get_by_agent_id(agent_id_str)
-                    if cred is not None:
-                        started = await watcher_registry.start_watcher(agent_id_str)
-                        if started:
-                            logger.info(f"Auto-started watcher for agent-app user {agent_id_str} on startup")
-            except Exception as e:
-                logger.warning(f"Could not auto-start agent-app watchers: {e}")
-        finally:
-            db.close()
-    except Exception as e:
-        logger.warning(f"Could not auto-start watchers on startup: {e}")
+    # Watcher auto-start is now the worker process's responsibility.
+    # The API process no longer owns watcher lifecycle.
 
 
 # Shutdown event
@@ -868,11 +836,8 @@ async def shutdown_event():
     """
     logger.info("Shutting down Gmail Lead Sync API")
     
-    # Stop all watchers gracefully
-    try:
-        await watcher_registry.stop_all()
-    except Exception as e:
-        logger.error(f"Error stopping watchers during shutdown: {e}", exc_info=True)
+    # Watcher shutdown is now the worker process's responsibility.
+    # The API process no longer owns watcher lifecycle.
 
 
 if __name__ == "__main__":

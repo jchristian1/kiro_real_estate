@@ -739,44 +739,44 @@ class GmailWatcher:
                 # Lead successfully created
                 logger.info(f"Lead {lead.id} created from email {gmail_uid}")
 
-                # Insert EMAIL_RECEIVED lead event (Requirement 20.1)
+                # Record EMAIL_RECEIVED activity with full tenant context.
                 try:
-                    from gmail_lead_sync.lead_event_utils import insert_lead_event
-                    agent_user_id = getattr(lead, "agent_user_id", None)
-                    insert_lead_event(
+                    from api.services.lead_activity import record_activity
+                    from api.pipelines.handlers.base import resolve_lead_company_id
+                    company_id = resolve_lead_company_id(self.db_session, lead.id)
+                    record_activity(
                         db=self.db_session,
                         lead_id=lead.id,
                         event_type="EMAIL_RECEIVED",
-                        payload_dict={
+                        company_id=company_id,
+                        actor_source="system",
+                        metadata={
                             "source_email": sender,
                             "gmail_uid": gmail_uid,
                         },
-                        agent_user_id=agent_user_id,
                     )
                     self.db_session.commit()
                 except Exception as e:
                     logger.error(
-                        f"Error inserting EMAIL_RECEIVED event for lead {lead.id}: {e}",
+                        f"Error recording EMAIL_RECEIVED activity for lead {lead.id}: {e}",
                         exc_info=True,
                     )
 
                 # Mark as processed
                 self.mark_as_processed(message_id, lead.id)
 
-                # Fire pipeline lead_created event — the pipeline handles all
-                # subsequent actions (emails, stage transitions, etc.).
+                # Notify the orchestrator — it fires the pipeline lead_created
+                # event and handles all subsequent actions.
                 try:
-                    from api.models.pipeline_models import BuiltInEventType
-                    from api.services.lead_stage_transition_engine import fire_event
-                    fire_event(
+                    from api.orchestration.lead_lifecycle_orchestrator import notify_lead_created
+                    notify_lead_created(
                         self.db_session,
                         lead.id,
-                        BuiltInEventType.lead_created,
                         {"source_email": sender, "gmail_uid": gmail_uid},
                     )
                 except Exception as _pe:
                     logger.warning(
-                        f"Pipeline fire_event(lead_created) failed for lead {lead.id}: {_pe}",
+                        f"notify_lead_created failed for lead {lead.id}: {_pe}",
                         exc_info=True,
                     )
             else:

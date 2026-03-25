@@ -1,4 +1,4 @@
-.PHONY: help up down migrate test lint typecheck build generate-secrets
+.PHONY: help up down migrate test test-postgres lint typecheck build generate-secrets
 
 help: ## Show available targets
 	@echo "Usage: make <target>"
@@ -12,11 +12,28 @@ up: ## Start all services (builds images, runs in background)
 down: ## Stop all services
 	docker compose down
 
-migrate: ## Run database migrations
+migrate: ## Run database migrations (uses DATABASE_URL env var; falls back to SQLite)
 	alembic upgrade head
 
-test: ## Run all tests (stops on first failure)
-	pytest tests/ -x
+migrate-postgres: ## Run migrations against Postgres (DATABASE_URL must be set to a postgresql:// URL)
+	@if [ -z "$(DATABASE_URL)" ]; then \
+		echo "ERROR: DATABASE_URL is not set."; \
+		echo "  export DATABASE_URL=postgresql://user:pass@localhost:5432/dbname"; \
+		exit 1; \
+	fi
+	@echo "Running migrations against: $(DATABASE_URL)"
+	alembic upgrade head
+
+test: ## Run all tests (SQLite-backed, fast — skips Postgres suite)
+	pytest tests/ -x --ignore=tests/postgres
+
+test-postgres: ## Run Postgres-backed tests (requires POSTGRES_TEST_URL env var)
+	@if [ -z "$$POSTGRES_TEST_URL" ]; then \
+		echo "ERROR: POSTGRES_TEST_URL is not set."; \
+		echo "  export POSTGRES_TEST_URL=postgresql://user:pass@localhost:5432/test_db"; \
+		exit 1; \
+	fi
+	pytest tests/postgres/ -v -m postgres
 
 lint: ## Lint Python and TypeScript sources
 	ruff check . && cd frontend && npx eslint src/

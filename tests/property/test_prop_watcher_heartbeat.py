@@ -9,12 +9,16 @@ field in the health endpoint response for that agent SHALL be updated to a
 timestamp within the last ``SYNC_INTERVAL_SECONDS + 30`` seconds.
 
 **Validates: Requirements 10.6**
+
+Phase 5C+ note: watcher status is now read from the ``watcher_status`` DB
+table (written by the worker process) rather than from an in-memory registry.
+Tests inject data via WatcherStatusRepository.
 """
 
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -26,7 +30,7 @@ from sqlalchemy.pool import StaticPool
 
 import gmail_lead_sync.agent_models  # noqa: F401 — registers agent tables
 from api.main import app, get_db
-from api.routers.public_health import _get_registry
+from api.models.watcher_state_models import WatcherStatus
 from gmail_lead_sync.models import Base
 
 
@@ -34,7 +38,6 @@ from gmail_lead_sync.models import Base
 # Constants
 # ---------------------------------------------------------------------------
 
-# Default SYNC_INTERVAL_SECONDS from config (300s) + 30s tolerance
 _SYNC_INTERVAL_SECONDS = 300
 _HEARTBEAT_TOLERANCE_SECONDS = _SYNC_INTERVAL_SECONDS + 30  # 330s
 
@@ -73,7 +76,6 @@ def setup_db():
     yield
     Base.metadata.drop_all(bind=engine)
     app.dependency_overrides.pop(get_db, None)
-    app.dependency_overrides.pop(_get_registry, None)
 
 
 # ---------------------------------------------------------------------------
@@ -81,56 +83,37 @@ def setup_db():
 # ---------------------------------------------------------------------------
 
 
-def _make_mock_registry(agent_id: str, last_heartbeat: Optional[datetime]):
-    """
-    Build a mock WatcherRegistry that returns a single running watcher with
-    the given last_heartbeat timestamp.
-    """
-    mock_registry = MagicMock()
-
-    heartbeat_iso = last_heartbeat.isoformat() if last_heartbeat else None
-
-    mock_registry.get_all_statuses = AsyncMock(
-        return_value={
-            agent_id: {
-                "agent_id": agent_id,
-                "status": "running",
-                "last_heartbeat": heartbeat_iso,
-                "last_sync": heartbeat_iso,
-                "error": None,
-                "started_at": None,
-                "retry_count": 0,
-                "last_error": None,
-            }
-        }
-    )
-    return mock_registry
+def _make_status_row(agent_id: str, status: str, last_heartbeat: Optional[datetime]) -> WatcherStatus:
+    row = WatcherStatus()
+    row.agent_id = agent_id
+    row.status = status
+    row.last_heartbeat = last_heartbeat
+    row.updated_at = datetime.utcnow()
+    return row
 
 
 def _seconds_ago(n: int) -> datetime:
-    """Return a UTC datetime n seconds in the past."""
+    """Return a UTC datetime n seconds in the past (timezone-aware)."""
     return datetime.now(timezone.utc) - timedelta(seconds=n)
 
 
-def _override_registry(mock_registry):
-    """Return a FastAPI dependency override that yields the mock registry."""
-    def _dep():
-        return mock_registry
-    return _dep
+def _patch_status_repo(rows):
+    """Patch WatcherStatusRepository.list_all to return *rows*."""
+    return patch(
+        "api.routers.public_health.WatcherStatusRepository.list_all",
+        return_value=rows,
+    )
 
 
 # ---------------------------------------------------------------------------
 # Strategies
 # ---------------------------------------------------------------------------
 
-# Heartbeat timestamps: anywhere from 0 to SYNC_INTERVAL_SECONDS + 29 seconds ago
-# (i.e., within the valid window)
 _recent_heartbeat_strategy = st.integers(
     min_value=0,
     max_value=_SYNC_INTERVAL_SECONDS + 29,
 ).map(lambda secs: _seconds_ago(secs))
 
-# Stale heartbeat timestamps: older than SYNC_INTERVAL_SECONDS + 30 seconds
 _stale_heartbeat_strategy = st.integers(
     min_value=_SYNC_INTERVAL_SECONDS + 31,
     max_value=_SYNC_INTERVAL_SECONDS + 3600,
@@ -158,29 +141,22 @@ class TestProperty11WatcherHeartbeatInHealthEndpoint:
         self, setup_db, heartbeat: datetime
     ):
         """
-        # Feature: production-hardening, Property 11: Watcher heartbeat reflected in health endpoint
-        **Validates: Requirements 10.6**
-
         When a watcher's last_heartbeat is within SYNC_INTERVAL_SECONDS + 30
-        seconds, the health endpoint SHALL include that heartbeat timestamp in
-        the response for that agent.
+        seconds, the health endpoint SHALL include that heartbeat timestamp.
         """
         agent_id = f"agent_{uuid.uuid4().hex[:8]}"
-        mock_registry = _make_mock_registry(agent_id, heartbeat)
+        # Strip timezone for storage (DB stores naive UTC)
+        hb_naive = heartbeat.replace(tzinfo=None)
+        rows = [_make_status_row(agent_id, "running", hb_naive)]
 
-        app.dependency_overrides[_get_registry] = _override_registry(mock_registry)
-        try:
+        with _patch_status_repo(rows):
             with TestClient(app, raise_server_exceptions=False) as client:
                 resp = client.get("/api/v1/health")
-        finally:
-            app.dependency_overrides.pop(_get_registry, None)
 
-        assert resp.status_code == 200, (
-            f"Expected 200 from health endpoint, got {resp.status_code}: {resp.text}"
-        )
+        assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
         body = resp.json()
 
-        assert "watchers" in body, f"'watchers' key missing from health response: {body}"
+        assert "watchers" in body
         assert agent_id in body["watchers"], (
             f"agent_id '{agent_id}' not found in watchers: {body['watchers']}"
         )
@@ -190,7 +166,6 @@ class TestProperty11WatcherHeartbeatInHealthEndpoint:
             f"last_heartbeat is null for agent {agent_id} even though heartbeat was set"
         )
 
-        # Parse the returned timestamp and verify it is within the tolerance window
         returned_ts_str = watcher_entry["last_heartbeat"]
         returned_ts = datetime.fromisoformat(returned_ts_str.replace("Z", "+00:00"))
 
@@ -212,21 +187,16 @@ class TestProperty11WatcherHeartbeatInHealthEndpoint:
         self, setup_db, heartbeat: datetime
     ):
         """
-        # Feature: production-hardening, Property 11: Watcher heartbeat reflected in health endpoint
-        **Validates: Requirements 10.6**
-
         The last_heartbeat value in the health response SHALL be a parseable
         ISO 8601 timestamp string.
         """
         agent_id = f"agent_{uuid.uuid4().hex[:8]}"
-        mock_registry = _make_mock_registry(agent_id, heartbeat)
+        hb_naive = heartbeat.replace(tzinfo=None)
+        rows = [_make_status_row(agent_id, "running", hb_naive)]
 
-        app.dependency_overrides[_get_registry] = _override_registry(mock_registry)
-        try:
+        with _patch_status_repo(rows):
             with TestClient(app, raise_server_exceptions=False) as client:
                 resp = client.get("/api/v1/health")
-        finally:
-            app.dependency_overrides.pop(_get_registry, None)
 
         assert resp.status_code == 200
         body = resp.json()
@@ -234,39 +204,27 @@ class TestProperty11WatcherHeartbeatInHealthEndpoint:
         ts_str = watcher_entry.get("last_heartbeat")
 
         assert ts_str is not None, "last_heartbeat should not be null for a running watcher"
-        # Should be parseable as ISO 8601
         try:
             datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
         except ValueError as exc:
-            pytest.fail(
-                f"last_heartbeat '{ts_str}' is not a valid ISO 8601 timestamp: {exc}"
-            )
+            pytest.fail(f"last_heartbeat '{ts_str}' is not a valid ISO 8601 timestamp: {exc}")
 
     def test_no_heartbeat_returns_null_in_response(self, setup_db):
         """
-        # Feature: production-hardening, Property 11: Watcher heartbeat reflected in health endpoint
-        **Validates: Requirements 10.6**
-
         When a watcher has never emitted a heartbeat (last_heartbeat=None),
         the health endpoint SHALL return null for that agent's last_heartbeat.
         """
         agent_id = f"agent_{uuid.uuid4().hex[:8]}"
-        mock_registry = _make_mock_registry(agent_id, last_heartbeat=None)
+        rows = [_make_status_row(agent_id, "stopped", None)]
 
-        app.dependency_overrides[_get_registry] = _override_registry(mock_registry)
-        try:
+        with _patch_status_repo(rows):
             with TestClient(app, raise_server_exceptions=False) as client:
                 resp = client.get("/api/v1/health")
-        finally:
-            app.dependency_overrides.pop(_get_registry, None)
 
         assert resp.status_code == 200
         body = resp.json()
         watcher_entry = body.get("watchers", {}).get(agent_id, {})
-        assert watcher_entry.get("last_heartbeat") is None, (
-            f"Expected null last_heartbeat for watcher with no heartbeat, "
-            f"got: {watcher_entry.get('last_heartbeat')}"
-        )
+        assert watcher_entry.get("last_heartbeat") is None
 
     @given(
         agent_ids=st.lists(
@@ -293,51 +251,24 @@ class TestProperty11WatcherHeartbeatInHealthEndpoint:
         self, setup_db, agent_ids, seconds_ago: int
     ):
         """
-        # Feature: production-hardening, Property 11: Watcher heartbeat reflected in health endpoint
-        **Validates: Requirements 10.6**
-
         When multiple watchers are running, the health endpoint SHALL include
-        a last_heartbeat entry for every agent, each within the tolerance window.
+        a last_heartbeat entry for every agent.
         """
-        heartbeat = _seconds_ago(seconds_ago)
-        heartbeat_iso = heartbeat.isoformat()
+        hb_naive = _seconds_ago(seconds_ago).replace(tzinfo=None)
+        rows = [_make_status_row(aid, "running", hb_naive) for aid in agent_ids]
 
-        all_statuses = {
-            aid: {
-                "agent_id": aid,
-                "status": "running",
-                "last_heartbeat": heartbeat_iso,
-                "last_sync": heartbeat_iso,
-                "error": None,
-                "started_at": None,
-                "retry_count": 0,
-                "last_error": None,
-            }
-            for aid in agent_ids
-        }
-
-        mock_registry = MagicMock()
-        mock_registry.get_all_statuses = AsyncMock(return_value=all_statuses)
-
-        app.dependency_overrides[_get_registry] = _override_registry(mock_registry)
-        try:
+        with _patch_status_repo(rows):
             with TestClient(app, raise_server_exceptions=False) as client:
                 resp = client.get("/api/v1/health")
-        finally:
-            app.dependency_overrides.pop(_get_registry, None)
 
         assert resp.status_code == 200
         body = resp.json()
         watchers = body.get("watchers", {})
 
         for aid in agent_ids:
-            assert aid in watchers, (
-                f"agent_id '{aid}' missing from health response watchers"
-            )
+            assert aid in watchers, f"agent_id '{aid}' missing from health response watchers"
             ts_str = watchers[aid].get("last_heartbeat")
-            assert ts_str is not None, (
-                f"last_heartbeat is null for agent '{aid}'"
-            )
+            assert ts_str is not None, f"last_heartbeat is null for agent '{aid}'"
             returned_ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
             now = datetime.now(timezone.utc)
             age = (now - returned_ts).total_seconds()
@@ -348,28 +279,20 @@ class TestProperty11WatcherHeartbeatInHealthEndpoint:
 
     def test_health_response_includes_active_watcher_count(self, setup_db):
         """
-        # Feature: production-hardening, Property 11: Watcher heartbeat reflected in health endpoint
-        **Validates: Requirements 10.6**
-
         The health endpoint SHALL include an ``active_watchers`` count that
         reflects the number of running watchers.
         """
         agent_id = f"agent_{uuid.uuid4().hex[:8]}"
-        heartbeat = _seconds_ago(10)
-        mock_registry = _make_mock_registry(agent_id, heartbeat)
+        hb_naive = _seconds_ago(10).replace(tzinfo=None)
+        rows = [_make_status_row(agent_id, "running", hb_naive)]
 
-        app.dependency_overrides[_get_registry] = _override_registry(mock_registry)
-        try:
+        with _patch_status_repo(rows):
             with TestClient(app, raise_server_exceptions=False) as client:
                 resp = client.get("/api/v1/health")
-        finally:
-            app.dependency_overrides.pop(_get_registry, None)
 
         assert resp.status_code == 200
         body = resp.json()
-        assert "active_watchers" in body, (
-            f"'active_watchers' key missing from health response: {body}"
-        )
+        assert "active_watchers" in body
         assert body["active_watchers"] == 1, (
             f"Expected active_watchers=1, got {body['active_watchers']}"
         )

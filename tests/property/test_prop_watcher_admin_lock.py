@@ -117,7 +117,7 @@ class TestProperty8WatcherAdminLock:
     """
 
     @given(enabled=st.booleans())
-    @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
     def test_admin_locked_returns_403_for_any_enabled_value(self, setup_db, enabled):
         """
         For any value of `enabled` (True or False), when watcher_admin_override
@@ -142,7 +142,7 @@ class TestProperty8WatcherAdminLock:
         )
 
     @given(enabled=st.booleans())
-    @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
     def test_no_admin_lock_allows_toggle(self, setup_db, enabled):
         """
         Contrast: when watcher_admin_override is FALSE, toggle succeeds (200)
@@ -164,7 +164,7 @@ class TestProperty8WatcherAdminLock:
         first_enabled=st.booleans(),
         second_enabled=st.booleans(),
     )
-    @settings(max_examples=15, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(max_examples=15, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
     def test_admin_lock_is_immutable_across_multiple_requests(
         self, setup_db, first_enabled, second_enabled
     ):

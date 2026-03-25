@@ -282,8 +282,13 @@ class TestProperty10WatcherPollingLoopSurvivesExceptions:
 
         handler = CapturingHandler()
         handler.setLevel(logging.ERROR)
-        root_logger = logging.getLogger()
-        root_logger.addHandler(handler)
+        # api.services.watcher_registry has propagate=False, so attach directly
+        watcher_logger = logging.getLogger("api.services.watcher_registry")
+        watcher_logger.addHandler(handler)
+
+        # Re-enable the logger in case pytest/alembic disabled it
+        watcher_logger.disabled = False
+        logging.disable(logging.NOTSET)
 
         try:
             async def run():
@@ -300,7 +305,7 @@ class TestProperty10WatcherPollingLoopSurvivesExceptions:
 
             asyncio.run(run())
         finally:
-            root_logger.removeHandler(handler)
+            watcher_logger.removeHandler(handler)
 
         assert log_records, (
             f"No ERROR log record produced for {exc_type.__name__}"

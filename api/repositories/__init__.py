@@ -31,6 +31,10 @@ from api.repositories.buyer_leads_repository import (
     FormInvitationRepository,
     BuyerLeadsQueryRepository,
 )
+from api.repositories.watcher_coordination_repository import (
+    WatcherControlRepository,
+    WatcherStatusRepository,
+)
 
 __all__ = [
     "LeadRepository",
@@ -58,4 +62,6 @@ __all__ = [
     "MessageTemplateRepository",
     "FormInvitationRepository",
     "BuyerLeadsQueryRepository",
+    "WatcherControlRepository",
+    "WatcherStatusRepository",
 ]
