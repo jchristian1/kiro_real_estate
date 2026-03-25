@@ -11,13 +11,19 @@ import { useAgentAuth } from '../../contexts/AgentAuthContext';
 import { Step0Account } from './Step0Account';
 import { Step1Profile } from './Step1Profile';
 import { Step2Gmail } from './Step2Gmail';
+import { Step3Sources } from './Step3Sources';
+import { Step4Automation } from './Step4Automation';
+import { Step5Templates } from './Step5Templates';
 import { Step6GoLive } from './Step6GoLive';
 
 const STEPS = [
-  { path: 'account', label: 'Account' },
-  { path: 'profile', label: 'Profile' },
-  { path: 'gmail',   label: 'Gmail'   },
-  { path: 'go-live', label: 'Go Live' },
+  { path: 'account',    label: 'Account'    },
+  { path: 'profile',    label: 'Profile'    },
+  { path: 'gmail',      label: 'Gmail'      },
+  { path: 'sources',    label: 'Sources'    },
+  { path: 'automation', label: 'Automation' },
+  { path: 'templates',  label: 'Templates'  },
+  { path: 'go-live',    label: 'Go Live'    },
 ];
 
 export const OnboardingWizard: React.FC = () => {
@@ -127,11 +133,14 @@ export const OnboardingWizard: React.FC = () => {
       <div style={{ width: '100%', maxWidth: 560 }}>
         <Routes>
           <Route index element={<Navigate to="account" replace />} />
-          <Route path="account" element={<Step0Account />} />
-          <Route path="profile" element={<Step1Profile goBack={goBack} />} />
-          <Route path="gmail"   element={<Step2Gmail goBack={goBack} />} />
-          <Route path="go-live" element={<Step6GoLive goBack={goBack} />} />
-          <Route path="*"       element={<Navigate to="account" replace />} />
+          <Route path="account"    element={<Step0Account />} />
+          <Route path="profile"    element={<Step1Profile goBack={goBack} />} />
+          <Route path="gmail"      element={<Step2Gmail goBack={goBack} />} />
+          <Route path="sources"    element={<Step3Sources goBack={goBack} />} />
+          <Route path="automation" element={<Step4Automation goBack={goBack} />} />
+          <Route path="templates"  element={<Step5Templates goBack={goBack} />} />
+          <Route path="go-live"    element={<Step6GoLive goBack={goBack} />} />
+          <Route path="*"          element={<Navigate to="account" replace />} />
         </Routes>
       </div>
     </div>
