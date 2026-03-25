@@ -49,7 +49,7 @@ class Session(Base):
     """
     __tablename__ = 'sessions'
     
-    id = Column(String(64), primary_key=True)  # Secure random token
+    id = Column(String(128), primary_key=True)  # 64-byte token hex-encoded = 128 chars
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False, index=True)
