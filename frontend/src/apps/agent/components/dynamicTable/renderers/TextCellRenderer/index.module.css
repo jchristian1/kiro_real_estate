@@ -1,0 +1,5 @@
+.textContent {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

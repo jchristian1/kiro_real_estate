@@ -1,0 +1,47 @@
+.container {
+  padding: 12px;
+  min-width: 220px;
+}
+
+.pickerWrapper {
+  margin-bottom: 12px;
+}
+
+.hexInput {
+  width: 100%;
+  padding: 6px 8px;
+  margin-bottom: 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: monospace;
+  outline: none;
+}
+
+.presetsLabel {
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.presetsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.presetButton {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.presetButton:hover {
+  transform: scale(1.1);
+}
+
+.hint {
+  margin-top: 12px;
+  font-size: 11px;
+  text-align: center;
+}

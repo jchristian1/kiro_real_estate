@@ -1,0 +1,10 @@
+.cell {
+  position: relative;
+  min-height: 40px;
+}
+
+.cell:focus-within {
+  outline: 2px solid;
+  outline-offset: -2px;
+  z-index: 10;
+}
