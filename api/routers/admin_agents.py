@@ -525,10 +525,7 @@ def delete_agent(
             details=f"Deleted agent {agent_id}"
         )
 
-        # Delete credentials
-        cred_repo.delete(agent_id)
-
-        # Also remove the matching AgentUser record (agent app account)
+        # Find and delete the AgentUser first (clears the FK reference to credentials)
         try:
             from cryptography.fernet import Fernet
             config = load_config()
@@ -537,9 +534,15 @@ def delete_agent(
             agent_repo = AgentRepository(db)
             agent_user = agent_repo.get_by_email(email)
             if agent_user:
+                # Null out the FK before deleting credentials to avoid FK violation
+                agent_user.credentials_id = None
+                db.flush()
                 agent_repo.delete(agent_user.id)
         except Exception:
             pass  # Don't fail the delete if agent_user cleanup fails
+
+        # Now safe to delete credentials (no more FK references)
+        cred_repo.delete(agent_id)
 
     else:
         # No Credentials record — agent may have been created via agent signup only.
