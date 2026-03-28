@@ -50,7 +50,7 @@ from api.services.pipeline_service import get_active_pipeline
 
 logger = logging.getLogger(__name__)
 
-_SYSTEM_USER_ID = 0
+_SYSTEM_USER_ID = None  # NULL in audit_logs for system-generated actions
 
 
 # ---------------------------------------------------------------------------

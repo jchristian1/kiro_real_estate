@@ -66,8 +66,17 @@ export const AgentsPage: React.FC = () => {
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
-    try { await axios.delete(`${API_BASE_URL}/agents/${deleteTarget.agent_id}`); setAgents(p => p.filter(a => a.agent_id !== deleteTarget.agent_id)); }
-    catch { /* silent */ } finally { setDeleteTarget(null); }
+    try {
+      await axios.delete(`${API_BASE_URL}/agents/${deleteTarget.agent_id}`);
+      setAgents(p => p.filter(a => a.agent_id !== deleteTarget.agent_id));
+    } catch (err: unknown) {
+      const msg = axios.isAxiosError(err)
+        ? err.response?.data?.message || err.response?.data?.detail || err.message
+        : 'Delete failed';
+      setServerError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    } finally {
+      setDeleteTarget(null);
+    }
   };
 
   const statusStyle = (status: string | null) => {
@@ -118,6 +127,13 @@ export const AgentsPage: React.FC = () => {
         </span>
         <button onClick={() => { setServerError(null); setView('create'); }} style={t.btnPrimary}>Create Agent</button>
       </div>
+
+      {serverError && (
+        <div style={{ marginBottom: 16, padding: '10px 14px', background: t.redBg, border: `1px solid ${t.red}30`, borderRadius: 9, fontSize: 13, color: t.red, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>{serverError}</span>
+          <button onClick={() => setServerError(null)} style={{ background: 'none', border: 'none', color: t.red, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+        </div>
+      )}
 
       {agents.length === 0 ? (
         <div style={{ ...t.card, textAlign: 'center', padding: 60 }}>

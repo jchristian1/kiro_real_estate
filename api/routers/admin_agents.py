@@ -506,13 +506,7 @@ def delete_agent(
     # Find agent credentials
     cred_repo = CredentialRepository(db)
     credentials = cred_repo.get_by_agent_id(agent_id)
-    
-    if not credentials:
-        raise NotFoundException(
-            message=f"Agent '{agent_id}' not found",
-            code=ErrorCode.NOT_FOUND_RESOURCE
-        )
-    
+
     # Signal worker to stop the watcher via DB before deleting agent
     try:
         from api.repositories.watcher_coordination_repository import WatcherControlRepository
@@ -520,32 +514,63 @@ def delete_agent(
     except Exception:
         pass
 
-    # Record audit log before deletion
-    record_audit_log(
-        db_session=db,
-        user_id=current_user.id,
-        action="agent_deleted",
-        resource_type="agent",
-        resource_id=credentials.id,
-        details=f"Deleted agent {agent_id}"
-    )
-    
-    # Delete credentials
-    cred_repo.delete(agent_id)
+    if credentials:
+        # Record audit log before deletion
+        record_audit_log(
+            db_session=db,
+            user_id=current_user.id,
+            action="agent_deleted",
+            resource_type="agent",
+            resource_id=credentials.id,
+            details=f"Deleted agent {agent_id}"
+        )
 
-    # Also remove the matching AgentUser record (agent app account)
-    try:
-        from cryptography.fernet import Fernet
-        config = load_config()
-        fernet = Fernet(config.encryption_key.encode())
-        email = fernet.decrypt(credentials.email_encrypted.encode()).decode()
-        agent_repo = AgentRepository(db)
-        agent_user = agent_repo.get_by_email(email)
-        if agent_user:
-            agent_repo.delete(agent_user.id)
-    except Exception:
-        pass  # Don't fail the delete if agent_user cleanup fails
-    
+        # Find and delete the AgentUser first (clears the FK reference to credentials)
+        try:
+            from cryptography.fernet import Fernet
+            config = load_config()
+            fernet = Fernet(config.encryption_key.encode())
+            email = fernet.decrypt(credentials.email_encrypted.encode()).decode()
+            agent_repo = AgentRepository(db)
+            agent_user = agent_repo.get_by_email(email)
+            if agent_user:
+                # Null out the FK before deleting credentials to avoid FK violation
+                agent_user.credentials_id = None
+                db.flush()
+                agent_repo.delete(agent_user.id)
+        except Exception:
+            pass  # Don't fail the delete if agent_user cleanup fails
+
+        # Now safe to delete credentials (no more FK references)
+        cred_repo.delete(agent_id)
+
+    else:
+        # No Credentials record — agent may have been created via agent signup only.
+        # Try to find and delete the AgentUser directly by email (agent_id may be the
+        # AgentUser.id stringified, or the agent_id field on Credentials).
+        from api.repositories.agent_repository import AgentRepository as _AgentRepo
+        _agent_repo = _AgentRepo(db)
+        # Try numeric ID first
+        _agent_user = None
+        try:
+            _agent_user = _agent_repo.get_by_id(int(agent_id))
+        except (ValueError, TypeError):
+            pass
+        if _agent_user is None:
+            raise NotFoundException(
+                message=f"Agent '{agent_id}' not found",
+                code=ErrorCode.NOT_FOUND_RESOURCE
+            )
+        record_audit_log(
+            db_session=db,
+            user_id=current_user.id,
+            action="agent_deleted",
+            resource_type="agent",
+            resource_id=_agent_user.id,
+            details=f"Deleted agent user {agent_id}",
+        )
+        _agent_repo.delete(_agent_user.id)
+
     return AgentDeleteResponse(
         message=f"Agent '{agent_id}' deleted successfully"
     )
