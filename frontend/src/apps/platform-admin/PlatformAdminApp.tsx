@@ -17,6 +17,7 @@ import { CompaniesPage } from './pages/CompaniesPage';
 import { LeadSourcesPage } from './pages/LeadSourcesPage';
 import { TemplatesPage } from './pages/TemplatesPage';
 import { LeadsPage } from './pages/LeadsPage';
+import { LeadsLawPage } from './pages/LeadsLawPage/index';
 import { AuditLogsPage } from './pages/AuditLogsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { PipelinesPage } from './pages/PipelinesPage';
@@ -50,7 +51,7 @@ export const PlatformAdminApp: React.FC = () => (
           <Route path="/companies" element={<CompaniesPage />} />
           <Route path="/lead-sources" element={<LeadSourcesPage />} />
           <Route path="/templates" element={<TemplatesPage />} />
-          <Route path="/leads" element={<LeadsPage />} />
+          <Route path="/leads" element={<LeadsLawPage />} />
           <Route path="/audit-logs" element={<AuditLogsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/pipelines" element={<PipelinesPage />} />

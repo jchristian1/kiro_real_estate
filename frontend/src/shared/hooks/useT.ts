@@ -47,8 +47,8 @@ export const useT = (): T => {
       transition: 'background 0.2s',
     },
     th: {
-      textAlign: 'left' as const,
-      padding: '0 0 10px',
+      textAlign: 'center' as const,
+      padding: '10px 10px',
       color: tok.textFaint,
       fontWeight: 500,
       fontSize: 11,

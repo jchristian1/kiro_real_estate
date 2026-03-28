@@ -97,7 +97,7 @@ Everything else in `.env` can stay as-is for local development.
 
 **Windows (PowerShell)**
 ```powershell
-.venv\Scripts\alembic upgrade head
+.venv/Scripts/alembic upgrade head
 ```
 
 This creates `gmail_lead_sync.db` (SQLite) and applies all migrations.
@@ -113,7 +113,7 @@ This creates `gmail_lead_sync.db` (SQLite) and applies all migrations.
 
 **Windows (PowerShell)**
 ```powershell
-.venv\Scripts\python scripts/seed_data.py
+.venv/Scripts/python scripts/seed_data.py
 ```
 
 This creates:
@@ -157,7 +157,7 @@ The default `frontend/.env` points to `http://localhost:8000/api/v1` which is co
 
 **Windows (PowerShell)**
 ```powershell
-.venv\Scripts\uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+.venv/Scripts/uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Verify it's running (new terminal):
