@@ -73,12 +73,12 @@ class AuditLog(Base):
     
     id = Column(Integer, primary_key=True)
     timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=True, index=True)
     action = Column(String(100), nullable=False, index=True)
     resource_type = Column(String(50), nullable=False)
     resource_id = Column(Integer, nullable=True)
     details = Column(Text, nullable=True)
-    
+
     # Relationships
     user = relationship("User", back_populates="audit_logs")
 
