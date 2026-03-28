@@ -182,57 +182,6 @@ def _reconcile_sync(registry: WatcherRegistry, SessionLocal, loop) -> None:
         logger.warning("Reconciliation cycle failed: %s", exc)
     finally:
         db.close()
-                    try:
-                        started = future.result(timeout=5)
-                        if started:
-                            logger.info("Reconciler started watcher for agent %s", agent_id)
-                    except Exception as exc:
-                        logger.warning("Reconciler could not start watcher %s: %s", agent_id, exc)
-
-            elif ctrl.desired_status == "stopped":
-                if current_status in (WatcherStatus.RUNNING, WatcherStatus.STARTING):
-                    future = _asyncio.run_coroutine_threadsafe(
-                        registry.stop_watcher(agent_id), loop
-                    )
-                    try:
-                        future.result(timeout=10)
-                        logger.info("Reconciler stopped watcher for agent %s", agent_id)
-                    except Exception as exc:
-                        logger.warning("Reconciler could not stop watcher %s: %s", agent_id, exc)
-
-            # --- 2. Act on pending sync requests ---
-            if ctrl.sync_requested_at is not None:
-                future = _asyncio.run_coroutine_threadsafe(
-                    registry.trigger_sync(agent_id), loop
-                )
-                try:
-                    triggered = future.result(timeout=5)
-                    if triggered:
-                        logger.info("Reconciler triggered sync for agent %s", agent_id)
-                except Exception as exc:
-                    logger.warning("Reconciler could not trigger sync for %s: %s", agent_id, exc)
-                # Always clear the request so we don't re-trigger on next cycle
-                ctrl_repo.clear_sync_request(agent_id)
-
-        # --- 3. Write live status to DB ---
-        all_statuses = registry._watchers
-        for agent_id, info in all_statuses.items():
-            try:
-                status_repo.upsert(
-                    agent_id,
-                    status=info.status.value,
-                    last_heartbeat=info.last_heartbeat,
-                    last_sync=info.last_sync,
-                    started_at=info.started_at,
-                    error=info.error,
-                )
-            except Exception as exc:
-                logger.warning("Could not write status for agent %s: %s", agent_id, exc)
-
-    except Exception as exc:
-        logger.warning("Reconciliation cycle failed: %s", exc)
-    finally:
-        db.close()
 
 
 async def _reconciliation_loop(
