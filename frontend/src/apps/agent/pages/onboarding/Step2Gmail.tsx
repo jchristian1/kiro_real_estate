@@ -47,7 +47,7 @@ export const Step2Gmail: React.FC<Props> = ({ goBack }) => {
     try {
       await agentApi.post('/agent/onboarding/gmail', { gmail_address: gmailAddress, app_password: appPassword });
       setSuccess(true);
-      setTimeout(() => navigate('/agent/onboarding/go-live'), 800);
+      setTimeout(() => navigate('/agent/onboarding/sources'), 800);
     } catch (err: unknown) {
       const raw = getAgentErrorMessage(err);
       setError(ERROR_MESSAGES[raw] || raw);

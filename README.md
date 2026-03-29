@@ -118,13 +118,19 @@ Everything is managed through two separate web interfaces — one for platform o
 
 ### Backend & Infrastructure
 
+**Runtime Architecture**
+- Three separate processes: API server, background worker, and frontend
+- API handles all HTTP requests; worker owns all background Gmail watching and pipeline execution
+- Worker polls a `watcher_control` DB table every 10 seconds to start/stop watchers — no direct API↔worker coupling
+- Both API and worker connect to the same PostgreSQL database
+
 **Gmail IMAP Watcher**
-- Per-agent asyncio background task running inside the FastAPI process
+- Per-agent asyncio background task running inside the worker process
 - Polls Gmail IMAP on a configurable interval (default 5 minutes)
 - Idempotency via SHA-256 hash of `Message-ID` header — duplicate emails are silently skipped
 - Exponential backoff on connection failures (5s → 10s → 20s → 40s → 80s, max 5 attempts)
-- Auto-restart after failure with 60-second cooldown (configurable)
-- Graceful shutdown — all watchers stop cleanly on app exit
+- Auto-restart after failure with 60-second cooldown (configurable via `ENABLE_AUTO_RESTART`)
+- Graceful shutdown — all watchers stop cleanly on worker exit
 
 **Security**
 - Gmail credentials encrypted at rest with Fernet (AES-128-CBC + HMAC-SHA256)
@@ -168,23 +174,43 @@ Everything is managed through two separate web interfaces — one for platform o
 # 1. Clone
 git clone https://github.com/jchristian1/kiro_real_estate.git
 cd kiro_real_estate
-git checkout final-user-ui
+git checkout feature-pipelines
 
-# 2. Copy env and generate secrets
+# 2. Create virtualenv and install dependencies
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+
+# 3. Create Postgres databases
+createdb gmail_lead_sync
+createdb gmail_lead_sync_test
+
+# 4. Copy env and fill in ENCRYPTION_KEY, SECRET_KEY, and DATABASE_URL
 cp .env.example .env
-# Fill in ENCRYPTION_KEY and SECRET_KEY in .env (see docs/FIRST_START.md)
+# DATABASE_URL=postgresql://localhost/gmail_lead_sync
 
-# 3a. Start with SQLite (zero-config, good for local dev)
-docker compose up --build
+# 5. Run migrations
+.venv/bin/alembic upgrade head
 
-# 3b. Start with Postgres (production-equivalent)
-#     Set DATABASE_URL=postgresql://app:app@postgres:5432/kiro in .env first
-docker compose --profile postgres up --build
+# 6. Install frontend deps
+npm install --prefix frontend
 ```
 
-Frontend: http://localhost:80 — API: http://localhost:8000
+Then open **three terminals**:
 
-For local development (without Docker) see [docs/FIRST_START.md](docs/FIRST_START.md) — covers macOS, Linux, and Windows.
+```bash
+# Terminal 1 — API
+.venv/bin/uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Terminal 2 — Worker (Gmail watchers + pipeline execution)
+.venv/bin/python -m worker.main
+
+# Terminal 3 — Frontend
+cd frontend && npm run dev
+```
+
+Frontend: http://localhost:5173 — API: http://localhost:8000
+
+For Docker or Windows setup see [docs/FIRST_START.md](docs/FIRST_START.md).
 
 ---
 

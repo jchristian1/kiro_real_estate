@@ -13,7 +13,6 @@ import secrets
 import uuid
 from datetime import datetime, timedelta
 
-import bcrypt
 import pytest
 from fastapi.testclient import TestClient
 from hypothesis import HealthCheck, given, settings
@@ -63,7 +62,9 @@ def setup_db():
 
 def _create_agent(db, email: str) -> AgentUser:
     """Create an agent with a hashed password."""
-    password_hash = bcrypt.hashpw(b"password", bcrypt.gensalt()).decode()
+    # Use a pre-computed bcrypt hash for "password" to avoid slow bcrypt in Hypothesis loops.
+    # This is a valid bcrypt hash — it just avoids re-hashing on every example.
+    password_hash = "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW"
     agent = AgentUser(
         email=email,
         password_hash=password_hash,

@@ -167,9 +167,18 @@ class LeadParser:
         try:
             # If agent_id is numeric (agent app agent), also set agent_user_id FK
             agent_user_id = None
+            company_id = None
             if agent_id is not None:
                 try:
                     agent_user_id = int(agent_id)
+                    # Stamp company_id directly so pipeline resolution doesn't
+                    # need to lazy-load the agent_user relationship.
+                    from gmail_lead_sync.agent_models import AgentUser as _AgentUser
+                    _au = self.db_session.query(_AgentUser).filter(
+                        _AgentUser.id == agent_user_id
+                    ).first()
+                    if _au is not None:
+                        company_id = _au.company_id
                 except (ValueError, TypeError):
                     pass
 
@@ -181,6 +190,7 @@ class LeadParser:
                 lead_source_id=lead_source_id,
                 agent_id=agent_id,
                 agent_user_id=agent_user_id,
+                company_id=company_id,
             )
             
             self.db_session.add(lead)

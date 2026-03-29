@@ -49,7 +49,7 @@ class Session(Base):
     """
     __tablename__ = 'sessions'
     
-    id = Column(String(64), primary_key=True)  # Secure random token
+    id = Column(String(128), primary_key=True)  # 64-byte token hex-encoded = 128 chars
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False, index=True)
@@ -73,12 +73,12 @@ class AuditLog(Base):
     
     id = Column(Integer, primary_key=True)
     timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=True, index=True)
     action = Column(String(100), nullable=False, index=True)
     resource_type = Column(String(50), nullable=False)
     resource_id = Column(Integer, nullable=True)
     details = Column(Text, nullable=True)
-    
+
     # Relationships
     user = relationship("User", back_populates="audit_logs")
 
