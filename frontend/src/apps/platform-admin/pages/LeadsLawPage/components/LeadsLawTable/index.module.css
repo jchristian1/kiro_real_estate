@@ -1,0 +1,13 @@
+
+
+.columnHeaderTable {
+    width: 100%;
+    height: auto;
+    background: rgba(239, 68, 68, 0.1);
+    padding: 12px 16px;
+    font-size: 20px;
+    font-weight: 900;
+    text-align: 'center';
+    text-transform: 'uppercase';
+    border-bottom: 'none';
+}

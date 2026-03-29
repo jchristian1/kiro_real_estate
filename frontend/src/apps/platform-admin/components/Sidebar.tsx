@@ -17,6 +17,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/dashboard', label: 'Dashboard',    icon: '◈' },
       { to: '/leads',     label: 'Leads',        icon: '◎' },
+      { to: '/leads-law',     label: 'LeadsLaw',        icon: '◎' },
     ],
   },
   {

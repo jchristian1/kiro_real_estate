@@ -48,7 +48,7 @@ export const useT = (): T => {
     },
     th: {
       textAlign: 'left' as const,
-      padding: '0 0 10px',
+      padding: '10px 0px',
       color: tok.textFaint,
       fontWeight: 500,
       fontSize: 11,
