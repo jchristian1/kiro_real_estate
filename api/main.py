@@ -768,6 +768,14 @@ async def startup_event():
     logger.info("Starting Gmail Lead Sync API")
     config.log_config(logger)
 
+    if "sqlite" in config.database_url:
+        logger.warning(
+            "SQLite detected as the database backend. "
+            "SQLite is not safe for multi-process deployments (api + worker). "
+            "Set DATABASE_URL to a PostgreSQL connection string for any deployment "
+            "that runs the worker process alongside the API."
+        )
+
     # Run DB migrations on startup so a fresh clone works without manual steps
     try:
         from alembic.config import Config as AlembicConfig

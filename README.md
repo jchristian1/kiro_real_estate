@@ -147,8 +147,8 @@ Everything is managed through two separate web interfaces — one for platform o
 - Health endpoint (`/api/v1/health`) — database connectivity, active watcher count, 24h error count
 
 **Database**
-- PostgreSQL is the recommended production database
-- SQLite is supported for local development and single-server deployments
+- PostgreSQL is the default and required database for any multi-process deployment (api + worker)
+- SQLite is supported only for single-process bare local dev — not safe when the worker runs alongside the API
 - Alembic migrations work against both — set `DATABASE_URL` before running `alembic upgrade head`
 - `psycopg2-binary` is included in `requirements.txt`; no extra install needed
 - Migrations run automatically on startup via the Docker entrypoint
@@ -161,7 +161,7 @@ Everything is managed through two separate web interfaces — one for platform o
 |-------|-----------|
 | Backend | Python 3.11, FastAPI, SQLAlchemy, Alembic |
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS |
-| Database | PostgreSQL (production), SQLite (local dev / single-server) |
+| Database | PostgreSQL (default runtime), SQLite (single-process local dev only) |
 | Auth | Session cookies, bcrypt, Fernet encryption |
 | Monitoring | Prometheus, structured JSON logs |
 | Deployment | Docker, Docker Compose, nginx |
@@ -184,9 +184,9 @@ python3 -m venv .venv
 createdb gmail_lead_sync
 createdb gmail_lead_sync_test
 
-# 4. Copy env and fill in ENCRYPTION_KEY, SECRET_KEY, and DATABASE_URL
+# 4. Copy env — DATABASE_URL defaults to the compose Postgres URL.
+#    For bare local dev (no Docker), change it to: postgresql://localhost/gmail_lead_sync
 cp .env.example .env
-# DATABASE_URL=postgresql://localhost/gmail_lead_sync
 
 # 5. Run migrations
 .venv/bin/alembic upgrade head
@@ -261,12 +261,12 @@ Then log in at http://localhost:5173/admin with username `admin` and the passwor
 ## Makefile Targets
 
 ```bash
-make up               # Build and start all services (Docker, SQLite)
+make up               # Build and start all services with Postgres (Docker)
 make down             # Stop all services
 make migrate          # Run pending Alembic migrations (uses DATABASE_URL)
 make migrate-postgres # Run migrations against Postgres (DATABASE_URL must be set)
 make seed-dev         # Seed dev data (requires ENVIRONMENT=development + DEV_ADMIN_PASSWORD)
-make test             # Run SQLite-backed test suite (fast, no Postgres required)
+make test             # Run unit test suite (SQLite in-memory, fast, no Postgres required)
 make test-postgres    # Run Postgres-backed tests (requires POSTGRES_TEST_URL)
 make lint             # Lint Python (ruff) and TypeScript (eslint)
 make typecheck        # Type-check Python (mypy) and TypeScript (tsc)

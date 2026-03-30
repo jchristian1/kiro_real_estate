@@ -6,7 +6,7 @@ help: ## Show available targets
 	@echo "Targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
 
-up: ## Start all services (builds images, runs in background)
+up: ## Start all services with Postgres (builds images, runs in background)
 	docker compose up --build -d
 
 down: ## Stop all services

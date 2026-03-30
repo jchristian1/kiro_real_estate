@@ -155,8 +155,11 @@ ENCRYPTION_KEY="your-generated-encryption-key-here"
 GMAIL_EMAIL="your-agent@gmail.com"
 GMAIL_APP_PASSWORD="your-app-password-here"
 
-# Optional: Database location
-DATABASE_URL="sqlite:////opt/gmail-lead-sync/gmail_lead_sync.db"
+# Required: Database connection (PostgreSQL required for multi-process deployment)
+DATABASE_URL="postgresql://kiro:your-password@localhost:5432/kiro"
+
+# For single-process personal use only (no worker process):
+# DATABASE_URL="sqlite:////opt/gmail-lead-sync/gmail_lead_sync.db"
 
 # Optional: Logging configuration
 LOG_LEVEL="INFO"
@@ -454,9 +457,16 @@ pg_restore -d $DATABASE_URL /opt/gmail-lead-sync/backups/kiro_20240115_020000.du
 
 ---
 
-### SQLite (Simple / Single-Server Deployments)
+### SQLite (Legacy / Single-Process Only — Not Recommended)
 
-SQLite requires no server process and is suitable for low-traffic single-server deployments.
+> **WARNING:** SQLite is NOT safe for multi-process deployments. This app runs two long-lived
+> processes (api + worker) that write to the database concurrently. Running both against a
+> SQLite file will produce `database is locked` errors under any real load.
+>
+> Use SQLite only if you are running the API process alone (no worker) on a single server
+> for low-traffic personal use. For any production, staging, or demo deployment, use PostgreSQL.
+
+If you have a specific reason to use SQLite (single-process, no worker, personal use):
 
 Set `DATABASE_URL` in `.env`:
 

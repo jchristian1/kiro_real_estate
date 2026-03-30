@@ -228,9 +228,22 @@ def load_config() -> Config:
     except ValueError:
         raise ValueError("MAX_LEADS_PER_PAGE must be a valid integer")
     
+    # DATABASE_URL is required — no silent SQLite fallback.
+    # Set DATABASE_URL=postgresql://... for runtime use.
+    # Set DATABASE_URL=sqlite:///./dev.db explicitly if you want SQLite for
+    # single-process local development (not safe with the worker process).
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise ValueError(
+            "DATABASE_URL is not set. "
+            "Set DATABASE_URL=postgresql://user:pass@host/db in your .env file. "
+            "For single-process local dev only, you may use DATABASE_URL=sqlite:///./dev.db "
+            "but SQLite is not safe when running the worker alongside the API."
+        )
+
     # Create config instance
     config = Config(
-        database_url=os.getenv("DATABASE_URL", "sqlite:///./gmail_lead_sync.db"),
+        database_url=database_url,
         encryption_key=os.getenv("ENCRYPTION_KEY", ""),
         secret_key=os.getenv("SECRET_KEY", ""),
         api_host=os.getenv("API_HOST", "0.0.0.0"),

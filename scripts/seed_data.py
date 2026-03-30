@@ -52,7 +52,14 @@ def get_database_session():
     Raises:
         ValueError: If DATABASE_URL not set
     """
-    database_url = os.getenv('DATABASE_URL', 'sqlite:///./gmail_lead_sync.db')
+    database_url = os.getenv('DATABASE_URL')
+    if not database_url:
+        print(
+            "✗ Error: DATABASE_URL environment variable is not set.\n"
+            "  Set DATABASE_URL=postgresql://... in your .env file.\n"
+            "  For single-process local dev only: DATABASE_URL=sqlite:///./dev.db"
+        )
+        sys.exit(1)
     
     engine = create_engine(
         database_url,

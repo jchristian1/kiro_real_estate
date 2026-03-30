@@ -60,7 +60,7 @@ python -m venv .venv
 
 ## 3. Set up PostgreSQL
 
-PostgreSQL is the primary database. SQLite is only for running the automated test suite.
+PostgreSQL is the required database for any multi-process deployment (api + worker). SQLite is only for single-process bare local dev without the worker.
 
 **macOS (Homebrew)**
 ```bash
@@ -97,7 +97,7 @@ Copy-Item .env.example .env
 Open `.env` and set these values:
 
 ```bash
-# Database — PostgreSQL (replace with your connection string if using a password)
+# Database — for bare local dev, change the host from "postgres" to "localhost"
 DATABASE_URL=postgresql://localhost/gmail_lead_sync
 
 # Test database — used by tests/postgres/ suite
@@ -289,16 +289,16 @@ You should see the agent's watcher with `status = running` and a recent `last_he
 
 ## Docker (alternative to steps 2–8)
 
-If you have Docker installed, steps 2–8 are replaced by a few commands. Migrations run automatically on startup; seeding does not — it remains an explicit step.
+If you have Docker installed, steps 2–8 are replaced by a few commands. Postgres starts automatically as part of the default compose stack — no profile flag needed. Migrations run on startup; seeding does not.
 
 **macOS / Linux**
 ```bash
 cp .env.example .env
 # Fill in ENCRYPTION_KEY and SECRET_KEY in .env (same as step 4)
-# Set DATABASE_URL=postgresql://app:app@postgres:5432/gmail_lead_sync
-docker compose --profile postgres up --build -d
+# DATABASE_URL is already set to the compose Postgres URL in .env.example
+docker compose up --build -d
 
-# Then seed dev data (runs outside the container against the same DB)
+# Then seed dev data
 export DEV_ADMIN_PASSWORD='your-secure-password'
 make seed-dev
 ```
@@ -306,7 +306,7 @@ make seed-dev
 **Windows (PowerShell)**
 ```powershell
 Copy-Item .env.example .env
-docker compose --profile postgres up --build -d
+docker compose up --build -d
 
 $env:DEV_ADMIN_PASSWORD = 'your-secure-password'
 $env:ENVIRONMENT = 'development'
