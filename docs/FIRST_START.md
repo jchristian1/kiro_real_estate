@@ -136,7 +136,7 @@ Generate the secrets:
 
 **Windows (PowerShell)**
 ```powershell
-.venv\Scripts\alembic upgrade head
+.venv/Scripts/alembic upgrade head
 ```
 
 This applies all migrations to the `gmail_lead_sync` Postgres database.
@@ -152,7 +152,7 @@ This applies all migrations to the `gmail_lead_sync` Postgres database.
 
 **Windows (PowerShell)**
 ```powershell
-.venv\Scripts\python scripts/seed_data.py
+.venv/Scripts/python scripts/seed_data.py
 ```
 
 This creates:
@@ -200,7 +200,7 @@ You need **three separate terminal windows/tabs** open in the project root.
 
 **Windows (PowerShell)**
 ```powershell
-.venv\Scripts\uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+.venv/Scripts/uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Verify it's running:
