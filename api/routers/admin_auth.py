@@ -98,10 +98,13 @@ async def login(
         )
 
     # Create session
-    session = create_session(db, user.id, get_config().secret_key)
+    session = create_session(
+        db, user.id, get_config().secret_key,
+        session_timeout_hours=get_config().session_timeout_hours,
+    )
 
     # Set session cookie — raw token is on session._raw_token, not session.id
-    set_session_cookie(response, session._raw_token)
+    set_session_cookie(response, session._raw_token, get_config().session_timeout_hours)
 
     # Return user info (exclude password hash)
     return LoginResponse(
