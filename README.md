@@ -143,8 +143,9 @@ Everything is managed through two separate web interfaces — one for platform o
 
 **Observability**
 - Structured JSON logging on all requests and background tasks
-- Prometheus metrics endpoint (`/metrics`) — request count, duration, error count, active watchers, leads processed
-- Health endpoint (`/api/v1/health`) — database connectivity, active watcher count, 24h error count
+- Prometheus metrics endpoint (`/metrics`) — request count, duration, error count, active watcher count (DB-backed)
+- Health endpoint (`/api/v1/health`) — database connectivity, active watcher count, per-agent watcher status, 24h error count
+- Watcher status endpoint (`/api/v1/watchers/status`) — per-agent watcher status, heartbeats, last sync
 
 **Database**
 - PostgreSQL is the default and required database for any multi-process deployment (api + worker)

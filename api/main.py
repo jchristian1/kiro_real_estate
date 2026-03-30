@@ -184,6 +184,11 @@ except ValueError:
     from prometheus_client import REGISTRY
     leads_processed_total = REGISTRY._names_to_collectors['leads_processed_total']
 
+# NOTE: leads_processed_total is registered but increment_leads_processed() is
+# never called in the current architecture — lead processing happens in the worker.
+# This counter will remain 0 until wired to the worker's processing path.
+# It is intentionally excluded from operator-facing monitoring documentation.
+
 
 def increment_leads_processed(count: int = 1) -> None:
     """
@@ -625,23 +630,38 @@ async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
 async def metrics():
     """
     Prometheus metrics endpoint.
-    
+
     Returns metrics in Prometheus text format for scraping.
     This endpoint does NOT require authentication to allow
     Prometheus scraper to collect metrics.
-    
-    Metrics tracked:
+
+    Metrics tracked (API process):
     - api_requests_total: Counter for request count per endpoint, method, and status
     - api_request_duration_seconds: Histogram for request duration per endpoint and method
     - api_errors_total: Counter for error count per endpoint and status
-    - watchers_active: Gauge for active watcher count
-    - leads_processed_total: Counter for total leads processed
-    
+
+    Watcher metric (DB-backed, eventually consistent ~10s):
+    - watchers_active: Gauge read from watcher_status table at scrape time
+
+    Not yet wired (counter registered but never incremented):
+    - leads_processed_total: Will be wired when lead processing is instrumented
+
     Requirements: 8.2, 29.1, 29.2, 29.3, 29.4, 29.5, 29.6, 29.7
     """
-    # Watcher count is now owned by the worker process.
-    # The gauge is not updated here — it will be 0 unless the worker
-    # writes to a shared store (Phase 5C).
+    # Update watchers_active from DB-backed watcher_status table.
+    # Same source of truth used by /api/v1/health and /api/v1/watchers/status.
+    # Eventually consistent — worker writes status every ~10 seconds.
+    try:
+        from api.repositories.watcher_coordination_repository import WatcherStatusRepository
+        _metrics_db = SessionLocal()
+        try:
+            _status_repo = WatcherStatusRepository(_metrics_db)
+            _running = sum(1 for r in _status_repo.list_all() if r.status == "running")
+            watchers_active.set(_running)
+        finally:
+            _metrics_db.close()
+    except Exception as _e:
+        logger.debug("Could not update watchers_active gauge: %s", _e)
 
     # Generate Prometheus text format
     return Response(

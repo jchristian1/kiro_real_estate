@@ -11,10 +11,11 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 export interface HealthData {
   status: string;
-  timestamp: string;
-  database: { connected: boolean; message: string };
-  watchers: { active_count: number; heartbeats: Record<string, unknown> };
-  errors: { count_24h: number; recent_errors: unknown[] };
+  database: string;           // "connected" | "error"
+  db_dialect: string;
+  active_watchers: number;
+  errors_last_24h: number;
+  watchers: Record<string, { status: string; last_heartbeat: string | null }>;
 }
 
 export interface WatcherStatus {
@@ -74,9 +75,9 @@ export const DashboardPage: React.FC = () => {
   }
 
   const isHealthy = health?.status === 'healthy';
-  const dbOk = health?.database?.connected ?? false;
-  const activeWatchers = health?.watchers?.active_count ?? 0;
-  const errors24h = health?.errors?.count_24h ?? 0;
+  const dbOk = health?.database === 'connected';
+  const activeWatchers = health?.active_watchers ?? 0;
+  const errors24h = health?.errors_last_24h ?? 0;
 
   return (
     <div style={{ maxWidth: 960 }}>
@@ -86,9 +87,9 @@ export const DashboardPage: React.FC = () => {
         <span style={{ fontSize: 13, color: isHealthy ? t.green : t.red, fontWeight: 600 }}>
           {isHealthy ? 'All systems operational' : 'System degraded'}
         </span>
-        {health?.timestamp && (
+        {health && (
           <span style={{ fontSize: 12, color: t.textFaint, marginLeft: 8 }}>
-            · Updated {new Date(health.timestamp).toLocaleTimeString()}
+            · {activeWatchers} watcher{activeWatchers !== 1 ? 's' : ''} running
           </span>
         )}
         <button
