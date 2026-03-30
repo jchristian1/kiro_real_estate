@@ -16,7 +16,16 @@ export interface TemplateVersion {
   version: number;
   name: string;
   subject: string;
+  is_active: boolean;
   body: string;
   created_at: string;
   created_by: number;
+}
+
+export interface TemplateVersionConfirmDialog {
+  id: number;
+  version_number: number;
+  is_active: boolean;
+  published_at: string | null;
+  subject_template: string;
 }

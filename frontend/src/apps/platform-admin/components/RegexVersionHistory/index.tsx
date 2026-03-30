@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import axios, { AxiosError } from 'axios';
-import { ConfirmDialog } from '@/apps/platform-admin/components/ConfirmDialog';
+import { ConfirmDialog } from '@/platformAdminComponents/ConfirmDialog';
 import { useT } from '@/shared/hooks/useT';
 import { RegexProfileVersion } from '@/models';
 

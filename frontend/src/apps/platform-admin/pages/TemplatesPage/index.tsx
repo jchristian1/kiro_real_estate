@@ -8,20 +8,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/shared/contexts/ThemeContext';
 import { getTokens } from '@/shared/utils/theme';
 import { useToast } from '@/shared/contexts/ToastContext';
-import { ConfirmDialog } from '@/platform-admin-components/ConfirmDialog';
+import { Template } from '@/models/app-model';
+import { PLACEHOLDERS } from '@/shared/utils';
+import { ConfirmDialog } from '@/platformAdminComponents/ConfirmDialog';
+
 
 const API = '/api/v1';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface Template {
-  id: number;
-  name: string;
-  subject: string;
-  body: string;
-  created_at: string;
-  updated_at: string;
-}
 
 interface TemplateVersion {
   id: number;
@@ -31,7 +24,7 @@ interface TemplateVersion {
   subject_template: string;
 }
 
-const PLACEHOLDERS = ['{lead_name}', '{agent_name}', '{agent_phone}', '{agent_email}', '{form_link}'];
+// const PLACEHOLDERS = ['{lead_name}', '{agent_name}', '{agent_phone}', '{agent_email}', '{form_link}'];
 
 // ─── Live Preview ─────────────────────────────────────────────────────────────
 

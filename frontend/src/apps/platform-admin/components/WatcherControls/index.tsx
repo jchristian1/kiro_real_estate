@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios, { AxiosError } from 'axios';
-import { ConfirmDialog } from '@/apps/platform-admin/components/ConfirmDialog';
+import { ConfirmDialog } from '@/platformAdminComponents/ConfirmDialog';
 import { useT } from '@/shared/hooks';
 import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 import { WatcherStatus } from '@/models/platform-admin';

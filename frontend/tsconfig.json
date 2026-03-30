@@ -17,13 +17,13 @@
     /* Path aliases */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
       "@/shared/*": ["src/shared/*"],
       "@/models/*": ["src/models/*"],
       "@/context/*": ["src/shared/contexts/*"],
       "@/apps/*": ["src/apps/*"],
       "@/agent-components/*": ["src/apps/agent/components/*"],
-      "@/platform-admin-components/*": ["src/apps/platform-admin/components/*"]
+      "@/platformAdminComponents/*": ["src/apps/platform-admin/components/*"],
+      "@/*": ["src/*"]
     },
 
     /* Linting */

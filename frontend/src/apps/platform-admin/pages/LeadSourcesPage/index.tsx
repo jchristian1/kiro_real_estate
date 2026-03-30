@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import axios, { AxiosError } from 'axios';
-import { LeadSourceList, LeadSource } from '.../components/LeadSourceList';
-import { LeadSourceForm, LeadSourceFormValues, Template } from '.../components/LeadSourceForm';
-import { ConfirmDialog } from '.../components/ConfirmDialog';
-import { RegexVersionHistory } from '.../components/RegexVersionHistory';
-import { useT } from '.../../../shared/hooks/useT';
+import { LeadSourceList } from '@/platformAdminComponents/LeadSourceList';
+import { LeadSourceForm } from '@/platformAdminComponents/LeadSourceForm';
+import { ConfirmDialog } from '@/platformAdminComponents/ConfirmDialog';
+import { RegexVersionHistory } from '@/platformAdminComponents/RegexVersionHistory';
+import { useT } from '@/shared/hooks/useT';
+import { LeadSource, LeadSourceFormValues, Template } from '@/models';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 const PAGE_SIZE = 20;

@@ -10,14 +10,14 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, './src'),
         '@/shared': path.resolve(__dirname, './src/shared'),
         '@/models': path.resolve(__dirname, './src/models'),
         '@/apps': path.resolve(__dirname, './src/apps'),
         '@/components': path.resolve(__dirname, './src/apps/agent/components'),
-        '@/platform-admin-components': path.resolve(__dirname, './src/apps/platform-admin/components'),
+        '@/platformAdminComponents': path.resolve(__dirname, './src/apps/platform-admin/components'),
         '@/agent-components': path.resolve(__dirname, './src/apps/agent/components'),
         '@/context': path.resolve(__dirname, './src/shared/contexts'),
+        '@': path.resolve(__dirname, './src'),
       },
     },
     // In dev, proxy /api to the backend server

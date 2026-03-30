@@ -8,7 +8,7 @@ import { useTheme } from '@/shared/contexts/ThemeContext';
 import { getTokens } from '@/shared/utils/theme';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useAuth } from '@/apps/platform-admin/contexts';
-import { ConfirmDialog } from '@/platform-admin-components/ConfirmDialog';
+import { ConfirmDialog } from '@/platformAdminComponents/ConfirmDialog';
 
 
 const API = '/api/v1';

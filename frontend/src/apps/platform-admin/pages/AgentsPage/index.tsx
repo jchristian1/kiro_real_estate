@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import axios, { AxiosError } from 'axios';
-import { AgentForm, AgentFormValues, AgentEditFormValues, AgentDetail } from '@/platform-admin-components/Agents';
-import { ConfirmDialog } from '@/platform-admin-components/ConfirmDialog';
+import { AgentForm, AgentFormValues, AgentEditFormValues, AgentDetail } from '@/platformAdminComponents/Agents';
+
 import { useT } from '@/shared/hooks';
+import { ConfirmDialog } from '@/platformAdminComponents/ConfirmDialog';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
