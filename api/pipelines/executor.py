@@ -21,6 +21,7 @@ from api.pipelines.handlers.base import ActionHandler, ActionResult
 from api.pipelines.handlers.move_stage import MoveToStageHandler
 from api.pipelines.handlers.send_email import SendEmailTemplateHandler
 from api.pipelines.handlers.send_form import SendQualificationFormHandler
+from api.pipelines.handlers.create_task import CreateTaskHandler
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +32,14 @@ logger = logging.getLogger(__name__)
 _send_email_handler = SendEmailTemplateHandler()
 _send_form_handler = SendQualificationFormHandler()
 _move_stage_handler = MoveToStageHandler()
+_create_task_handler = CreateTaskHandler()
 
 _REGISTRY: dict[str, ActionHandler] = {
     "send_email_template": _send_email_handler,
-    "send_bucket_followup_email": _send_email_handler,  # same logic, different semantic intent
+    "send_bucket_followup_email": _send_email_handler,
     "send_qualification_form": _send_form_handler,
     "move_to_stage": _move_stage_handler,
+    "create_task": _create_task_handler,
 }
 
 

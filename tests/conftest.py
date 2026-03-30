@@ -19,6 +19,7 @@ import gmail_lead_sync.agent_models  # noqa: F401 — registers AgentUser, Agent
 import gmail_lead_sync.preapproval.models_preapproval  # noqa: F401 — registers form_versions FK dep
 import api.models.web_ui_models  # noqa: F401 — registers User, Session, etc.
 import api.models.watcher_state_models  # noqa: F401 — registers watcher_control, watcher_status
+import api.models.task_models  # noqa: F401 — registers Task
 
 
 @pytest.fixture(autouse=True)

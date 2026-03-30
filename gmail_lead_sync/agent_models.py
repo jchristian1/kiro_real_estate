@@ -395,3 +395,12 @@ if not hasattr(Lead, "agent_user"):
 
 if not hasattr(Lead, "lead_events"):
     Lead.lead_events = relationship("LeadEvent", back_populates="lead")
+
+# Patch Lead and AgentUser with tasks relationship (idempotent import).
+if not hasattr(Lead, "tasks"):
+    from sqlalchemy.orm import relationship as _rel
+    Lead.tasks = _rel("Task", back_populates="lead", cascade="all, delete-orphan")
+
+if not hasattr(AgentUser, "tasks"):
+    from sqlalchemy.orm import relationship as _rel2
+    AgentUser.tasks = _rel2("Task", back_populates="agent_user", cascade="all, delete-orphan")

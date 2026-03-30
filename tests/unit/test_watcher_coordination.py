@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import asyncio
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -281,7 +282,7 @@ class TestWorkerReconciliation:
         future.result.return_value = True
         with patch("asyncio.run_coroutine_threadsafe", return_value=future) as mock_rctf:
             with patch("asyncio.get_event_loop"):
-                _reconcile_sync(mock_registry, lambda: db_session)
+                _reconcile_sync(mock_registry, lambda: db_session, asyncio.get_event_loop())
         calls = [str(c) for c in mock_rctf.call_args_list]
         assert any("start_watcher" in c for c in calls)
 
@@ -299,7 +300,7 @@ class TestWorkerReconciliation:
         future.result.return_value = True
         with patch("asyncio.run_coroutine_threadsafe", return_value=future) as mock_rctf:
             with patch("asyncio.get_event_loop"):
-                _reconcile_sync(mock_registry, lambda: db_session)
+                _reconcile_sync(mock_registry, lambda: db_session, asyncio.get_event_loop())
         calls = [str(c) for c in mock_rctf.call_args_list]
         assert any("stop_watcher" in c for c in calls)
 
@@ -319,7 +320,7 @@ class TestWorkerReconciliation:
         future.result.return_value = True
         with patch("asyncio.run_coroutine_threadsafe", return_value=future):
             with patch("asyncio.get_event_loop"):
-                _reconcile_sync(mock_registry, lambda: db_session)
+                _reconcile_sync(mock_registry, lambda: db_session, asyncio.get_event_loop())
         assert ctrl_repo.get("agent-12").sync_requested_at is None
 
     def test_reconcile_writes_status_to_db(self, db_session):
@@ -335,7 +336,7 @@ class TestWorkerReconciliation:
         mock_registry._watchers = {"agent-20": mock_info}
         with patch("asyncio.run_coroutine_threadsafe"):
             with patch("asyncio.get_event_loop"):
-                _reconcile_sync(mock_registry, lambda: db_session)
+                _reconcile_sync(mock_registry, lambda: db_session, asyncio.get_event_loop())
         row = WatcherStatusRepository(db_session).get("agent-20")
         assert row is not None and row.status == "running"
 
@@ -354,6 +355,6 @@ class TestWorkerReconciliation:
         for _ in range(2):
             with patch("asyncio.run_coroutine_threadsafe"):
                 with patch("asyncio.get_event_loop"):
-                    _reconcile_sync(mock_registry, lambda: db_session)
+                    _reconcile_sync(mock_registry, lambda: db_session, asyncio.get_event_loop())
         count = db_session.query(WatcherStatusModel).filter_by(agent_id="agent-idem-status").count()
         assert count == 1
