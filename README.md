@@ -214,12 +214,19 @@ For Docker or Windows setup see [docs/FIRST_START.md](docs/FIRST_START.md).
 
 ---
 
-## Default Login
+## First Login
 
-| Role | Username | Password | URL |
-|------|----------|----------|-----|
-| Platform Admin | `admin` | `admin123` | http://localhost:5173/admin |
-| Agent | sign up via UI | — | http://localhost:5173/agent |
+The app starts with an empty database. To create a dev admin account, run the seed command:
+
+```bash
+export DEV_ADMIN_PASSWORD='your-secure-password'
+make seed-dev
+```
+
+Then log in at http://localhost:5173/admin with username `admin` and the password you set.
+
+> Seeding only runs when `ENVIRONMENT=development` and `DEV_SEED=true` are both set.
+> `make seed-dev` sets both automatically.
 
 ---
 
@@ -258,6 +265,7 @@ make up               # Build and start all services (Docker, SQLite)
 make down             # Stop all services
 make migrate          # Run pending Alembic migrations (uses DATABASE_URL)
 make migrate-postgres # Run migrations against Postgres (DATABASE_URL must be set)
+make seed-dev         # Seed dev data (requires ENVIRONMENT=development + DEV_ADMIN_PASSWORD)
 make test             # Run SQLite-backed test suite (fast, no Postgres required)
 make test-postgres    # Run Postgres-backed tests (requires POSTGRES_TEST_URL)
 make lint             # Lint Python (ruff) and TypeScript (eslint)

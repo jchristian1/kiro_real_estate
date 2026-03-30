@@ -100,55 +100,72 @@ def clear_data(db):
 def seed_users(db):
     """
     Create demo users.
-    
+
+    The admin user password is read from the DEV_ADMIN_PASSWORD environment
+    variable.  If that variable is not set the script exits with an error —
+    no privileged account is ever created with a generated or hardcoded
+    password.
+
     Creates:
-    - admin user (username: admin, password: admin123)
-    - viewer user (username: viewer, password: viewer123)
-    
+    - admin user (role: admin) — password from DEV_ADMIN_PASSWORD
+    - viewer user (role: viewer) — password from DEV_VIEWER_PASSWORD, or
+      DEV_ADMIN_PASSWORD if DEV_VIEWER_PASSWORD is not set
+
     Args:
         db: Database session
-        
+
     Returns:
         Dictionary mapping username to User object
     """
     print("Creating demo users...")
-    
+
+    admin_password = os.getenv("DEV_ADMIN_PASSWORD")
+    if not admin_password:
+        print(
+            "\n✗ Error: DEV_ADMIN_PASSWORD environment variable is not set.\n"
+            "  Set it before running the seed script:\n"
+            "    export DEV_ADMIN_PASSWORD='your-secure-password'\n"
+            "  or add it to your .env file."
+        )
+        sys.exit(1)
+
     users = {}
-    
-    # Check if admin user exists
-    admin = db.query(User).filter(User.username == 'admin').first()
+
+    # Admin user
+    admin = db.query(User).filter(User.username == "admin").first()
     if not admin:
         admin = User(
-            username='admin',
-            password_hash=hash_password('admin123'),
-            role='admin'
+            username="admin",
+            password_hash=hash_password(admin_password),
+            role="admin",
         )
         db.add(admin)
         db.commit()
         db.refresh(admin)
-        print("  ✓ Created admin user (username: admin, password: admin123)")
+        print("  ✓ Created admin user (username: admin)")
     else:
         print("  ⊙ Admin user already exists")
-    
-    users['admin'] = admin
-    
-    # Check if viewer user exists
-    viewer = db.query(User).filter(User.username == 'viewer').first()
+
+    users["admin"] = admin
+
+    # Viewer user — uses a separate var if provided, otherwise same password
+    viewer_password = os.getenv("DEV_VIEWER_PASSWORD", admin_password)
+    viewer = db.query(User).filter(User.username == "viewer").first()
     if not viewer:
         viewer = User(
-            username='viewer',
-            password_hash=hash_password('viewer123'),
-            role='viewer'
+            username="viewer",
+            password_hash=hash_password(viewer_password),
+            role="viewer",
         )
         db.add(viewer)
         db.commit()
         db.refresh(viewer)
-        print("  ✓ Created viewer user (username: viewer, password: viewer123)")
+        print("  ✓ Created viewer user (username: viewer)")
     else:
         print("  ⊙ Viewer user already exists")
-    
-    users['viewer'] = viewer
-    
+
+    users["viewer"] = viewer
+
     print()
     return users
 
@@ -678,8 +695,12 @@ def seed_settings(db):
 def main():
     """
     Main entry point for seed data script.
-    
-    Parses command line arguments and executes seeding operations.
+
+    Seeding only runs when BOTH conditions are true:
+      - ENVIRONMENT=development
+      - DEV_SEED=true
+
+    If either condition is not met the script exits with a clear error.
     """
     parser = argparse.ArgumentParser(
         description='Seed demo data for Gmail Lead Sync Web UI & API Layer'
@@ -689,33 +710,54 @@ def main():
         action='store_true',
         help='Clear existing data before seeding'
     )
-    
+
     args = parser.parse_args()
-    
+
+    # Guard: only run in development
+    environment = os.getenv("ENVIRONMENT", "")
+    if environment != "development":
+        print(
+            f"\n✗ Error: ENVIRONMENT is '{environment}' (expected 'development').\n"
+            "  Seeding is only allowed in development environments.\n"
+            "  Set ENVIRONMENT=development in your .env file to proceed."
+        )
+        sys.exit(1)
+
+    # Guard: explicit opt-in required
+    dev_seed = os.getenv("DEV_SEED", "false").lower()
+    if dev_seed != "true":
+        print(
+            "\n✗ Error: DEV_SEED is not set to 'true'.\n"
+            "  Seeding requires an explicit opt-in.\n"
+            "  Set DEV_SEED=true in your .env file or run:\n"
+            "    make seed-dev"
+        )
+        sys.exit(1)
+
     print("=" * 60)
     print("Gmail Lead Sync - Seed Data Script")
     print("=" * 60)
     print()
-    
+
     try:
         # Get database session
         db = get_database_session()
         print("✓ Connected to database\n")
-        
+
         # Get encryption key for credentials
         encryption_key = os.getenv('ENCRYPTION_KEY')
         if not encryption_key:
             print("✗ Error: ENCRYPTION_KEY environment variable not set")
             print("  Generate key with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\"")
             sys.exit(1)
-        
+
         # Create credentials store
         credentials_store = EncryptedDBCredentialsStore(db, encryption_key=encryption_key)
-        
+
         # Clear data if requested
         if args.clear:
             clear_data(db)
-        
+
         # Seed data in order
         users = seed_users(db)
         templates = seed_templates(db)
@@ -734,8 +776,8 @@ def main():
 
         # Seed pipeline templates
         seed_pipelines(db)
-        
-        # Summary
+
+        # Summary — no credentials printed
         print("=" * 60)
         print("Seed data complete!")
         print("=" * 60)
@@ -747,17 +789,15 @@ def main():
         print(f"  Lead Sources: {len(lead_sources)}")
         print(f"  Leads: {len(leads)}")
         print()
-        print("Login credentials:")
-        print("  Admin: username=admin, password=admin123")
-        print("  Viewer: username=viewer, password=viewer123")
+        print("Login: use the username 'admin' with the password you set in DEV_ADMIN_PASSWORD.")
         print()
-        
+
     except Exception as e:
         print(f"\n✗ Error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
-    
+
     finally:
         if 'db' in locals():
             db.close()

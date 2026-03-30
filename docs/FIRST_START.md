@@ -145,23 +145,33 @@ This applies all migrations to the `gmail_lead_sync` Postgres database.
 
 ## 6. Seed the database
 
+The app starts with an empty database. Seeding is an explicit dev action — it never runs automatically on startup.
+
+Set your admin password and run the seed command:
+
 **macOS / Linux**
 ```bash
-.venv/bin/python scripts/seed_data.py
+export DEV_ADMIN_PASSWORD='your-secure-password'
+make seed-dev
 ```
 
 **Windows (PowerShell)**
 ```powershell
-.venv/Scripts/python scripts/seed_data.py
+$env:DEV_ADMIN_PASSWORD = 'your-secure-password'
+$env:ENVIRONMENT = 'development'
+$env:DEV_SEED = 'true'
+.venv\Scripts\python scripts/seed_data.py
 ```
 
 This creates:
-- Admin user (`admin` / `admin123`) and viewer user (`viewer` / `viewer123`)
+- Admin user (`admin`) with the password you set in `DEV_ADMIN_PASSWORD`
+- Viewer user (`viewer`) with the same password (or set `DEV_VIEWER_PASSWORD` separately)
 - Demo lead sources, leads, and templates
 
-> The API also auto-seeds on first startup if no users exist, so this step is optional.
-
 Safe to run multiple times — skips anything that already exists.
+
+> Seeding requires both `ENVIRONMENT=development` and `DEV_SEED=true`.
+> `make seed-dev` sets both automatically and validates `DEV_ADMIN_PASSWORD` before running.
 
 ---
 
@@ -240,11 +250,11 @@ Frontend runs at **http://localhost:5173**
 
 ---
 
-## Login credentials
+## Login
 
 | Role | Username | Password | URL |
 |------|----------|----------|-----|
-| Platform Admin | `admin` | `admin123` | http://localhost:5173/admin |
+| Platform Admin | `admin` | the password you set in `DEV_ADMIN_PASSWORD` | http://localhost:5173/admin |
 | Agent | sign up via UI | — | http://localhost:5173/agent |
 
 ---
@@ -279,25 +289,32 @@ You should see the agent's watcher with `status = running` and a recent `last_he
 
 ## Docker (alternative to steps 2–8)
 
-If you have Docker installed, steps 2–8 are replaced by a single command. Migrations and seed run automatically on startup.
+If you have Docker installed, steps 2–8 are replaced by a few commands. Migrations run automatically on startup; seeding does not — it remains an explicit step.
 
 **macOS / Linux**
 ```bash
 cp .env.example .env
 # Fill in ENCRYPTION_KEY and SECRET_KEY in .env (same as step 4)
 # Set DATABASE_URL=postgresql://app:app@postgres:5432/gmail_lead_sync
-docker compose --profile postgres up --build
+docker compose --profile postgres up --build -d
+
+# Then seed dev data (runs outside the container against the same DB)
+export DEV_ADMIN_PASSWORD='your-secure-password'
+make seed-dev
 ```
 
 **Windows (PowerShell)**
 ```powershell
 Copy-Item .env.example .env
-docker compose --profile postgres up --build
+docker compose --profile postgres up --build -d
+
+$env:DEV_ADMIN_PASSWORD = 'your-secure-password'
+$env:ENVIRONMENT = 'development'
+$env:DEV_SEED = 'true'
+.venv\Scripts\python scripts/seed_data.py
 ```
 
 Frontend: **http://localhost:80** — API: **http://localhost:8000**
-
-The Docker setup starts the API, worker, and Postgres automatically. The frontend is served as a static build.
 
 ---
 
