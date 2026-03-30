@@ -36,7 +36,7 @@ from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTEN
 
 from api.models.web_ui_models import User
 from api.models.error_models import ErrorCode, create_error_response
-from api.config import load_config, Config
+from api.config import load_config
 from api.exceptions import (
     APIException,
     AuthenticationException,
@@ -74,29 +74,14 @@ from api.routers import (  # noqa: E402
 from api.auth import get_current_user  # noqa: E402
 
 
-# Load and validate configuration
-# For testing, use minimal configuration if required env vars are missing
-encryption_key = os.getenv("ENCRYPTION_KEY", "")
-secret_key = os.getenv("SECRET_KEY", "")
-
-if not encryption_key or not secret_key:
-    # Use test configuration with minimal valid values
-    # Generate a valid Fernet key for testing
-    from cryptography.fernet import Fernet
-    test_encryption_key = Fernet.generate_key().decode() if not encryption_key else encryption_key
-    test_secret_key = "b" * 32 if not secret_key else secret_key
-    
-    config = Config(
-        database_url=os.getenv("DATABASE_URL"),
-        encryption_key=test_encryption_key,
-        secret_key=test_secret_key
-    )
-else:
-    try:
-        config = load_config()
-    except ValueError as e:
-        print(f"Configuration error: {e}")
-        sys.exit(1)
+# Load and validate configuration.
+# Fails hard on missing or invalid secrets — see .env.example for required values.
+try:
+    config = load_config()
+except ValueError as e:
+    print(f"Configuration error: {e}", file=sys.stderr)
+    print("Copy .env.example to .env and set ENCRYPTION_KEY and SECRET_KEY.", file=sys.stderr)
+    sys.exit(1)
 
 
 # Configure structured JSON logging

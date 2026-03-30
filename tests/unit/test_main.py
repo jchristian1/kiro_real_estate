@@ -277,3 +277,77 @@ def test_environment_configuration():
     assert config.database_url is not None
     assert isinstance(config.cors_origins, list)
     assert config.log_level is not None
+
+
+# ---------------------------------------------------------------------------
+# Fail-closed startup tests
+# ---------------------------------------------------------------------------
+
+def test_load_config_fails_on_missing_encryption_key(monkeypatch):
+    """load_config() must raise ValueError when ENCRYPTION_KEY is absent."""
+    from api.config import load_config
+    monkeypatch.delenv("ENCRYPTION_KEY", raising=False)
+    monkeypatch.setenv("SECRET_KEY", "b" * 32)
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    with pytest.raises(ValueError, match="ENCRYPTION_KEY"):
+        load_config()
+
+
+def test_load_config_fails_on_missing_secret_key(monkeypatch):
+    """load_config() must raise ValueError when SECRET_KEY is absent."""
+    from api.config import load_config
+    monkeypatch.setenv("ENCRYPTION_KEY", "a" * 44)
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    with pytest.raises(ValueError, match="SECRET_KEY"):
+        load_config()
+
+
+def test_load_config_fails_on_short_encryption_key(monkeypatch):
+    """load_config() must raise ValueError when ENCRYPTION_KEY is too short."""
+    from api.config import load_config
+    monkeypatch.setenv("ENCRYPTION_KEY", "tooshort")
+    monkeypatch.setenv("SECRET_KEY", "b" * 32)
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    with pytest.raises(ValueError, match="ENCRYPTION_KEY must be at least 32 characters"):
+        load_config()
+
+
+def test_load_config_fails_on_short_secret_key(monkeypatch):
+    """load_config() must raise ValueError when SECRET_KEY is too short."""
+    from api.config import load_config
+    monkeypatch.setenv("ENCRYPTION_KEY", "a" * 44)
+    monkeypatch.setenv("SECRET_KEY", "tooshort")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    with pytest.raises(ValueError, match="SECRET_KEY must be at least 32 characters"):
+        load_config()
+
+
+def test_load_config_succeeds_with_valid_secrets(monkeypatch):
+    """load_config() must succeed when both secrets meet the minimum length."""
+    from api.config import load_config
+    monkeypatch.setenv("ENCRYPTION_KEY", "a" * 44)
+    monkeypatch.setenv("SECRET_KEY", "b" * 32)
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    config = load_config()
+    assert len(config.encryption_key) >= 32
+    assert len(config.secret_key) >= 32
+
+
+def test_main_has_no_fallback_secret_generation():
+    """api.main must not contain any fallback secret generation logic."""
+    import inspect
+    import api.main as main_module
+    source = inspect.getsource(main_module)
+    assert "Fernet.generate_key" not in source, (
+        "api.main must not generate fallback Fernet keys"
+    )
+    assert 'test_encryption_key' not in source, (
+        "api.main must not define test_encryption_key"
+    )
+    assert 'test_secret_key' not in source, (
+        "api.main must not define test_secret_key"
+    )
+    assert '"b" * 32' not in source and "'b' * 32" not in source, (
+        "api.main must not use placeholder secret values"
+    )
