@@ -32,7 +32,7 @@ def mock_db():
 
 def test_app_initialization():
     """Test that FastAPI app initializes correctly."""
-    assert app.title == "Gmail Lead Sync API"
+    assert app.title == "Lead Intake & Workflow Platform API"
     assert app.version == "1.0.0"
     assert app.docs_url == "/api/docs"
     assert app.redoc_url == "/api/redoc"
@@ -52,7 +52,7 @@ def test_root_endpoint(client):
     response = client.get("/api/v1")
     assert response.status_code == 200
     data = response.json()
-    assert data["message"] == "Gmail Lead Sync API"
+    assert data["message"] == "Lead Intake & Workflow Platform API"
     assert data["version"] == "1.0.0"
     assert data["docs"] == "/api/docs"
 
@@ -266,7 +266,7 @@ def test_startup_event():
             pass
         
         # Verify startup was logged
-        assert any("Starting Gmail Lead Sync API" in str(call) for call in mock_logger.info.call_args_list)
+        assert any("Starting Lead Intake" in str(call) for call in mock_logger.info.call_args_list)
 
 
 def test_environment_configuration():

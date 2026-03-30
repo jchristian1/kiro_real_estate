@@ -1,4 +1,4 @@
-# Gmail Lead Sync — API Reference
+# Lead Intake & Workflow Platform — API Reference
 
 The API is built with FastAPI and provides auto-generated interactive documentation.
 

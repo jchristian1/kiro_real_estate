@@ -1,6 +1,6 @@
-# Deployment Guide: Gmail Lead Sync & Response Engine
+# Deployment Guide: Lead Intake & Workflow Platform
 
-This guide provides comprehensive instructions for deploying the Gmail Lead Sync & Response Engine to production Linux servers as a long-running background service.
+This guide provides comprehensive instructions for deploying the Lead Intake & Workflow Platform to production Linux servers as a long-running background service.
 
 ## Table of Contents
 

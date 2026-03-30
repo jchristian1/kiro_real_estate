@@ -1,6 +1,6 @@
-# Real Estate Lead Management SaaS
+# Lead Intake & Workflow Platform
 
-A multi-tenant SaaS platform for real estate agents and law firms that monitors Gmail accounts via IMAP, extracts and qualifies leads, manages automated responses, and provides a full-featured admin panel — deployable with a single command.
+A multi-tenant SaaS platform for service businesses — real estate agencies, law firms, accounting practices, and similar teams — that monitors Gmail accounts via IMAP, extracts and qualifies leads, manages automated responses, and provides a full-featured admin panel — deployable with a single command.
 
 ---
 
@@ -166,6 +166,8 @@ Everything is managed through two separate web interfaces — one for platform o
 | Auth | Session cookies, bcrypt, Fernet encryption |
 | Monitoring | Prometheus, structured JSON logs |
 | Deployment | Docker, Docker Compose, nginx |
+
+> Vertical-specific pipeline templates (Real Estate Buyer Pipeline, Law Firm Pipeline) are included as optional specializations. The core platform is vertical-agnostic.
 
 ---
 

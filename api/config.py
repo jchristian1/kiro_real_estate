@@ -1,5 +1,5 @@
 """
-Configuration management for Gmail Lead Sync API.
+Configuration management for the Lead Intake & Workflow Platform API.
 
 This module provides:
 - Configuration parsing from environment variables

@@ -1,5 +1,5 @@
 """
-FastAPI application entry point for Gmail Lead Sync Web UI & API Layer.
+FastAPI application entry point for the Lead Intake & Workflow Platform API.
 
 This module initializes the FastAPI application with:
 - CORS middleware for cross-origin requests
@@ -244,8 +244,8 @@ from api.dependencies.db import get_db  # noqa: E402
 
 # Create FastAPI application
 app = FastAPI(
-    title="Gmail Lead Sync API",
-    description="REST API for Gmail Lead Sync Web UI",
+    title="Lead Intake & Workflow Platform API",
+    description="REST API for the multi-vertical lead intake and workflow automation platform",
     version="1.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
@@ -675,7 +675,7 @@ async def metrics():
 async def root():
     """API root endpoint."""
     return {
-        "message": "Gmail Lead Sync API",
+        "message": "Lead Intake & Workflow Platform API",
         "version": "1.0.0",
         "docs": "/api/docs"
     }
@@ -785,7 +785,7 @@ async def startup_event():
     
     Logs configuration and performs initialization tasks.
     """
-    logger.info("Starting Gmail Lead Sync API")
+    logger.info("Starting Lead Intake & Workflow Platform API")
     config.log_config(logger)
 
     if "sqlite" in config.database_url:
@@ -818,7 +818,7 @@ async def shutdown_event():
     
     Performs cleanup tasks before shutdown including stopping all watchers.
     """
-    logger.info("Shutting down Gmail Lead Sync API")
+    logger.info("Shutting down Lead Intake & Workflow Platform API")
     
     # Watcher shutdown is now the worker process's responsibility.
     # The API process no longer owns watcher lifecycle.

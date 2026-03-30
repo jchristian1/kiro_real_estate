@@ -3,16 +3,16 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gmail-lead-sync"
+name = "lead-intake-platform"
 version = "0.1.0"
-description = "Gmail Lead Sync & Response Engine - A lead management system for Real Estate agents"
+description = "Multi-vertical lead intake and workflow automation platform for service businesses (real estate, law, accounting, and more)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "Real Estate MVP Team"}
+    {name = "Kiro Platform Team"}
 ]
-keywords = ["gmail", "lead", "sync", "real-estate", "imap", "smtp"]
+keywords = ["lead", "intake", "workflow", "automation", "gmail", "imap", "smtp", "multi-tenant", "saas"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -50,6 +50,7 @@ postgres = [
 ]
 
 [project.scripts]
+# Legacy CLI entry point — kept for backward compatibility
 gmail-lead-sync = "gmail_lead_sync.__main__:main"
 
 [tool.setuptools.packages.find]
@@ -83,15 +84,15 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --cov=gmail_lead_sync --cov-report=html --cov-report=term"
+addopts = "-v --cov=gmail_lead_sync --cov=api --cov=worker --cov-report=html --cov-report=term"
 norecursedirs = ["api", "worker", "migrations", ".venv", ".git"]
 markers = [
     "postgres: marks tests that require a real PostgreSQL instance (set POSTGRES_TEST_URL to run)",
 ]
 
 [tool.coverage.run]
-source = ["gmail_lead_sync"]
-omit = ["*/tests/*", "*/migrations/*"]
+source = ["gmail_lead_sync", "api", "worker"]
+omit = ["*/tests/*", "*/migrations/*", "*/scripts/*"]
 
 [tool.coverage.report]
 exclude_lines = [
