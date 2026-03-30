@@ -64,7 +64,22 @@ need to change if the packaging story is ever formalized.
 
 ---
 
-## 5. Move `fast-check` to `devDependencies` in `frontend/package.json`
+## 6. Pydantic v2 config/schema deprecation warnings
+
+**Context:** During the structured logging fix verification run, the following warning appeared:
+
+```
+UserWarning: Valid config keys have changed in V2:
+  * 'schema_extra' has been renamed to 'json_schema_extra'
+```
+
+This is unrelated to the logging fix. It indicates one or more Pydantic model classes still use v1-style `Config` class syntax or `schema_extra` instead of the v2 `model_config` / `json_schema_extra` equivalents.
+
+**Action:** Audit all Pydantic models in `api/models/` and `gmail_lead_sync/` for v1-style config patterns. Migrate to `model_config = ConfigDict(...)` and `json_schema_extra` as appropriate. Also check for `@validator` usage (deprecated in v2 — should be `@field_validator`). This is schema/config cleanup debt, not a functional bug.
+
+---
+
+## 7. Move `fast-check` to `devDependencies` in `frontend/package.json`
 
 **File:** `frontend/package.json`
 
