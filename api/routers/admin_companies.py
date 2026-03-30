@@ -26,7 +26,8 @@ def get_db():
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     from api.auth import get_current_user as auth_get_current_user
-    return auth_get_current_user(request, db)
+    from api.config import get_config
+    return auth_get_current_user(request, db, get_config().secret_key)
 
 
 @router.post("/companies", response_model=CompanyResponse, status_code=status.HTTP_201_CREATED)

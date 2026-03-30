@@ -36,7 +36,7 @@ from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTEN
 
 from api.models.web_ui_models import User
 from api.models.error_models import ErrorCode, create_error_response
-from api.config import load_config
+from api.config import load_config, set_config
 from api.exceptions import (
     APIException,
     AuthenticationException,
@@ -78,6 +78,7 @@ from api.auth import get_current_user  # noqa: E402
 # Fails hard on missing or invalid secrets — see .env.example for required values.
 try:
     config = load_config()
+    set_config(config)
 except ValueError as e:
     print(f"Configuration error: {e}", file=sys.stderr)
     print("Copy .env.example to .env and set ENCRYPTION_KEY and SECRET_KEY.", file=sys.stderr)
@@ -657,7 +658,7 @@ async def root():
 # Create wrapper for get_current_user that works with FastAPI dependency injection
 def get_current_user_wrapper(request: Request, db: Session = Depends(get_db)) -> User:
     """Wrapper for get_current_user that uses FastAPI dependency injection."""
-    return get_current_user(request, db)
+    return get_current_user(request, db, config.secret_key)
 
 # Include routers
 # Public routers — no auth middleware

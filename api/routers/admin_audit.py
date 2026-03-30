@@ -35,7 +35,8 @@ def get_db_dependency():
 def get_current_user_dependency(request: Request, db: Session = Depends(get_db_dependency)) -> User:
     """Authentication dependency."""
     from api.auth import get_current_user
-    return get_current_user(request, db)
+    from api.config import get_config
+    return get_current_user(request, db, get_config().secret_key)
 
 
 @router.get("/audit-logs", response_model=AuditLogListResponse)

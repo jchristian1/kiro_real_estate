@@ -56,6 +56,7 @@ def get_current_admin(
     """
     from api.auth import get_session_token_from_cookie, validate_session
     from api.models.web_ui_models import User
+    from api.config import get_config
 
     token = get_session_token_from_cookie(request)
     if not token:
@@ -64,7 +65,7 @@ def get_current_admin(
             code=ErrorCode.AUTH_NOT_AUTHENTICATED,
         )
 
-    session = validate_session(db, token)
+    session = validate_session(db, token, get_config().secret_key)
     if session is None:
         raise AuthenticationException(
             message="Invalid or expired session",

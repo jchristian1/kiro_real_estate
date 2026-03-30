@@ -102,9 +102,12 @@ def _create_admin_user(db, username="admin@test.com", role="company_admin") -> U
 
 
 def _create_admin_session(db, user_id: int) -> str:
-    token = secrets.token_hex(64)
+    from api.auth import derive_session_digest
+    from api.config import get_config
+    raw_token = secrets.token_hex(64)
+    digest = derive_session_digest(get_config().secret_key, raw_token)
     session = UserSession(
-        id=token,
+        id=digest,
         user_id=user_id,
         created_at=datetime.utcnow(),
         expires_at=datetime.utcnow() + timedelta(hours=24),
@@ -112,7 +115,7 @@ def _create_admin_session(db, user_id: int) -> str:
     )
     db.add(session)
     db.commit()
-    return token
+    return raw_token  # return the raw token for the cookie
 
 
 def _auth_cookie(token: str) -> dict:

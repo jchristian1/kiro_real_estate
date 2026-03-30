@@ -10,7 +10,7 @@ This module provides:
 Environment Variables:
 - DATABASE_URL: Database connection URL, e.g. postgresql://user:pass@host/db or sqlite:///./dev.db (required)
 - ENCRYPTION_KEY: Key for credential encryption (required)
-- SECRET_KEY: Key for session signing (required)
+- SECRET_KEY: Key for HMAC-based session token protection at rest (required)
 - API_HOST: Host to bind to (default: 0.0.0.0)
 - API_PORT: Port to bind to (default: 8000)
 - CORS_ORIGINS: Comma-separated allowed origins (default: http://localhost:5173,http://localhost:3000)
@@ -44,7 +44,7 @@ class Config:
     Attributes:
         database_url: Database connection URL (PostgreSQL in production, SQLite for local dev)
         encryption_key: Key for credential encryption
-        secret_key: Key for session signing
+        secret_key: Key for HMAC-based session token protection at rest
         api_host: Host to bind to
         api_port: Port to bind to
         cors_origins: List of allowed CORS origins
@@ -302,3 +302,30 @@ def validate_config_command():
 
 if __name__ == "__main__":
     validate_config_command()
+
+
+# ---------------------------------------------------------------------------
+# Module-level config accessor
+# ---------------------------------------------------------------------------
+# Routers and other modules that need config values (e.g. secret_key) should
+# call get_config() rather than importing `config` from api.main.  This avoids
+# circular imports because api.main imports routers at module level.
+# api.main calls set_config(load_config()) during its own module-level init.
+
+_config: "Config | None" = None
+
+
+def set_config(cfg: "Config") -> None:
+    """Called once by api.main after load_config() succeeds."""
+    global _config
+    _config = cfg
+
+
+def get_config() -> "Config":
+    """Return the application config.  Raises RuntimeError if not yet set."""
+    if _config is None:
+        raise RuntimeError(
+            "Application config has not been initialised. "
+            "Ensure api.main has been imported before calling get_config()."
+        )
+    return _config

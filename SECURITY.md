@@ -9,7 +9,7 @@ The application requires two secrets at startup, both must be **≥ 32 character
 | Variable | Purpose |
 |----------|---------|
 | `ENCRYPTION_KEY` | Fernet key used to encrypt Gmail credentials at rest |
-| `SECRET_KEY` | Key used to sign session tokens |
+| `SECRET_KEY` | Key used to derive HMAC digests for session token protection at rest |
 
 The backend refuses to start if either variable is absent or shorter than 32 characters, logging a descriptive error and exiting with code 1.
 

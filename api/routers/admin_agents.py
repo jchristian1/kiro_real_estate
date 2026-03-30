@@ -63,7 +63,8 @@ def get_db():
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     """Authentication dependency - will be overridden in tests."""
     from api.auth import get_current_user as auth_get_current_user
-    return auth_get_current_user(request, db)
+    from api.config import get_config
+    return auth_get_current_user(request, db, get_config().secret_key)
 
 
 def _assert_agent_access(agent_id: str, current_user: User, db: Session) -> None:

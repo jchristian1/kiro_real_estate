@@ -69,8 +69,9 @@ def admin_user(db):
 
 @pytest.fixture
 def auth_token(db, admin_user):
-    session = create_session(db, admin_user.id)
-    return session.id
+    from api.config import get_config
+    session = create_session(db, admin_user.id, get_config().secret_key)
+    return session._raw_token
 
 
 @pytest.fixture
@@ -165,7 +166,8 @@ class TestAuthFlow:
 
         assert resp.status_code == 200
         # Session should no longer be valid
-        assert validate_session(db, auth_token) is None
+        from api.config import get_config
+        assert validate_session(db, auth_token, get_config().secret_key) is None
 
 
 # ── Agent creation and watcher lifecycle ─────────────────────────────────────
