@@ -36,16 +36,7 @@ fi
 echo "Migrations complete."
 
 # ---------------------------------------------------------------------------
-# Step 3: Run seed data (idempotent — safe to run on every startup)
-# ---------------------------------------------------------------------------
-echo "Running seed data..."
-if ! python scripts/seed_data.py; then
-    echo "WARNING: Seed data script failed. Continuing startup..." >&2
-fi
-echo "Seed complete."
-
-# ---------------------------------------------------------------------------
-# Step 4: Start the application (exec replaces the shell process)
+# Step 3: Start the application (exec replaces the shell process)
 # ---------------------------------------------------------------------------
 echo "Starting API server..."
 exec uvicorn api.main:app \

@@ -32,7 +32,7 @@ def mock_db():
 
 def test_app_initialization():
     """Test that FastAPI app initializes correctly."""
-    assert app.title == "Gmail Lead Sync API"
+    assert app.title == "Lead Intake & Workflow Platform API"
     assert app.version == "1.0.0"
     assert app.docs_url == "/api/docs"
     assert app.redoc_url == "/api/redoc"
@@ -52,7 +52,7 @@ def test_root_endpoint(client):
     response = client.get("/api/v1")
     assert response.status_code == 200
     data = response.json()
-    assert data["message"] == "Gmail Lead Sync API"
+    assert data["message"] == "Lead Intake & Workflow Platform API"
     assert data["version"] == "1.0.0"
     assert data["docs"] == "/api/docs"
 
@@ -266,7 +266,7 @@ def test_startup_event():
             pass
         
         # Verify startup was logged
-        assert any("Starting Gmail Lead Sync API" in str(call) for call in mock_logger.info.call_args_list)
+        assert any("Starting Lead Intake" in str(call) for call in mock_logger.info.call_args_list)
 
 
 def test_environment_configuration():
@@ -277,3 +277,100 @@ def test_environment_configuration():
     assert config.database_url is not None
     assert isinstance(config.cors_origins, list)
     assert config.log_level is not None
+
+
+# ---------------------------------------------------------------------------
+# Fail-closed startup tests
+# ---------------------------------------------------------------------------
+
+def test_load_config_fails_on_missing_encryption_key(monkeypatch):
+    """load_config() must raise ValueError when ENCRYPTION_KEY is absent."""
+    from api.config import load_config
+    monkeypatch.delenv("ENCRYPTION_KEY", raising=False)
+    monkeypatch.setenv("SECRET_KEY", "b" * 32)
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    with pytest.raises(ValueError, match="ENCRYPTION_KEY"):
+        load_config()
+
+
+def test_load_config_fails_on_missing_secret_key(monkeypatch):
+    """load_config() must raise ValueError when SECRET_KEY is absent."""
+    from api.config import load_config
+    monkeypatch.setenv("ENCRYPTION_KEY", "a" * 44)
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    with pytest.raises(ValueError, match="SECRET_KEY"):
+        load_config()
+
+
+def test_load_config_fails_on_short_encryption_key(monkeypatch):
+    """load_config() must raise ValueError when ENCRYPTION_KEY is too short."""
+    from api.config import load_config
+    monkeypatch.setenv("ENCRYPTION_KEY", "tooshort")
+    monkeypatch.setenv("SECRET_KEY", "b" * 32)
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    with pytest.raises(ValueError, match="ENCRYPTION_KEY must be at least 32 characters"):
+        load_config()
+
+
+def test_load_config_fails_on_short_secret_key(monkeypatch):
+    """load_config() must raise ValueError when SECRET_KEY is too short."""
+    from api.config import load_config
+    monkeypatch.setenv("ENCRYPTION_KEY", "a" * 44)
+    monkeypatch.setenv("SECRET_KEY", "tooshort")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    with pytest.raises(ValueError, match="SECRET_KEY must be at least 32 characters"):
+        load_config()
+
+
+def test_load_config_succeeds_with_valid_secrets(monkeypatch):
+    """load_config() must succeed when both secrets meet the minimum length."""
+    from api.config import load_config
+    monkeypatch.setenv("ENCRYPTION_KEY", "a" * 44)
+    monkeypatch.setenv("SECRET_KEY", "b" * 32)
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    config = load_config()
+    assert len(config.encryption_key) >= 32
+    assert len(config.secret_key) >= 32
+
+
+def test_api_main_exits_nonzero_when_encryption_key_missing():
+    """api.main must exit non-zero when ENCRYPTION_KEY is absent at import time."""
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, "-c", "import api.main"],
+        env={
+            **{k: v for k, v in __import__("os").environ.items()
+               if k not in ("ENCRYPTION_KEY", "SECRET_KEY")},
+            "SECRET_KEY": "b" * 32,
+            "DATABASE_URL": "sqlite:///:memory:",
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0, (
+        "api.main must exit non-zero when ENCRYPTION_KEY is missing"
+    )
+    assert "ENCRYPTION_KEY" in result.stderr or "Configuration" in result.stderr
+
+
+def test_api_main_exits_nonzero_when_secret_key_missing():
+    """api.main must exit non-zero when SECRET_KEY is absent at import time."""
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, "-c", "import api.main"],
+        env={
+            **{k: v for k, v in __import__("os").environ.items()
+               if k not in ("ENCRYPTION_KEY", "SECRET_KEY")},
+            "ENCRYPTION_KEY": "a" * 44,
+            "DATABASE_URL": "sqlite:///:memory:",
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0, (
+        "api.main must exit non-zero when SECRET_KEY is missing"
+    )
+    assert "SECRET_KEY" in result.stderr or "Configuration" in result.stderr

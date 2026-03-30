@@ -69,6 +69,7 @@ def client(db_session):
     from api.dependencies.db import get_db
     from api.routers.admin_audit import get_db_dependency
     from api.auth import create_session, SESSION_COOKIE_NAME
+    from api.config import get_config
 
     def override_get_db():
         yield db_session
@@ -78,11 +79,11 @@ def client(db_session):
 
     # Create a session for the first user so the session cookie works
     user = db_session.query(User).first()
-    session = create_session(db_session, user.id)
+    session = create_session(db_session, user.id, get_config().secret_key)
 
     test_client = TestClient(app)
-    # Set the session cookie so require_role passes
-    test_client.cookies.set(SESSION_COOKIE_NAME, session.id)
+    # Set the raw token in the cookie (not the stored digest)
+    test_client.cookies.set(SESSION_COOKIE_NAME, session._raw_token)
 
     yield test_client
 
@@ -93,8 +94,9 @@ def client(db_session):
 @pytest.fixture
 def authenticated_user(db_session):
     """Create an authenticated user session."""
+    from api.config import get_config
     user = db_session.query(User).filter_by(username='testuser1').first()
-    session = create_session(db_session, user.id)
+    session = create_session(db_session, user.id, get_config().secret_key)
     return user, session
 
 

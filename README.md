@@ -1,6 +1,6 @@
-# Real Estate Lead Management SaaS
+# Lead Intake & Workflow Platform
 
-A multi-tenant SaaS platform for real estate agents and law firms that monitors Gmail accounts via IMAP, extracts and qualifies leads, manages automated responses, and provides a full-featured admin panel — deployable with a single command.
+A multi-tenant SaaS platform for service businesses — real estate agencies, law firms, accounting practices, and similar teams — that monitors Gmail accounts via IMAP, extracts and qualifies leads, manages automated responses, and provides a full-featured admin panel — deployable with a single command.
 
 ---
 
@@ -143,12 +143,13 @@ Everything is managed through two separate web interfaces — one for platform o
 
 **Observability**
 - Structured JSON logging on all requests and background tasks
-- Prometheus metrics endpoint (`/metrics`) — request count, duration, error count, active watchers, leads processed
-- Health endpoint (`/api/v1/health`) — database connectivity, active watcher count, 24h error count
+- Prometheus metrics endpoint (`/metrics`) — request count, duration, error count, active watcher count (DB-backed)
+- Health endpoint (`/api/v1/health`) — database connectivity, active watcher count, per-agent watcher status, 24h error count
+- Watcher status endpoint (`/api/v1/watchers/status`) — per-agent watcher status, heartbeats, last sync
 
 **Database**
-- PostgreSQL is the recommended production database
-- SQLite is supported for local development and single-server deployments
+- PostgreSQL is the default and required database for any multi-process deployment (api + worker)
+- SQLite is supported only for single-process bare local dev — not safe when the worker runs alongside the API
 - Alembic migrations work against both — set `DATABASE_URL` before running `alembic upgrade head`
 - `psycopg2-binary` is included in `requirements.txt`; no extra install needed
 - Migrations run automatically on startup via the Docker entrypoint
@@ -161,10 +162,12 @@ Everything is managed through two separate web interfaces — one for platform o
 |-------|-----------|
 | Backend | Python 3.11, FastAPI, SQLAlchemy, Alembic |
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS |
-| Database | PostgreSQL (production), SQLite (local dev / single-server) |
+| Database | PostgreSQL (default runtime), SQLite (single-process local dev only) |
 | Auth | Session cookies, bcrypt, Fernet encryption |
 | Monitoring | Prometheus, structured JSON logs |
 | Deployment | Docker, Docker Compose, nginx |
+
+> Vertical-specific pipeline templates (Real Estate Buyer Pipeline, Law Firm Pipeline) are included as optional specializations. The core platform is vertical-agnostic.
 
 ---
 
@@ -184,9 +187,9 @@ python3 -m venv .venv
 createdb gmail_lead_sync
 createdb gmail_lead_sync_test
 
-# 4. Copy env and fill in ENCRYPTION_KEY, SECRET_KEY, and DATABASE_URL
+# 4. Copy env — DATABASE_URL defaults to the compose Postgres URL.
+#    For bare local dev (no Docker), change it to: postgresql://localhost/gmail_lead_sync
 cp .env.example .env
-# DATABASE_URL=postgresql://localhost/gmail_lead_sync
 
 # 5. Run migrations
 .venv/bin/alembic upgrade head
@@ -214,12 +217,19 @@ For Docker or Windows setup see [docs/FIRST_START.md](docs/FIRST_START.md).
 
 ---
 
-## Default Login
+## First Login
 
-| Role | Username | Password | URL |
-|------|----------|----------|-----|
-| Platform Admin | `admin` | `admin123` | http://localhost:5173/admin |
-| Agent | sign up via UI | — | http://localhost:5173/agent |
+The app starts with an empty database. To create a dev admin account, run the seed command:
+
+```bash
+export DEV_ADMIN_PASSWORD='your-secure-password'
+make seed-dev
+```
+
+Then log in at http://localhost:5173/admin with username `admin` and the password you set.
+
+> Seeding only runs when `ENVIRONMENT=development` and `DEV_SEED=true` are both set.
+> `make seed-dev` sets both automatically.
 
 ---
 
@@ -254,11 +264,12 @@ For Docker or Windows setup see [docs/FIRST_START.md](docs/FIRST_START.md).
 ## Makefile Targets
 
 ```bash
-make up               # Build and start all services (Docker, SQLite)
+make up               # Build and start all services with Postgres (Docker)
 make down             # Stop all services
 make migrate          # Run pending Alembic migrations (uses DATABASE_URL)
 make migrate-postgres # Run migrations against Postgres (DATABASE_URL must be set)
-make test             # Run SQLite-backed test suite (fast, no Postgres required)
+make seed-dev         # Seed dev data (requires ENVIRONMENT=development + DEV_ADMIN_PASSWORD)
+make test             # Run unit test suite (SQLite in-memory, fast, no Postgres required)
 make test-postgres    # Run Postgres-backed tests (requires POSTGRES_TEST_URL)
 make lint             # Lint Python (ruff) and TypeScript (eslint)
 make typecheck        # Type-check Python (mypy) and TypeScript (tsc)

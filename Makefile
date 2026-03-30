@@ -1,4 +1,4 @@
-.PHONY: help up down migrate test test-postgres lint typecheck build generate-secrets
+.PHONY: help up down migrate test test-postgres lint typecheck build generate-secrets seed-dev
 
 help: ## Show available targets
 	@echo "Usage: make <target>"
@@ -6,7 +6,7 @@ help: ## Show available targets
 	@echo "Targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
 
-up: ## Start all services (builds images, runs in background)
+up: ## Start all services with Postgres (builds images, runs in background)
 	docker compose up --build -d
 
 down: ## Stop all services
@@ -46,3 +46,11 @@ build: ## Build the frontend production bundle
 
 generate-secrets: ## Generate cryptographically secure ENCRYPTION_KEY and SECRET_KEY
 	bash scripts/generate_secrets.sh
+
+seed-dev: ## Seed demo data for local development (requires ENVIRONMENT=development and DEV_ADMIN_PASSWORD)
+	@if [ -z "$(DEV_ADMIN_PASSWORD)" ]; then \
+		echo "ERROR: DEV_ADMIN_PASSWORD is not set."; \
+		echo "  export DEV_ADMIN_PASSWORD='your-secure-password'"; \
+		exit 1; \
+	fi
+	ENVIRONMENT=development DEV_SEED=true python scripts/seed_data.py

@@ -8,9 +8,20 @@ default — without StaticPool, create_all() and the test session would
 see different databases.
 """
 
+import os
 import pytest
 from sqlalchemy import create_engine, StaticPool
 from sqlalchemy.orm import sessionmaker
+
+# ---------------------------------------------------------------------------
+# Set required secrets BEFORE any import of api.main (or any module that
+# transitively imports it).  api.main calls load_config() at module level and
+# will sys.exit(1) if these are absent — so they must be in the environment
+# before the first import.
+# ---------------------------------------------------------------------------
+os.environ.setdefault("ENCRYPTION_KEY", "a" * 44)   # ≥32 chars, Fernet-safe length
+os.environ.setdefault("SECRET_KEY", "b" * 32)
+os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 
 # Import all models so that Base.metadata is fully populated before
 # any fixture calls create_all().
