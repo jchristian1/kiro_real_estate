@@ -334,20 +334,43 @@ def test_load_config_succeeds_with_valid_secrets(monkeypatch):
     assert len(config.secret_key) >= 32
 
 
-def test_main_has_no_fallback_secret_generation():
-    """api.main must not contain any fallback secret generation logic."""
-    import inspect
-    import api.main as main_module
-    source = inspect.getsource(main_module)
-    assert "Fernet.generate_key" not in source, (
-        "api.main must not generate fallback Fernet keys"
+def test_api_main_exits_nonzero_when_encryption_key_missing():
+    """api.main must exit non-zero when ENCRYPTION_KEY is absent at import time."""
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, "-c", "import api.main"],
+        env={
+            **{k: v for k, v in __import__("os").environ.items()
+               if k not in ("ENCRYPTION_KEY", "SECRET_KEY")},
+            "SECRET_KEY": "b" * 32,
+            "DATABASE_URL": "sqlite:///:memory:",
+        },
+        capture_output=True,
+        text=True,
     )
-    assert 'test_encryption_key' not in source, (
-        "api.main must not define test_encryption_key"
+    assert result.returncode != 0, (
+        "api.main must exit non-zero when ENCRYPTION_KEY is missing"
     )
-    assert 'test_secret_key' not in source, (
-        "api.main must not define test_secret_key"
+    assert "ENCRYPTION_KEY" in result.stderr or "Configuration" in result.stderr
+
+
+def test_api_main_exits_nonzero_when_secret_key_missing():
+    """api.main must exit non-zero when SECRET_KEY is absent at import time."""
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, "-c", "import api.main"],
+        env={
+            **{k: v for k, v in __import__("os").environ.items()
+               if k not in ("ENCRYPTION_KEY", "SECRET_KEY")},
+            "ENCRYPTION_KEY": "a" * 44,
+            "DATABASE_URL": "sqlite:///:memory:",
+        },
+        capture_output=True,
+        text=True,
     )
-    assert '"b" * 32' not in source and "'b' * 32" not in source, (
-        "api.main must not use placeholder secret values"
+    assert result.returncode != 0, (
+        "api.main must exit non-zero when SECRET_KEY is missing"
     )
+    assert "SECRET_KEY" in result.stderr or "Configuration" in result.stderr
