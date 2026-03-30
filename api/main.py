@@ -72,6 +72,7 @@ from api.routers import (  # noqa: E402
     agent_reports,
 )
 from api.auth import get_current_user  # noqa: E402
+from api.middleware.csrf import CSRFOriginMiddleware  # noqa: E402
 
 
 # Load and validate configuration.
@@ -255,6 +256,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# CSRF origin validation middleware
+# Blocks state-changing requests (POST/PUT/PATCH/DELETE) whose Origin header
+# does not match the CORS_ORIGINS allowlist.  Login/signup and public
+# endpoints are exempt — see api/middleware/csrf.py for full rationale.
+app.add_middleware(CSRFOriginMiddleware, allowed_origins=config.cors_origins)
 
 
 # Security headers middleware

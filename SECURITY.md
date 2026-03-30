@@ -135,6 +135,38 @@ make seed-dev
 
 ---
 
+## CSRF Protection
+
+The API uses HTTP-only session cookies for authentication. To prevent cross-site request forgery, a server-side origin validation middleware (`api/middleware/csrf.py`) is applied to all state-changing requests.
+
+### How it works
+
+On every `POST`, `PUT`, `PATCH`, or `DELETE` request the middleware reads the `Origin` header (falling back to `Referer` for older clients) and rejects the request with HTTP 403 if the origin is not in the `CORS_ORIGINS` allowlist.
+
+Requests with no `Origin` or `Referer` header are allowed through — these are non-browser clients (curl, Postman, internal services) that cannot be exploited via CSRF.
+
+### Exempt paths
+
+The following paths are exempt because no session cookie exists at the time of the request:
+
+| Path | Reason |
+|------|--------|
+| `POST /api/v1/auth/login` | Session does not exist yet |
+| `POST /api/v1/agent/auth/login` | Session does not exist yet |
+| `POST /api/v1/agent/auth/signup` | Session does not exist yet |
+| `/api/v1/public/*` | Unauthenticated public form submission |
+| `/api/v1/health`, `/metrics` | Read-only, no session required |
+
+### Relationship to SameSite cookies
+
+In production (`ENVIRONMENT=production`) cookies are set with `SameSite=strict` and `Secure=True`. Origin validation is a belt-and-suspenders layer that remains effective if the deployment topology changes (e.g. API and frontend on different subdomains, or a reverse proxy that strips cookie flags).
+
+### Configuration
+
+The allowlist is driven by the `CORS_ORIGINS` environment variable. Wildcard origins (`*`) are explicitly rejected by the middleware — a wildcard would defeat the purpose of origin validation.
+
+---
+
 ## HTTP Security Headers
 
 The following headers are set on every API response:
