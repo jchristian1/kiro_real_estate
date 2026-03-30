@@ -11,22 +11,22 @@
 # --- Database ---
 SQLAlchemy>=2.0.0
 Alembic>=1.12.0
-psycopg2-binary>=2.9.0      # PostgreSQL driver; swap for psycopg2 in production builds from source
+psycopg2-binary>=2.9.0      # PostgreSQL dialect driver for SQLAlchemy; not imported directly
 
 # --- Web framework ---
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
-python-multipart>=0.0.6     # required by FastAPI for form/file upload parsing
-starlette>=0.27.0           # FastAPI dependency; pinned to avoid silent upgrades
+python-multipart>=0.0.6     # required by FastAPI for Form() and File() parameters (used in 7 routers)
+starlette>=0.27.0           # directly imported in api/middleware/csrf.py; also FastAPI's base
 
 # --- Auth and security ---
 bcrypt>=4.1.0
-cryptography>=41.0.0        # Fernet encryption for Gmail credentials
+cryptography>=41.0.0        # Fernet + AES-GCM encryption for Gmail credentials
 
 # --- Data validation ---
 pydantic>=2.0.0
 pydantic[email]
-email-validator>=2.0.0      # required by pydantic[email]
+email-validator>=2.0.0      # required by pydantic[email] / EmailStr (used in 5 runtime files)
 
 # --- Rate limiting and metrics ---
 slowapi>=0.1.9
@@ -39,4 +39,4 @@ bleach>=6.0.0
 python-dotenv>=1.0.0
 
 # --- Async runtime ---
-anyio>=3.7.0                # transitive dep of FastAPI/uvicorn; pinned for stability
+anyio>=3.7.0                # transitive dep of uvicorn/FastAPI; pinned for stability
