@@ -91,12 +91,6 @@ export const PublicFormPage: React.FC = () => {
     }
   };
 
-  const _bucketColor = (b: string) => {
-    if (b === 'HOT') return '#FF3B30';
-    if (b === 'WARM') return '#FF9500';
-    return '#8E8E93';
-  };
-
   if (loading) {
     return (
       <div style={styles.page}>
