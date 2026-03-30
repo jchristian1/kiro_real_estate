@@ -64,29 +64,52 @@ need to change if the packaging story is ever formalized.
 
 ---
 
-## 6. Pydantic v2 config/schema deprecation warnings — partially resolved
+## 6. Pydantic v2 — repo-owned v1-style cleanup (RESOLVED)
 
-**Status:** The warnings from our own code have been fixed. One warning source remains
-that is outside our control.
+**Status: Resolved.** All v1-style Pydantic patterns in our own code have been migrated.
 
-**Fixed in this pass:**
-- `api/models/template_models.py` — `class Config: schema_extra` → `model_config = ConfigDict(json_schema_extra=...)`, `@validator` → `@field_validator`
-- `api/models/lead_source_models.py` — `class Config` → `model_config`, `@validator` → `@field_validator`
-- `api/models/agent_models.py` — `class Config` → `model_config`, `@validator` + `allow_reuse` → `@field_validator`
-- `api/models/audit_models.py`, `company_models.py`, `lead_models.py`, `settings_models.py` — `class Config` → `model_config`
-- `api/routers/admin_auth.py`, `agent_onboarding.py` — `class Config` → `model_config`
-- `gmail_lead_sync/validation.py` — `@validator` → `@field_validator`
-- `api/utils/validation.py` — removed `allow_reuse=True` from docstring example
+**Fixed:**
+- `class Config: schema_extra` → `model_config = ConfigDict(json_schema_extra=...)` across all affected models
+- `class Config: from_attributes = True` → `model_config = ConfigDict(from_attributes=True)` across all affected models
+- `@validator` → `@field_validator` with `@classmethod` in all affected models and validators
+- `allow_reuse=True` removed from all `validator(...)` calls
 
-**Remaining warning (not in our code):**
-The `Field(deprecated=...)` warning (536x) is emitted by FastAPI 0.125.0 internally
-when building route parameter models. It comes from `fastapi/_compat/v2.py` calling
-`pydantic.Field(deprecated=...)` — a FastAPI/Pydantic version compatibility issue.
-This cannot be fixed by changing our models. It will resolve when FastAPI releases
-a version that uses `json_schema_extra={'deprecated': True}` instead.
+Files touched: `api/models/template_models.py`, `lead_source_models.py`, `agent_models.py`,
+`audit_models.py`, `company_models.py`, `lead_models.py`, `settings_models.py`,
+`api/routers/admin_auth.py`, `agent_onboarding.py`, `gmail_lead_sync/validation.py`,
+`api/utils/validation.py`.
+
+---
+
+## 6a. Pydantic v2 — FastAPI/Pydantic compatibility noise (deferred)
+
+**Status: Deferred — not in our code.**
+
+**Problem:** 536 `Field(deprecated=...)` warnings are emitted by FastAPI 0.125.0
+internally via `fastapi/_compat/v2.py` when building route parameter models. This is a
+FastAPI/Pydantic version compatibility issue — FastAPI passes `deprecated=` as a keyword
+argument to `pydantic.Field()`, which Pydantic v2 has deprecated in favour of
+`json_schema_extra={'deprecated': True}`.
 
 **Action:** Upgrade FastAPI when a version is available that resolves this internal
-compatibility issue. No action needed in our code.
+compatibility issue. No changes needed in our code.
+
+---
+
+## 6b. Pydantic v2 — `from_orm()` modernization in routers (deferred, low priority)
+
+**Status: Deferred — works today, will break in Pydantic v3.**
+
+**Problem:** Several routers still call `.from_orm(obj)` which is deprecated in Pydantic v2.
+The v2 equivalent is `.model_validate(obj)`. The affected models already have
+`from_attributes=True` set, so the behavior is identical.
+
+**Files:**
+- `api/routers/admin_lead_sources.py` — multiple `.from_orm(lead_source)` calls
+- `api/routers/admin_templates.py` — multiple `.from_orm(template)` calls
+
+**Action:** Replace `.from_orm(obj)` with `.model_validate(obj)` in the above routers.
+Low-risk mechanical change. No behavior change since `from_attributes=True` is already set.
 
 ---
 
