@@ -70,7 +70,6 @@ from api.routers import (  # noqa: E402
     agent_settings,
     agent_account,
     agent_reports,
-    agent_tasks,
 )
 from api.auth import get_current_user  # noqa: E402
 
@@ -702,7 +701,6 @@ app.include_router(agent_leads.router, prefix="/api/v1", tags=["Agent Leads"])
 app.include_router(agent_settings.router, prefix="/api/v1", tags=["Agent Settings"])
 app.include_router(agent_account.router, prefix="/api/v1", tags=["Agent Account"])
 app.include_router(agent_reports.router, prefix="/api/v1", tags=["Agent Reports"])
-app.include_router(agent_tasks.router, prefix="/api/v1", tags=["Agent Tasks"])
 
 
 # Static file serving for frontend (production mode)

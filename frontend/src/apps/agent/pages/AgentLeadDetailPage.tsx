@@ -13,7 +13,6 @@ import {
 } from '../hooks/useAgentQueries';
 import { getAgentErrorMessage } from '../api/agentApi';
 import { BackendPendingBadge } from '../components/BackendPendingBadge';
-import { TaskList } from '../components/tasks/TaskList';
 
 // ── CSS ───────────────────────────────────────────────────────────────────────
 
@@ -1169,11 +1168,6 @@ export function AgentLeadDetailPage() {
           <ScoringSection detail={detail} />
           <EmailsSection detail={detail} />
           <NotesSection detail={detail} leadId={leadId} />
-          {/* Tasks section */}
-          <Card>
-            <SectionLabel>Tasks</SectionLabel>
-            <TaskList leadId={leadId} />
-          </Card>
         </div>
         <div className="ld-aside">
           <Sidebar lead={lead} detail={detail} stageName={stageName} currentState={currentState} />
