@@ -178,9 +178,9 @@ Everything is managed through two separate web interfaces — one for platform o
 git clone https://github.com/jchristian1/kiro_real_estate.git
 cd kiro_real_estate
 
-# 2. Create virtualenv and install dependencies
+# 2. Create virtualenv and install dependencies (includes test tools)
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements-dev.txt
 
 # 3. Create Postgres database
 createdb kiro

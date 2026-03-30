@@ -48,13 +48,13 @@ cd kiro_real_estate
 **macOS / Linux**
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements-dev.txt
 ```
 
 **Windows (PowerShell)**
 ```powershell
 python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
+.venv\Scripts\pip install -r requirements-dev.txt
 ```
 
 ---
