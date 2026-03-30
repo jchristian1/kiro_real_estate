@@ -41,6 +41,11 @@ written by the worker.
 SQLite is not safe for multi-process use — concurrent writes from api and worker will produce
 `database is locked` errors.
 
+> **SQLite policy for this guide:** SQLite may exist in the codebase for automated tests
+> and limited single-process local development. This deployment guide does not support
+> SQLite as a deployment target. PostgreSQL is the required database for all deployments
+> described here.
+
 ---
 
 ## Prerequisites
@@ -109,15 +114,28 @@ This starts all four services: postgres, api, worker, frontend.
 Postgres starts first; the api waits for it to be healthy; the worker waits for both.
 Database migrations run automatically on api container startup.
 
-### 4. Seed initial data (first time only)
+### 4. Create the first admin user
+
+The application starts with an empty database. There is no automatic seeding in production.
+
+Use the self-service registration endpoint to create the first company and admin account:
 
 ```bash
-export DEV_ADMIN_PASSWORD='your-secure-password'
-make seed-dev
+curl -X POST http://localhost:8000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company_name": "Your Company",
+    "admin_username": "admin",
+    "admin_password": "<your-secure-password>"
+  }'
 ```
 
-This creates the initial admin user. Seeding only runs when `ENVIRONMENT=development`
-and `DEV_SEED=true` — `make seed-dev` sets both automatically.
+This creates a company and a `company_admin` user in one step. The admin can then log in
+at `http://localhost:80/admin`.
+
+> `make seed-dev` is a development-only command. It requires `ENVIRONMENT=development`
+> and `DEV_SEED=true` and will refuse to run in production. Do not use it in a
+> production or staging deployment.
 
 ### 5. Verify
 
