@@ -217,6 +217,15 @@ async def run() -> None:
 
     logger.info("Worker starting — DATABASE_URL=%s", config.database_url[:40])
 
+    if "sqlite" in config.database_url:
+        logger.warning(
+            "SQLite detected as the database backend. "
+            "SQLite is not safe for multi-process deployments. "
+            "The worker and API are both writing to the same SQLite file — "
+            "this will cause 'database is locked' errors under any real load. "
+            "Set DATABASE_URL to a PostgreSQL connection string."
+        )
+
     # Build DB session factory — dialect-aware pool config.
     # pool_pre_ping prevents stale-connection 500s after a DB restart or
     # network interruption.  pool_recycle avoids hitting server-side

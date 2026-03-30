@@ -1,9 +1,13 @@
 """
-Gmail Lead Sync & Response Engine
+Gmail IMAP watcher and lead intake engine.
 
-A lead management system for Real Estate agents that monitors Gmail accounts via IMAP,
-extracts lead information using configurable parsing rules, stores leads in a local database,
-and sends automated acknowledgment emails via SMTP.
+Core library for the multi-vertical lead intake and workflow automation platform.
+Handles Gmail account monitoring via IMAP, configurable email parsing, encrypted
+credential storage, and automated response delivery.
+
+Supported verticals include real estate, law firms, accounting practices, and
+other service businesses. Vertical-specific pipeline templates are provided as
+optional specializations in api/services/pipeline_templates.py.
 """
 
 __version__ = "0.1.0"

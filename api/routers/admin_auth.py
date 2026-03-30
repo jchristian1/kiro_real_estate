@@ -27,6 +27,7 @@ from api.dependencies.db import get_db
 from api.models.error_models import ErrorCode
 from api.exceptions import AuthenticationException
 from api.utils.rate_limiter import limiter
+from api.config import get_config
 
 logger = logging.getLogger("api.auth")
 
@@ -97,10 +98,10 @@ async def login(
         )
 
     # Create session
-    session = create_session(db, user.id)
+    session = create_session(db, user.id, get_config().secret_key)
 
-    # Set session cookie
-    set_session_cookie(response, session.id)
+    # Set session cookie — raw token is on session._raw_token, not session.id
+    set_session_cookie(response, session._raw_token)
 
     # Return user info (exclude password hash)
     return LoginResponse(
@@ -140,7 +141,7 @@ async def logout(
     
     if token:
         # Invalidate session in database
-        invalidate_session(db, token)
+        invalidate_session(db, token, get_config().secret_key)
     
     # Clear session cookie
     clear_session_cookie(response)
@@ -171,7 +172,7 @@ async def get_me(
     Requirements: 6.4, 6.8
     """
     # Get current user (validates session)
-    user = get_current_user(request, db)
+    user = get_current_user(request, db, get_config().secret_key)
     
     return UserResponse(
         id=user.id,

@@ -9,9 +9,20 @@ The application requires two secrets at startup, both must be **≥ 32 character
 | Variable | Purpose |
 |----------|---------|
 | `ENCRYPTION_KEY` | Fernet key used to encrypt Gmail credentials at rest |
-| `SECRET_KEY` | Key used to sign session tokens |
+| `SECRET_KEY` | Key used to derive HMAC digests for session token protection at rest |
 
 The backend refuses to start if either variable is absent or shorter than 32 characters, logging a descriptive error and exiting with code 1.
+
+### Dev seed secrets
+
+When running `make seed-dev`, one additional variable is required:
+
+| Variable | Purpose |
+|----------|---------|
+| `DEV_ADMIN_PASSWORD` | Password for the seeded `admin` account |
+| `DEV_VIEWER_PASSWORD` | (Optional) Password for the seeded `viewer` account; falls back to `DEV_ADMIN_PASSWORD` |
+
+The seed script will exit with a clear error if `DEV_ADMIN_PASSWORD` is not set. No privileged account is ever created with a generated or hardcoded password. Passwords are never printed to structured logs.
 
 ### Generating secrets
 
@@ -96,6 +107,63 @@ Every failed login attempt is logged at `WARNING` level with:
 - `source_ip` — the client IP address
 
 The attempted password is **never** logged.
+
+---
+
+## Seeding Policy
+
+The application never seeds data automatically on startup. Seeding is an explicit operator action.
+
+**Conditions required to run the seed script:**
+- `ENVIRONMENT=development` — seeding is blocked in any other environment
+- `DEV_SEED=true` — explicit opt-in required
+- `DEV_ADMIN_PASSWORD` — caller-supplied password for the admin account
+
+If any condition is not met, the script exits with a descriptive error. No account is created silently.
+
+**What is never done:**
+- No hardcoded passwords anywhere in the codebase
+- No generated passwords printed to structured logs
+- No automatic seeding from `api/main.py` startup
+- No automatic seeding from `docker-entrypoint.sh`
+
+**Recommended dev workflow:**
+```bash
+export DEV_ADMIN_PASSWORD='your-secure-password'
+make seed-dev
+```
+
+---
+
+## CSRF Protection
+
+The API uses HTTP-only session cookies for authentication. To prevent cross-site request forgery, a server-side origin validation middleware (`api/middleware/csrf.py`) is applied to all state-changing requests.
+
+### How it works
+
+On every `POST`, `PUT`, `PATCH`, or `DELETE` request the middleware reads the `Origin` header (falling back to `Referer` for older clients) and rejects the request with HTTP 403 if the origin is not in the `CORS_ORIGINS` allowlist.
+
+Requests with no `Origin` or `Referer` header are allowed through — these are non-browser clients (curl, Postman, internal services) that cannot be exploited via CSRF.
+
+### Exempt paths
+
+The following paths are exempt because no session cookie exists at the time of the request:
+
+| Path | Reason |
+|------|--------|
+| `POST /api/v1/auth/login` | Session does not exist yet |
+| `POST /api/v1/agent/auth/login` | Session does not exist yet |
+| `POST /api/v1/agent/auth/signup` | Session does not exist yet |
+| `/api/v1/public/*` | Unauthenticated public form submission |
+| `/api/v1/health`, `/metrics` | Read-only, no session required |
+
+### Relationship to SameSite cookies
+
+In production (`ENVIRONMENT=production`) cookies are set with `SameSite=strict` and `Secure=True`. Origin validation is a belt-and-suspenders layer that remains effective if the deployment topology changes (e.g. API and frontend on different subdomains, or a reverse proxy that strips cookie flags).
+
+### Configuration
+
+The allowlist is driven by the `CORS_ORIGINS` environment variable. Wildcard origins (`*`) are explicitly rejected by the middleware — a wildcard would defeat the purpose of origin validation.
 
 ---
 

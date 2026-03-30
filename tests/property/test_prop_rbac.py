@@ -155,6 +155,7 @@ def _create_admin_session(db) -> str:
     """Create a valid admin session and return the token."""
     from api.auth import create_session
     from api.models.web_ui_models import User
+    from api.config import get_config
 
     # Create an admin user
     uid = uuid.uuid4().hex[:8]
@@ -167,8 +168,8 @@ def _create_admin_session(db) -> str:
     db.commit()
     db.refresh(admin)
 
-    session = create_session(db, admin.id)
-    return session.id
+    session = create_session(db, admin.id, get_config().secret_key)
+    return session._raw_token
 
 
 def _assert_error_schema(body: dict, status_code: int) -> None:

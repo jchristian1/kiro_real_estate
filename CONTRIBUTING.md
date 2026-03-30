@@ -11,8 +11,8 @@ pytest tests/unit/          # unit tests only
 pytest tests/integration/   # integration tests only
 pytest tests/property/      # property-based tests only (Hypothesis)
 
-# With coverage report
-pytest tests/ --cov=api --cov=gmail_lead_sync --cov-report=html
+# With coverage report (covers gmail_lead_sync, api, and worker)
+pytest tests/ --cov=gmail_lead_sync --cov=api --cov=worker --cov-report=html
 ```
 
 All tests must pass before opening a PR. The CI pipeline runs `make test` on every push.

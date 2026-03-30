@@ -355,3 +355,17 @@ Cross-cutting engineering pass to make the multi-tenant real estate lead managem
 - All repository methods must include tenant scoping in the query itself — never rely solely on route-level checks
 - The `ProcessedMessage` table decouples watcher idempotency from lead creation, enabling safe replay
 - Frontend restructure (task 16) should be done as a single atomic commit to avoid broken intermediate import states
+
+## Follow-up Tasks (non-blocking)
+
+- [ ] 21. Cleaner return contract from `create_session`
+  - Replace the `session._raw_token` attribute pattern with an explicit return contract
+  - Options: return a `(session, raw_token)` tuple, or a small typed result object (e.g. `CreateSessionResult`)
+  - Update all call sites accordingly
+  - _Non-blocking: the HMAC-at-rest fix (Problem 2) is approved and merged as-is_
+
+- [ ] 22. Config/auth wiring cleanup (`set_config` / `get_config`)
+  - Revisit the module-level global config access pattern in `auth.py`
+  - Long-term preference: cleaner dependency injection / app wiring over `set_config()` / `get_config()` globals
+  - Current approach is acceptable tactically; address as part of a broader config wiring pass
+  - _Non-blocking: no change required before merging the hardening branch_

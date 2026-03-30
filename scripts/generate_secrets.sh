@@ -29,7 +29,7 @@ fi
 # ENCRYPTION_KEY: a Fernet key (URL-safe base64, 44 chars) — preferred for
 #   use with the cryptography library.  Falls back to token_hex(32) if the
 #   cryptography package is not installed.
-# SECRET_KEY: 64 hex characters (32 random bytes) for session signing.
+# SECRET_KEY: 64 hex characters (32 random bytes) for HMAC session token protection at rest.
 # ---------------------------------------------------------------------------
 ENCRYPTION_KEY=$(python3 - <<'EOF'
 try:

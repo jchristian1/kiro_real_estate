@@ -1,4 +1,4 @@
-# Gmail Lead Sync — API Reference
+# Lead Intake & Workflow Platform — API Reference
 
 The API is built with FastAPI and provides auto-generated interactive documentation.
 
@@ -64,12 +64,8 @@ GET /api/v1/auth/me
 POST /api/v1/auth/logout
 ```
 
-### Demo Users (seed data)
-
-| Username | Password | Role |
-|----------|----------|------|
-| `admin`  | `admin123` | platform_admin |
-| `viewer` | `viewer123` | viewer |
+> To create a dev admin account, run `make seed-dev` after setting `DEV_ADMIN_PASSWORD`.
+> See [docs/FIRST_START.md](../docs/FIRST_START.md) for the full setup flow.
 
 ---
 
