@@ -12,7 +12,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from sqlalchemy.orm import Session
 
 from api.dependencies.agent_auth import get_current_agent
@@ -244,12 +244,11 @@ import json as _json  # noqa: E402
 
 class LeadSourceItem(BaseModel):
     """A single lead source item."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     description: Optional[str] = None
-
-    class Config:
-        from_attributes = True
 
 
 class LeadSourcesListResponse(BaseModel):

@@ -64,18 +64,29 @@ need to change if the packaging story is ever formalized.
 
 ---
 
-## 6. Pydantic v2 config/schema deprecation warnings
+## 6. Pydantic v2 config/schema deprecation warnings — partially resolved
 
-**Context:** During the structured logging fix verification run, the following warning appeared:
+**Status:** The warnings from our own code have been fixed. One warning source remains
+that is outside our control.
 
-```
-UserWarning: Valid config keys have changed in V2:
-  * 'schema_extra' has been renamed to 'json_schema_extra'
-```
+**Fixed in this pass:**
+- `api/models/template_models.py` — `class Config: schema_extra` → `model_config = ConfigDict(json_schema_extra=...)`, `@validator` → `@field_validator`
+- `api/models/lead_source_models.py` — `class Config` → `model_config`, `@validator` → `@field_validator`
+- `api/models/agent_models.py` — `class Config` → `model_config`, `@validator` + `allow_reuse` → `@field_validator`
+- `api/models/audit_models.py`, `company_models.py`, `lead_models.py`, `settings_models.py` — `class Config` → `model_config`
+- `api/routers/admin_auth.py`, `agent_onboarding.py` — `class Config` → `model_config`
+- `gmail_lead_sync/validation.py` — `@validator` → `@field_validator`
+- `api/utils/validation.py` — removed `allow_reuse=True` from docstring example
 
-This is unrelated to the logging fix. It indicates one or more Pydantic model classes still use v1-style `Config` class syntax or `schema_extra` instead of the v2 `model_config` / `json_schema_extra` equivalents.
+**Remaining warning (not in our code):**
+The `Field(deprecated=...)` warning (536x) is emitted by FastAPI 0.125.0 internally
+when building route parameter models. It comes from `fastapi/_compat/v2.py` calling
+`pydantic.Field(deprecated=...)` — a FastAPI/Pydantic version compatibility issue.
+This cannot be fixed by changing our models. It will resolve when FastAPI releases
+a version that uses `json_schema_extra={'deprecated': True}` instead.
 
-**Action:** Audit all Pydantic models in `api/models/` and `gmail_lead_sync/` for v1-style config patterns. Migrate to `model_config = ConfigDict(...)` and `json_schema_extra` as appropriate. Also check for `@validator` usage (deprecated in v2 — should be `@field_validator`). This is schema/config cleanup debt, not a functional bug.
+**Action:** Upgrade FastAPI when a version is available that resolves this internal
+compatibility issue. No action needed in our code.
 
 ---
 

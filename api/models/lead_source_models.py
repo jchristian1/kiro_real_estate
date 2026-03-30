@@ -16,7 +16,7 @@ Requirements:
 
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 import re
 
 from api.utils.validation import (
@@ -114,25 +114,29 @@ class LeadSourceCreateRequest(BaseModel):
     )
     
     # Validators for sanitization and validation
-    @validator('sender_email')
+    @field_validator('sender_email')
+    @classmethod
     def validate_sender_email(cls, v):
         if v is None:
             return v
         return sanitize_email(v)
-    
-    @validator('identifier_snippet')
+
+    @field_validator('identifier_snippet')
+    @classmethod
     def validate_identifier_snippet(cls, v):
         if v is None:
             return v
         return sanitize_string(v, max_length=MAX_TEXT_FIELD_LENGTH)
-    
-    @validator('name_regex')
+
+    @field_validator('name_regex')
+    @classmethod
     def validate_name_regex(cls, v):
         if v is None:
             return v
         return validate_regex_pattern(v)
-    
-    @validator('phone_regex')
+
+    @field_validator('phone_regex')
+    @classmethod
     def validate_phone_regex(cls, v):
         if v is None:
             return v
@@ -194,25 +198,29 @@ class LeadSourceUpdateRequest(BaseModel):
     )
     
     # Validators for sanitization and validation
-    @validator('sender_email')
+    @field_validator('sender_email')
+    @classmethod
     def validate_sender_email(cls, v):
         if v is None:
             return v
         return sanitize_email(v)
-    
-    @validator('identifier_snippet')
+
+    @field_validator('identifier_snippet')
+    @classmethod
     def validate_identifier_snippet(cls, v):
         if v is None:
             return v
         return sanitize_string(v, max_length=MAX_TEXT_FIELD_LENGTH)
-    
-    @validator('name_regex')
+
+    @field_validator('name_regex')
+    @classmethod
     def validate_name_regex(cls, v):
         if v is None:
             return v
         return validate_regex_pattern(v)
-    
-    @validator('phone_regex')
+
+    @field_validator('phone_regex')
+    @classmethod
     def validate_phone_regex(cls, v):
         if v is None:
             return v
@@ -243,9 +251,8 @@ class LeadSourceResponse(BaseModel):
     auto_respond_enabled: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
-    
-    class Config:
-        from_attributes = True
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LeadSourceListResponse(BaseModel):
@@ -292,13 +299,15 @@ class RegexTestRequest(BaseModel):
         description="Sample text to test the pattern against"
     )
     
-    @validator('pattern')
+    @field_validator('pattern')
+    @classmethod
     def validate_pattern(cls, v):
         if v is None:
             return v
         return validate_regex_pattern(v)
-    
-    @validator('sample_text')
+
+    @field_validator('sample_text')
+    @classmethod
     def validate_sample_text(cls, v):
         if v is None:
             return v
@@ -347,9 +356,8 @@ class RegexProfileVersionResponse(BaseModel):
     identifier_snippet: str
     created_at: datetime
     created_by: int
-    
-    class Config:
-        from_attributes = True
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RegexProfileVersionListResponse(BaseModel):

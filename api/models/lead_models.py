@@ -13,7 +13,7 @@ Requirements:
 
 from typing import Any, Dict, List, Optional
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class LeadResponse(BaseModel):
@@ -33,8 +33,7 @@ class LeadResponse(BaseModel):
     company_id: Optional[int] = None
     company_name: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LeadListResponse(BaseModel):
@@ -72,8 +71,7 @@ class LeadCoreInfoResponse(BaseModel):
     agent_current_state: Optional[str] = None
     last_agent_action_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LeadStageInfoResponse(BaseModel):

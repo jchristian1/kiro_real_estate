@@ -16,7 +16,7 @@ Requirements:
 
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from api.utils.validation import (
     validate_agent_id_field,
@@ -54,9 +54,20 @@ class AgentCreateRequest(BaseModel):
     company_id: Optional[int] = Field(None, description="Company this agent belongs to")
     
     # Validators for sanitization and additional validation
-    _validate_agent_id = validator('agent_id', allow_reuse=True)(validate_agent_id_field)
-    _validate_email = validator('email', allow_reuse=True)(validate_email_field)
-    _validate_password = validator('app_password', allow_reuse=True)(validate_password_field)
+    @field_validator('agent_id')
+    @classmethod
+    def _validate_agent_id(cls, v):
+        return validate_agent_id_field(cls, v)
+
+    @field_validator('email')
+    @classmethod
+    def _validate_email(cls, v):
+        return validate_email_field(cls, v)
+
+    @field_validator('app_password')
+    @classmethod
+    def _validate_password(cls, v):
+        return validate_password_field(cls, v)
 
 
 class AgentUpdateRequest(BaseModel):
@@ -78,8 +89,15 @@ class AgentUpdateRequest(BaseModel):
     company_id: Optional[int] = Field(None, description="Company this agent belongs to")
     
     # Validators for sanitization and additional validation
-    _validate_email = validator('email', allow_reuse=True)(validate_email_field)
-    _validate_password = validator('app_password', allow_reuse=True)(validate_password_field)
+    @field_validator('email')
+    @classmethod
+    def _validate_email(cls, v):
+        return validate_email_field(cls, v)
+
+    @field_validator('app_password')
+    @classmethod
+    def _validate_password(cls, v):
+        return validate_password_field(cls, v)
 
 
 class AgentResponse(BaseModel):
@@ -98,9 +116,8 @@ class AgentResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
     watcher_status: Optional[str] = None
-    
-    class Config:
-        from_attributes = True
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AgentListResponse(BaseModel):
