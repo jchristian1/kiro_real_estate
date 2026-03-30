@@ -19,8 +19,11 @@
     "paths": {
       "@/*": ["src/*"],
       "@/shared/*": ["src/shared/*"],
+      "@/models/*": ["src/models/*"],
+      "@/context/*": ["src/shared/contexts/*"],
       "@/apps/*": ["src/apps/*"],
-      "@/components/*": ["src/apps/agent/components/*"]
+      "@/agent-components/*": ["src/apps/agent/components/*"],
+      "@/platform-admin-components/*": ["src/apps/platform-admin/components/*"]
     },
 
     /* Linting */
