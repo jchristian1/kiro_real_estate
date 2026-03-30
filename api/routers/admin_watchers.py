@@ -50,7 +50,8 @@ router = APIRouter(dependencies=[Depends(require_role("company_admin"))])
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     """Authentication dependency."""
     from api.auth import get_current_user as _auth
-    return _auth(request, db)
+    from api.config import get_config
+    return _auth(request, db, get_config().secret_key)
 
 
 def _assert_agent_access(agent_id: str, current_user: User, db: Session) -> None:
