@@ -89,3 +89,19 @@ should not be bundled into the production frontend build.
 
 **Action:** Move `fast-check` from `dependencies` to `devDependencies` in
 `frontend/package.json`. Verify the frontend build and tests still pass.
+
+---
+
+## 8. Rename `SESSION_EXPIRY_HOURS` in `api/auth.py` to clarify it is a fallback default
+
+**File:** `api/auth.py`
+
+**Context:** After the session-timeout config fix, `SESSION_EXPIRY_HOURS = 24` remains as
+the default parameter value for `create_session()` and `set_session_cookie()`. The constant
+is no longer the primary source of truth — `config.session_timeout_hours` is — but the name
+does not make that clear.
+
+**Action:** Rename `SESSION_EXPIRY_HOURS` to `_DEFAULT_SESSION_EXPIRY_HOURS` (or similar)
+to signal it is a fallback default, not the authoritative value. Update the two function
+signatures and any tests that import the constant by name. This is a cosmetic/clarity change
+with no behavioral impact.
