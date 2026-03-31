@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for Gmail Lead Sync API
+# Multi-stage Dockerfile for the Lead Intake & Workflow Platform
 # Stage 1: Build dependencies
 FROM python:3.11-slim AS builder
 
@@ -9,9 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install Python dependencies
-COPY requirements.txt requirements-api.txt ./
-RUN pip install --no-cache-dir --user -r requirements-api.txt
+# Copy and install Python runtime dependencies
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Stage 2: Runtime image
 FROM python:3.11-slim AS runtime

@@ -6,7 +6,7 @@ and template configuration. All models enforce data integrity before database
 insertion.
 """
 
-from pydantic import BaseModel, Field, EmailStr, validator
+from pydantic import BaseModel, Field, EmailStr, field_validator
 from typing import Optional
 import re
 
@@ -24,7 +24,8 @@ class LeadData(BaseModel):
     phone: str = Field(..., min_length=7, max_length=50)
     source_email: EmailStr
     
-    @validator('phone')
+    @field_validator('phone')
+    @classmethod
     def validate_phone(cls, v):
         """
         Validate phone number format.
@@ -56,7 +57,8 @@ class LeadData(BaseModel):
         
         return v
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_name(cls, v):
         """
         Validate and normalize name field.
@@ -91,7 +93,8 @@ class LeadSourceConfig(BaseModel):
     template_id: Optional[int] = None
     auto_respond_enabled: bool = False
     
-    @validator('name_regex', 'phone_regex')
+    @field_validator('name_regex', 'phone_regex')
+    @classmethod
     def validate_regex(cls, v):
         """
         Validate regex pattern syntax.
@@ -133,7 +136,8 @@ class TemplateConfig(BaseModel):
     subject: str = Field(..., min_length=1, max_length=500)
     body: str = Field(..., min_length=1)
     
-    @validator('body')
+    @field_validator('body')
+    @classmethod
     def validate_placeholders(cls, v):
         """
         Validate template placeholders.

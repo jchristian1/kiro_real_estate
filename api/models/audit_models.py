@@ -6,7 +6,7 @@ This module defines request and response models for audit log operations.
 
 from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AuditLogResponse(BaseModel):
@@ -23,9 +23,8 @@ class AuditLogResponse(BaseModel):
     resource_type: str = Field(..., description="Type of resource affected (e.g., 'agent', 'template')")
     resource_id: Optional[int] = Field(None, description="ID of the affected resource")
     details: Optional[str] = Field(None, description="Additional details about the action")
-    
-    class Config:
-        from_attributes = True
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AuditLogListResponse(BaseModel):

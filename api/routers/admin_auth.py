@@ -11,7 +11,7 @@ All endpoints use HTTP-only secure cookies for session management.
 
 from fastapi import APIRouter, Depends, Response, Request, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 import logging
 
 from api.auth import (
@@ -44,13 +44,12 @@ class LoginRequest(BaseModel):
 
 class UserResponse(BaseModel):
     """User response model (excludes password hash)."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     username: str
     role: str
     company_id: int | None = None
-    
-    class Config:
-        from_attributes = True
 
 
 class LoginResponse(BaseModel):
@@ -98,10 +97,13 @@ async def login(
         )
 
     # Create session
-    session = create_session(db, user.id, get_config().secret_key)
+    session = create_session(
+        db, user.id, get_config().secret_key,
+        session_timeout_hours=get_config().session_timeout_hours,
+    )
 
     # Set session cookie — raw token is on session._raw_token, not session.id
-    set_session_cookie(response, session._raw_token)
+    set_session_cookie(response, session._raw_token, get_config().session_timeout_hours)
 
     # Return user info (exclude password hash)
     return LoginResponse(

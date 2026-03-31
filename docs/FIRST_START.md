@@ -32,13 +32,14 @@ The worker is the "always-on background brain." Without it, emails are never pic
 
 ---
 
-## 1. Clone and checkout the branch
+## 1. Clone the repository
 
 ```bash
 git clone https://github.com/jchristian1/kiro_real_estate.git
 cd kiro_real_estate
-git checkout feature-pipelines
 ```
+
+> Use the default branch. Do not check out a specific feature branch unless you have been explicitly directed to do so.
 
 ---
 
@@ -47,34 +48,34 @@ git checkout feature-pipelines
 **macOS / Linux**
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements-dev.txt
 ```
 
 **Windows (PowerShell)**
 ```powershell
 python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
+.venv\Scripts\pip install -r requirements-dev.txt
 ```
 
 ---
 
 ## 3. Set up PostgreSQL
 
-PostgreSQL is the required database for any multi-process deployment (api + worker). SQLite is only for single-process bare local dev without the worker.
+PostgreSQL is the required database for any multi-process deployment (api + worker). SQLite is only valid for running the API process alone without the worker — it is not safe for the full stack.
 
 **macOS (Homebrew)**
 ```bash
 brew services start postgresql@15
-createdb gmail_lead_sync
-createdb gmail_lead_sync_test   # for running tests
+createdb kiro
+createdb kiro_test   # for running the Postgres test suite
 ```
 
 **Linux (Ubuntu/Debian)**
 ```bash
 sudo systemctl start postgresql
 sudo -u postgres createuser --superuser $USER
-createdb gmail_lead_sync
-createdb gmail_lead_sync_test
+createdb kiro
+createdb kiro_test
 ```
 
 **Windows**
@@ -98,10 +99,10 @@ Open `.env` and set these values:
 
 ```bash
 # Database — for bare local dev, change the host from "postgres" to "localhost"
-DATABASE_URL=postgresql://localhost/gmail_lead_sync
+DATABASE_URL=postgresql://localhost/kiro
 
 # Test database — used by tests/postgres/ suite
-POSTGRES_TEST_URL=postgresql://localhost/gmail_lead_sync_test
+POSTGRES_TEST_URL=postgresql://localhost/kiro_test
 
 # Secrets — generate these (see commands below)
 ENCRYPTION_KEY=<generate>
@@ -139,7 +140,7 @@ Generate the secrets:
 .venv/Scripts/alembic upgrade head
 ```
 
-This applies all migrations to the `gmail_lead_sync` Postgres database.
+This applies all migrations to the `kiro` Postgres database.
 
 ---
 
@@ -280,7 +281,7 @@ After Go Live, the worker picks up the agent's watcher configuration and starts 
 After an agent completes onboarding, check the database:
 
 ```bash
-psql gmail_lead_sync -c "SELECT agent_id, status, last_heartbeat FROM watcher_status;"
+psql kiro -c "SELECT agent_id, status, last_heartbeat FROM watcher_status;"
 ```
 
 You should see the agent's watcher with `status = running` and a recent `last_heartbeat` timestamp (updated every ~10 seconds by the worker).
@@ -326,8 +327,8 @@ Both keys must be at least 32 characters. Re-generate them using the commands in
 **`connection refused` on `alembic upgrade head`**
 PostgreSQL is not running. Start it with `brew services start postgresql@15` (macOS) or `sudo systemctl start postgresql` (Linux).
 
-**`database "gmail_lead_sync" does not exist`**
-Run `createdb gmail_lead_sync` from your terminal.
+**`database "kiro" does not exist`**
+Run `createdb kiro` from your terminal.
 
 **`value too long for type character varying(64)` on login**
 Run `alembic upgrade head` — this applies the migration that widens the sessions token column to 128 chars.
@@ -346,7 +347,7 @@ Check `watcher_status` in the database to confirm the watcher is active.
 The agent hasn't completed onboarding. The watcher only starts after the agent reaches Go Live (step 7). Check `watcher_control` to see the desired state.
 
 **`Multiple head revisions` on `alembic upgrade head`**
-You are likely not on the correct branch. Run `git checkout feature-pipelines` and try again.
+You may be on a branch that has diverged. Check `alembic history` and ensure you are on the correct branch.
 
 **Frontend shows blank page or API errors**
 Make sure the backend is running on port 8000 and `frontend/.env` contains:
