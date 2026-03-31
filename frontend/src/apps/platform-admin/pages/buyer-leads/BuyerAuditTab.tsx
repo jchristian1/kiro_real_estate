@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useToast } from '../../../../shared/contexts/ToastContext';
 import { useT } from '../../../../shared/hooks/useT';
 
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 interface AuditEntry { id: number; lead_id: number | null; event_type: string; actor_type?: string; occurred_at: string; metadata_json?: string; }
 interface AuditResponse { items: AuditEntry[]; total: number; page: number; page_size: number; }

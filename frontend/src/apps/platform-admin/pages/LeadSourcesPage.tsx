@@ -6,7 +6,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { RegexVersionHistory } from '../components/RegexVersionHistory';
 import { useT } from '../../../shared/hooks/useT';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 const PAGE_SIZE = 20;
 
 type View = 'list' | 'create' | 'edit';
