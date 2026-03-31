@@ -177,18 +177,17 @@ Everything is managed through two separate web interfaces — one for platform o
 # 1. Clone
 git clone https://github.com/jchristian1/kiro_real_estate.git
 cd kiro_real_estate
-git checkout feature-pipelines
 
-# 2. Create virtualenv and install dependencies
+# 2. Create virtualenv and install dependencies (includes test tools)
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements-dev.txt
 
-# 3. Create Postgres databases
-createdb gmail_lead_sync
-createdb gmail_lead_sync_test
+# 3. Create Postgres database
+createdb kiro
+createdb kiro_test   # for the Postgres test suite
 
 # 4. Copy env — DATABASE_URL defaults to the compose Postgres URL.
-#    For bare local dev (no Docker), change it to: postgresql://localhost/gmail_lead_sync
+#    For bare local dev (no Docker), change it to: postgresql://localhost/kiro
 cp .env.example .env
 
 # 5. Run migrations

@@ -90,11 +90,25 @@ except ValueError as e:
 class JSONFormatter(logging.Formatter):
     """
     Custom JSON formatter for structured logging.
-    
+
     Outputs log records as JSON objects with timestamp, level, message,
-    and additional context fields.
+    and any additional context fields injected via extra={...}.
+
+    Python's logging machinery injects extra={} keys directly as top-level
+    attributes on the LogRecord (not as a nested .extra dict). This formatter
+    reads those injected attributes by excluding the standard LogRecord fields.
     """
-    
+
+    # Standard LogRecord attributes that must not be included as extra fields.
+    # Derived from logging.LogRecord.__init__ in CPython.
+    _STANDARD_ATTRS: frozenset = frozenset({
+        "name", "msg", "args", "levelname", "levelno", "pathname",
+        "filename", "module", "exc_info", "exc_text", "stack_info",
+        "lineno", "funcName", "created", "msecs", "relativeCreated",
+        "thread", "threadName", "processName", "process", "message",
+        "taskName",
+    })
+
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON string."""
         log_data = {
@@ -103,16 +117,19 @@ class JSONFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
-        
-        # Add exception info if present
+
+        # Add exception info if present.
         if record.exc_info:
             log_data["exception"] = self.formatException(record.exc_info)
-        
-        # Add extra fields if present
-        if hasattr(record, "extra"):
-            log_data.update(record.extra)
-        
-        return json.dumps(log_data)
+
+        # Add extra fields injected via extra={...}.
+        # Python sets each key directly as a LogRecord attribute, so we
+        # collect any attribute not in the standard set.
+        for key, value in record.__dict__.items():
+            if key not in self._STANDARD_ATTRS and not key.startswith("_"):
+                log_data[key] = value
+
+        return json.dumps(log_data, default=str)
 
 
 # Set up logging

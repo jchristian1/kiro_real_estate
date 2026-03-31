@@ -13,7 +13,7 @@ Security features:
 - Cryptographically secure session tokens (64 bytes)
 - HMAC-SHA256 token derivation: raw token is set in the cookie, only the
   HMAC digest is stored in the DB — a DB read does not yield usable tokens
-- 24-hour session expiration with sliding window
+- Configurable session expiration via SESSION_TIMEOUT_HOURS (default: 24h)
 - HTTP-only secure cookies for session management
 """
 
@@ -36,6 +36,9 @@ from api.exceptions import AuthenticationException
 
 # Security configuration
 SESSION_COOKIE_NAME = "session_token"
+# Default session lifetime in hours. Used as the fallback when callers do not
+# supply an explicit session_timeout_hours. The authoritative value at runtime
+# comes from config.session_timeout_hours (SESSION_TIMEOUT_HOURS env var).
 SESSION_EXPIRY_HOURS = 24
 TOKEN_BYTES = 64  # 64 bytes = 512 bits of entropy
 
@@ -127,7 +130,12 @@ def derive_session_digest(secret_key: str, raw_token: str) -> str:
     ).hexdigest()
 
 
-def create_session(db: Session, user_id: int, secret_key: str) -> SessionModel:
+def create_session(
+    db: Session,
+    user_id: int,
+    secret_key: str,
+    session_timeout_hours: int = SESSION_EXPIRY_HOURS,
+) -> SessionModel:
     """
     Create a new session for a user.
 
@@ -135,12 +143,15 @@ def create_session(db: Session, user_id: int, secret_key: str) -> SessionModel:
     HMAC-SHA256 digest, stores the digest in the DB, and returns a
     SessionModel whose ``id`` field holds the digest.  The caller is
     responsible for placing the raw token in the cookie via
-    ``set_session_cookie(response, raw_token)``.
+    ``set_session_cookie(response, raw_token, session_timeout_hours)``.
 
     Args:
         db: Database session
         user_id: ID of the user to create session for
         secret_key: Application secret key used to derive the stored digest
+        session_timeout_hours: Session lifetime in hours. Defaults to
+            SESSION_EXPIRY_HOURS (24). Pass config.session_timeout_hours
+            to honour the operator-configured value.
 
     Returns:
         Created SessionModel instance (id == HMAC digest, not the raw token)
@@ -152,7 +163,7 @@ def create_session(db: Session, user_id: int, secret_key: str) -> SessionModel:
     stored_digest = derive_session_digest(secret_key, raw_token)
 
     now = datetime.utcnow()
-    expires_at = now + timedelta(hours=SESSION_EXPIRY_HOURS)
+    expires_at = now + timedelta(hours=session_timeout_hours)
 
     session = SessionModel(
         id=stored_digest,
@@ -192,7 +203,8 @@ def validate_session(db: Session, raw_token: str, secret_key: str) -> Optional[S
     Validate a raw session token from the cookie and check expiration.
 
     Derives the HMAC digest from the raw token, looks it up in the DB,
-    and updates last_accessed if valid.
+    and updates last_accessed if valid. Expiry is fixed at creation time
+    and is not extended on access.
 
     Args:
         db: Database session
@@ -283,12 +295,23 @@ def get_session_token_from_cookie(request: Request) -> Optional[str]:
     return request.cookies.get(SESSION_COOKIE_NAME)
 
 
-def set_session_cookie(response: Response, token: str) -> None:
+def set_session_cookie(
+    response: Response,
+    token: str,
+    session_timeout_hours: int = SESSION_EXPIRY_HOURS,
+) -> None:
     """
     Set session token in HTTP-only secure cookie.
 
     In production (ENVIRONMENT=production): secure=True, httponly=True, samesite="strict".
     In development: secure=False, samesite="lax".
+
+    Args:
+        response: FastAPI response object
+        token: Raw session token to set in the cookie
+        session_timeout_hours: Cookie max-age in hours. Must match the value
+            used in create_session() so DB expiry and cookie lifetime are aligned.
+            Defaults to SESSION_EXPIRY_HOURS (24).
 
     Requirements: 4.6
     """
@@ -299,7 +322,7 @@ def set_session_cookie(response: Response, token: str) -> None:
         httponly=True,
         secure=is_production,
         samesite="strict" if is_production else "lax",
-        max_age=SESSION_EXPIRY_HOURS * 3600
+        max_age=session_timeout_hours * 3600
     )
 
 

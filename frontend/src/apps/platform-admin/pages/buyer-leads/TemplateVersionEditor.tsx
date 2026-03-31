@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useToast } from '../../../../shared/contexts/ToastContext';
 import { useT } from '../../../../shared/hooks/useT';
 
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 const SUPPORTED_VARS = ['lead_name','agent_name','property_address','form_url','score','bucket','tenant_name'];
 const BUCKETS = ['HOT', 'WARM', 'NURTURE'] as const;

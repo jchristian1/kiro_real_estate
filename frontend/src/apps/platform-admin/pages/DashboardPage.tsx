@@ -40,7 +40,7 @@ export const DashboardPage: React.FC = () => {
         axios.get<{ watchers: WatcherStatus[] }>(`${API_BASE_URL}/watchers/status`),
       ]);
       setHealth(h.data);
-      setWatchers(w.data.watchers);
+      setWatchers(w.data.watchers ?? []);
     } catch { /* silent */ }
     setLoading(false);
   };

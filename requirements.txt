@@ -1,30 +1,42 @@
-# Core dependencies for Gmail Lead Sync Engine
+# =============================================================================
+# Runtime dependencies — authoritative source of truth for Docker and bare
+# local dev installs.
+#
+# Install:  pip install -r requirements.txt
+# Docker:   Dockerfile installs this file directly.
+#
+# For dev/test tools see requirements-dev.txt.
+# =============================================================================
+
+# --- Database ---
 SQLAlchemy>=2.0.0
 Alembic>=1.12.0
-# PostgreSQL driver — required for production Postgres deployments.
-# psycopg2-binary bundles libpq so no system-level install is needed.
-# For production images built from source, swap for psycopg2 (no -binary).
-psycopg2-binary>=2.9.0
+psycopg2-binary>=2.9.0      # PostgreSQL dialect driver for SQLAlchemy; not imported directly
+
+# --- Web framework ---
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6     # required by FastAPI for Form() and File() parameters (used in 7 routers)
+starlette>=0.27.0           # directly imported in api/middleware/csrf.py; also FastAPI's base
+
+# --- Auth and security ---
+bcrypt>=4.1.0
+cryptography>=41.0.0        # Fernet + AES-GCM encryption for Gmail credentials
+
+# --- Data validation ---
 pydantic>=2.0.0
 pydantic[email]
-email-validator>=2.0.0
-cryptography>=41.0.0
-python-dotenv>=1.0.0
-fastapi>=0.100.0
-uvicorn>=0.23.0
-python-multipart>=0.0.6
-starlette>=0.27.0
+email-validator>=2.0.0      # required by pydantic[email] / EmailStr (used in 5 runtime files)
+
+# --- Rate limiting and metrics ---
 slowapi>=0.1.9
-prometheus-client>=0.17.0
+prometheus-client>=0.19.0
+
+# --- Input sanitization ---
 bleach>=6.0.0
-passlib>=1.7.4
-bcrypt>=4.0.0
-httpx>=0.24.0
-anyio>=3.7.0
-hypothesis>=6.90.0
-pytest>=7.4.0
-pytest-cov>=4.1.0
-pytest-asyncio>=0.21.0
-pytest-mock>=3.11.0
-pytest-timeout>=2.1.0
-requests>=2.19.0
+
+# --- Configuration ---
+python-dotenv>=1.0.0
+
+# --- Async runtime ---
+anyio>=3.7.0                # transitive dep of uvicorn/FastAPI; pinned for stability

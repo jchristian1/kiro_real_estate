@@ -190,10 +190,11 @@ def create_string_validator(max_length: int):
     Example:
         class MyModel(BaseModel):
             name: str
-            
-            _validate_name = validator('name', allow_reuse=True)(
-                create_string_validator(max_length=255)
-            )
+
+            @field_validator('name')
+            @classmethod
+            def validate_name(cls, v):
+                return create_string_validator(max_length=255)(None, v)
     """
     def validate_string(cls, v):
         if v is None:

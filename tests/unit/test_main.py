@@ -197,10 +197,10 @@ def test_database_dependency():
 
 
 def test_json_formatter():
-    """Test JSON log formatter."""
+    """Test JSON log formatter base fields."""
     from api.main import JSONFormatter
-    import logging
-    
+    import logging, json
+
     formatter = JSONFormatter()
     record = logging.LogRecord(
         name="test",
@@ -211,32 +211,126 @@ def test_json_formatter():
         args=(),
         exc_info=None
     )
-    
-    formatted = formatter.format(record)
-    
-    # Verify it's valid JSON
-    import json
-    data = json.loads(formatted)
-    
+
+    data = json.loads(formatter.format(record))
+
     assert data["level"] == "INFO"
     assert data["logger"] == "test"
     assert data["message"] == "Test message"
     assert "timestamp" in data
 
 
+def test_json_formatter_extra_fields_are_emitted():
+    """
+    extra={} fields must appear in JSON output.
+
+    Python logging injects extra keys directly as LogRecord attributes —
+    not as a nested .extra dict. The formatter must read them from
+    record.__dict__ after excluding standard LogRecord fields.
+    """
+    from api.main import JSONFormatter
+    import logging, json
+
+    formatter = JSONFormatter()
+    record = logging.LogRecord(
+        name="api",
+        level=logging.INFO,
+        pathname="api/main.py",
+        lineno=1,
+        msg="GET /api/v1/health - 200",
+        args=(),
+        exc_info=None
+    )
+    # Simulate what Python logging does with extra={...}
+    record.method = "GET"
+    record.path = "/api/v1/health"
+    record.status_code = 200
+    record.duration_seconds = 0.042
+    record.client_host = "127.0.0.1"
+
+    data = json.loads(formatter.format(record))
+
+    # Base fields still present
+    assert data["level"] == "INFO"
+    assert data["logger"] == "api"
+    assert data["message"] == "GET /api/v1/health - 200"
+    assert "timestamp" in data
+
+    # Extra fields must be present — this was the bug
+    assert data["method"] == "GET"
+    assert data["path"] == "/api/v1/health"
+    assert data["status_code"] == 200
+    assert data["duration_seconds"] == 0.042
+    assert data["client_host"] == "127.0.0.1"
+
+
+def test_json_formatter_no_standard_logrecord_fields_leaked():
+    """Standard LogRecord internals must not appear in JSON output."""
+    from api.main import JSONFormatter
+    import logging, json
+
+    formatter = JSONFormatter()
+    record = logging.LogRecord(
+        name="api",
+        level=logging.WARNING,
+        pathname="api/main.py",
+        lineno=42,
+        msg="something happened",
+        args=(),
+        exc_info=None
+    )
+    record.error_code = "AUTH_FAILED"  # one legitimate extra field
+
+    data = json.loads(formatter.format(record))
+
+    # Legitimate extra field present
+    assert data["error_code"] == "AUTH_FAILED"
+
+    # Standard internals must NOT appear
+    for noisy in ("lineno", "pathname", "filename", "module", "funcName",
+                  "thread", "threadName", "process", "processName",
+                  "msecs", "relativeCreated", "created", "levelno",
+                  "args", "msg"):
+        assert noisy not in data, f"Standard field '{noisy}' leaked into JSON output"
+
+
+def test_json_formatter_non_serializable_extra_does_not_crash():
+    """Non-JSON-serializable extra values must be coerced to str, not crash."""
+    from api.main import JSONFormatter
+    import logging, json
+    from datetime import datetime
+
+    formatter = JSONFormatter()
+    record = logging.LogRecord(
+        name="api",
+        level=logging.INFO,
+        pathname="",
+        lineno=0,
+        msg="test",
+        args=(),
+        exc_info=None
+    )
+    record.started_at = datetime(2026, 1, 1, 12, 0, 0)  # datetime is not JSON-native
+
+    # Must not raise
+    output = formatter.format(record)
+    data = json.loads(output)
+    assert "started_at" in data
+    assert isinstance(data["started_at"], str)
+
+
 def test_json_formatter_with_exception():
     """Test JSON log formatter with exception info."""
     from api.main import JSONFormatter
-    import logging
-    
+    import logging, json, sys
+
     formatter = JSONFormatter()
-    
+
     try:
         raise ValueError("Test exception")
     except ValueError:
-        import sys
         exc_info = sys.exc_info()
-        
+
         record = logging.LogRecord(
             name="test",
             level=logging.ERROR,
@@ -246,16 +340,14 @@ def test_json_formatter_with_exception():
             args=(),
             exc_info=exc_info
         )
-        
-        formatted = formatter.format(record)
-        
-        # Verify it's valid JSON
-        import json
-        data = json.loads(formatted)
-        
+
+        data = json.loads(formatter.format(record))
+
         assert data["level"] == "ERROR"
         assert "exception" in data
         assert "ValueError" in data["exception"]
+        # exception must not also appear as a raw extra field
+        assert "exc_info" not in data
 
 
 def test_startup_event():

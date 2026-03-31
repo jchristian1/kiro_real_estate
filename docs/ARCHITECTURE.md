@@ -2,29 +2,68 @@
 
 ## System Topology
 
+The default supported runtime consists of four processes. In Docker Compose all four
+start together with `docker compose up --build`. In bare local dev each runs in a
+separate terminal.
+
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Docker Compose                         │
-│                                                             │
-│  ┌──────────────────┐        ┌──────────────────────────┐  │
-│  │  Frontend        │        │  FastAPI Backend          │  │
-│  │  React/Vite      │──────▶ │  :8000                   │  │
-│  │  :80 (nginx)     │        │                          │  │
-│  └──────────────────┘        └──────────┬───────────────┘  │
-│                                         │                   │
-│                               ┌─────────▼──────────┐       │
-│                               │  SQLite Database   │       │
-│                               │  gmail_lead_sync.db│       │
-│                               └────────────────────┘       │
-│                                         │                   │
-│                               ┌─────────▼──────────┐       │
-│                               │  Gmail Watcher     │       │
-│                               │  asyncio tasks     │──────▶ Gmail IMAP
-│                               └────────────────────┘       │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Docker Compose                              │
+│                                                                     │
+│  ┌──────────────────┐        ┌──────────────────────────────────┐  │
+│  │  frontend        │        │  api                             │  │
+│  │  React/nginx     │──────▶ │  FastAPI  :8000                  │  │
+│  │  :80             │        │  HTTP requests only              │  │
+│  └──────────────────┘        └──────────────┬───────────────────┘  │
+│                                             │                       │
+│                               ┌─────────────▼───────────────────┐  │
+│                               │  postgres                        │  │
+│                               │  PostgreSQL :5432                │  │
+│                               └─────────────┬───────────────────┘  │
+│                                             │                       │
+│                               ┌─────────────▼───────────────────┐  │
+│                               │  worker                          │  │
+│                               │  Python background process       │  │
+│                               │  owns WatcherRegistry            │  │
+│                               │  polls watcher_control every 10s │  │
+│                               │  writes watcher_status every 10s │  │
+│                               └──────────────────────────────────┘  │
+│                                             │                       │
+│                                             ▼                       │
+│                                        Gmail IMAP                   │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-The Gmail watcher runs as asyncio background tasks **inside** the FastAPI process, managed by `WatcherRegistry`. There is no separate container for the watcher.
+### Process responsibilities
+
+| Process | Owns | Does NOT own |
+|---------|------|--------------|
+| `api` | HTTP request handling, session auth, DB reads/writes for all API routes | Watcher lifecycle |
+| `worker` | WatcherRegistry, all watcher start/stop/restart, reconciliation loop | HTTP serving |
+| `frontend` | Static React build served by nginx | Any backend logic |
+| `postgres` | Persistent data store | — |
+
+### Watcher ownership
+
+The **worker process owns all watcher lifecycle**. Evidence from code:
+
+- `worker/main.py` docstring: "This process owns the WatcherRegistry and all watcher lifecycle."
+- `worker/main.py` `run()`: creates `WatcherRegistry`, calls `_auto_start_watchers()`, runs `_reconciliation_loop()` every 10 seconds.
+- `api/main.py` `startup_event()`: "Watcher auto-start is now the worker process's responsibility. The API process no longer owns watcher lifecycle."
+
+The API coordinates with the worker through two DB tables:
+
+- `watcher_control` — API writes desired state (`running` / `stopped`); worker reads and reconciles
+- `watcher_status` — worker writes live status every ~10 seconds; API reads for health/status endpoints
+
+There is no direct in-process communication between the API and the worker.
+
+### Database
+
+PostgreSQL is the default and required database for the full stack (api + worker).
+SQLite is supported only when explicitly configured via `DATABASE_URL=sqlite:///...`
+and only for running the API process alone without the worker. Both `api/main.py`
+and `worker/main.py` log a `WARNING` at startup when SQLite is detected.
 
 ---
 
@@ -65,7 +104,7 @@ api/
 - Routers contain no direct database queries — all DB access goes through repositories or services.
 - Services contain no FastAPI-specific imports (`Request`, `Response`, `Depends`).
 - Repositories always include a `tenant_id` / `agent_id` filter — never trust user-supplied IDs alone.
-- The API interacts with the Gmail watcher only through `WatcherRegistry`.
+- The API interacts with the watcher runtime only through the `watcher_control` and `watcher_status` DB tables.
 
 ### Request Flow
 
@@ -82,7 +121,7 @@ api/services/         ← business logic, orchestrates repositories
 api/repositories/     ← SQLAlchemy queries, always tenant-scoped
     │
     ▼
-SQLite Database
+PostgreSQL Database
 ```
 
 ---
@@ -120,6 +159,19 @@ frontend/src/
 ```
 
 `main.tsx` mounts the platform-admin app at `/` and the agent app at `/agent/*`.
+
+### Frontend serving
+
+In Docker Compose the `frontend` service builds a static React bundle and serves it
+via nginx on port 80. The API runs separately on port 8000.
+
+In bare local dev `npm run dev` serves the frontend on port 5173 (cross-origin to
+the API on port 8000 — handled by CORS config).
+
+`api/main.py` also contains a static-file fallback route that serves `index.html`
+from `STATIC_FILES_DIR` if that directory exists. This path is inactive in the
+compose setup (the directory is empty) and exists for single-binary deployments
+where the frontend build is co-located with the API.
 
 ---
 
@@ -178,16 +230,6 @@ frontend/src/
 | `subject` | VARCHAR(500) | |
 | `body` | TEXT | supports `{lead_name}`, `{agent_name}`, etc. |
 
-**`processing_logs`** — email processing audit trail
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | INTEGER PK | |
-| `gmail_uid` | VARCHAR(255) | |
-| `sender_email` | VARCHAR(255) | |
-| `status` | VARCHAR(50) | `success`, `failed`, `validation_failed`, … |
-| `error_details` | TEXT | nullable |
-| `lead_id` | INTEGER FK | → leads (nullable) |
-
 ### Web UI Tables (api/models/web_ui_models.py)
 
 **`users`** — platform admin and agent users
@@ -202,7 +244,7 @@ frontend/src/
 **`sessions`** — active user sessions
 | Column | Type | Notes |
 |--------|------|-------|
-| `id` | VARCHAR(64) PK | secure random token |
+| `id` | VARCHAR(128) PK | HMAC-SHA256 digest of raw token |
 | `user_id` | INTEGER FK | → users |
 | `expires_at` | DATETIME | |
 
@@ -216,17 +258,25 @@ frontend/src/
 | `resource_type` | VARCHAR(50) | |
 | `resource_id` | INTEGER | nullable |
 
-**`lead_state_transitions`** — lead state event log (gmail_lead_sync/preapproval)
+### Watcher Coordination Tables (api/models/watcher_state_models.py)
+
+**`watcher_control`** — desired state written by API, read by worker
 | Column | Type | Notes |
 |--------|------|-------|
-| `id` | INTEGER PK | |
-| `tenant_id` | INTEGER | |
-| `lead_id` | INTEGER FK | → leads |
-| `from_state` | VARCHAR | |
-| `to_state` | VARCHAR | |
-| `occurred_at` | DATETIME | |
-| `actor_type` | VARCHAR | `agent` or `system` |
-| `actor_id` | VARCHAR | |
+| `agent_id` | VARCHAR PK | |
+| `desired_status` | VARCHAR | `running` or `stopped` |
+| `sync_requested_at` | DATETIME | nullable; worker clears after acting |
+| `updated_at` | DATETIME | |
+
+**`watcher_status`** — live state written by worker, read by API
+| Column | Type | Notes |
+|--------|------|-------|
+| `agent_id` | VARCHAR PK | |
+| `status` | VARCHAR | `running`, `stopped`, `failed`, `starting` |
+| `last_heartbeat` | DATETIME | updated every ~10s by worker |
+| `last_sync` | DATETIME | |
+| `started_at` | DATETIME | |
+| `error` | TEXT | nullable |
 
 ---
 
@@ -250,20 +300,27 @@ frontend/src/
                           STOPPED    auto-restart (60s cooldown, max 5 attempts)
 ```
 
+### Reconciliation Loop (worker/main.py)
+
+The worker runs `_reconciliation_loop()` every 10 seconds:
+
+1. Read all `watcher_control` rows.
+2. For each row: start or stop the watcher to match `desired_status`.
+3. Act on any pending `sync_requested_at` values; clear them after acting.
+4. Write current in-memory watcher status back to `watcher_status` table.
+
 ### Polling Loop (WatcherRegistry._run_watcher)
 
 1. Create a `GmailWatcher` instance with the agent's decrypted credentials.
 2. Connect to Gmail IMAP (SSL :993).
 3. On successful connection, set status → `RUNNING`, reset retry count.
 4. Enter the main loop:
-   - Update `last_heartbeat` timestamp; emit `DEBUG` log entry.
+   - Update `last_heartbeat` timestamp.
    - Refresh lead sources from DB.
    - Call `watcher.process_unseen_emails()` wrapped in `asyncio.wait_for(timeout=30)`.
-   - On `TimeoutError`: log `WARNING`, continue to next cycle.
-   - On any other exception: log `ERROR` with `agent_id`, `error_type`, full stack trace; sleep 60s; continue loop.
    - Sleep `SYNC_INTERVAL_SECONDS` (or wake early on manual sync trigger).
 5. On `CancelledError` (graceful stop): set status → `STOPPED`.
-6. On unrecoverable exception (e.g., IMAP auth failure): set status → `FAILED`; log `ERROR` with timestamp.
+6. On unrecoverable exception: set status → `FAILED`.
 7. If `ENABLE_AUTO_RESTART=true`: schedule `_auto_restart_watcher(delay=60)`.
 
 ### Exponential Backoff
@@ -282,16 +339,25 @@ After 5 consecutive failures the watcher transitions to `FAILED`.
 
 ### Idempotency
 
-Every processed email's `Message-ID` header is SHA-256 hashed and stored in `processed_messages(agent_id, message_id_hash)` with a unique constraint. Before processing, `GmailWatcher.is_email_processed()` checks this table. Duplicate emails are silently skipped with no new `Lead` or `ProcessedMessage` rows created.
+Every processed email's `Message-ID` header is SHA-256 hashed and stored in
+`processed_messages(agent_id, message_id_hash)` with a unique constraint. Before
+processing, `GmailWatcher.is_email_processed()` checks this table. Duplicate emails
+are silently skipped.
+
+---
+
+## Observability
 
 ### Health Endpoint
 
-`GET /api/v1/health` (no auth required) reads live data from `WatcherRegistry` and the database:
+`GET /api/v1/health` (no auth required) reads from the `watcher_status` DB table
+(written by the worker) and the `audit_logs` table:
 
 ```json
 {
   "status": "healthy",
   "database": "connected",
+  "db_dialect": "postgresql",
   "active_watchers": 2,
   "errors_last_24h": 0,
   "watchers": {
@@ -303,4 +369,20 @@ Every processed email's `Message-ID` header is SHA-256 hashed and stored in `pro
 }
 ```
 
-Returns HTTP 200 when healthy, HTTP 503 when the database is unreachable.
+Returns HTTP 200 when healthy or degraded-but-reachable, HTTP 503 when the database
+is unreachable. The `active_watchers` count and per-agent status are eventually
+consistent — the worker updates `watcher_status` every ~10 seconds.
+
+### Watcher Status Endpoint
+
+`GET /api/v1/watchers/status` (auth required) reads the same `watcher_status` table
+and returns per-agent status, heartbeats, last sync, and error details.
+
+### Prometheus Metrics
+
+`GET /metrics` (no auth required) exposes:
+
+- `api_requests_total` — request count per endpoint/method/status (API process)
+- `api_request_duration_seconds` — request duration histogram (API process)
+- `api_errors_total` — error count per endpoint/status (API process)
+- `watchers_active` — count of running watchers, read from `watcher_status` DB at scrape time (eventually consistent)

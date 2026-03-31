@@ -137,12 +137,27 @@ class TestSessionManagement:
         assert session.id != raw_token
 
     def test_create_session_sets_user_id_and_expiry(self, mock_db):
+        """Default timeout (SESSION_EXPIRY_HOURS = 24) is used when not supplied."""
         session = create_session(mock_db, user_id=42, secret_key=TEST_SECRET)
         assert session.user_id == 42
         expected_expiry = session.created_at + timedelta(hours=SESSION_EXPIRY_HOURS)
         assert abs((session.expires_at - expected_expiry).total_seconds()) < 1
         mock_db.add.assert_called_once()
         mock_db.commit.assert_called()
+
+    def test_create_session_honours_custom_timeout(self, mock_db):
+        """A non-default session_timeout_hours is reflected in expires_at."""
+        session = create_session(mock_db, user_id=7, secret_key=TEST_SECRET,
+                                 session_timeout_hours=48)
+        expected_expiry = session.created_at + timedelta(hours=48)
+        assert abs((session.expires_at - expected_expiry).total_seconds()) < 1
+
+    def test_create_session_one_hour_timeout(self, mock_db):
+        """Minimum meaningful timeout (1 hour) is respected."""
+        session = create_session(mock_db, user_id=3, secret_key=TEST_SECRET,
+                                 session_timeout_hours=1)
+        expected_expiry = session.created_at + timedelta(hours=1)
+        assert abs((session.expires_at - expected_expiry).total_seconds()) < 1
 
     def test_get_session_found(self, mock_db):
         digest = "a" * 64
@@ -278,6 +293,39 @@ class TestCookieHandling:
         assert kw['httponly'] is True
         assert kw['secure'] is True
         assert kw['max_age'] == SESSION_EXPIRY_HOURS * 3600
+
+    def test_set_session_cookie_custom_timeout(self):
+        """Cookie max_age must reflect the supplied session_timeout_hours."""
+        import os
+        mock_response = Mock(spec=Response)
+        with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
+            set_session_cookie(mock_response, "tok", session_timeout_hours=48)
+        kw = mock_response.set_cookie.call_args[1]
+        assert kw['max_age'] == 48 * 3600
+
+    def test_set_session_cookie_max_age_matches_create_session(self):
+        """
+        DB expiry and cookie max_age must stay aligned when the same
+        session_timeout_hours value is passed to both functions.
+        """
+        import os
+        mock_db = MagicMock()
+        mock_response = Mock(spec=Response)
+        timeout = 48
+
+        session = create_session(mock_db, user_id=1, secret_key=TEST_SECRET,
+                                 session_timeout_hours=timeout)
+        with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
+            set_session_cookie(mock_response, session._raw_token,
+                               session_timeout_hours=timeout)
+
+        kw = mock_response.set_cookie.call_args[1]
+        cookie_max_age_hours = kw['max_age'] / 3600
+        db_lifetime_hours = (session.expires_at - session.created_at).total_seconds() / 3600
+
+        assert abs(cookie_max_age_hours - timeout) < 0.01
+        assert abs(db_lifetime_hours - timeout) < 0.01
+        assert abs(cookie_max_age_hours - db_lifetime_hours) < 0.01
 
     def test_clear_session_cookie(self):
         import os
