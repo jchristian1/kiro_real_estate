@@ -25,7 +25,7 @@ export const DashboardPage: React.FC = () => {
         axios.get<{ watchers: WatcherStatus[] }>(`${API_BASE_URL}/watchers/status`),
       ]);
       setHealth(h.data);
-      setWatchers(w.data.watchers);
+      setWatchers(w.data.watchers ?? []);
     } catch { /* silent */ }
     setLoading(false);
   };
@@ -60,9 +60,9 @@ export const DashboardPage: React.FC = () => {
   }
 
   const isHealthy = health?.status === 'healthy';
-  const dbOk = health?.database?.connected ?? false;
-  const activeWatchers = health?.watchers?.active_count ?? 0;
-  const errors24h = health?.errors?.count_24h ?? 0;
+  const dbOk = health?.database === 'connected';
+  const activeWatchers = health?.active_watchers ?? 0;
+  const errors24h = health?.errors_last_24h ?? 0;
 
   return (
     <div style={{ maxWidth: 960 }}>
@@ -72,9 +72,9 @@ export const DashboardPage: React.FC = () => {
         <span style={{ fontSize: 13, color: isHealthy ? t.green : t.red, fontWeight: 600 }}>
           {isHealthy ? 'All systems operational' : 'System degraded'}
         </span>
-        {health?.timestamp && (
+        {health && (
           <span style={{ fontSize: 12, color: t.textFaint, marginLeft: 8 }}>
-            · Updated {new Date(health.timestamp).toLocaleTimeString()}
+            · {activeWatchers} watcher{activeWatchers !== 1 ? 's' : ''} running
           </span>
         )}
         <button

@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
 
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 interface FormTemplate { id: number; name: string; status: string; intent_type: string; created_at: string; }
 interface FormVersion { id: number; version_number: number; is_active: boolean; published_at: string | null; }

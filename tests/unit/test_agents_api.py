@@ -86,7 +86,7 @@ def test_user(db_session):
 @pytest.fixture
 def auth_session(db_session, test_user):
     """Create an authenticated session."""
-    session = create_session(db_session, test_user.id)
+    session = create_session(db_session, test_user.id, __import__("api.config", fromlist=["get_config"]).get_config().secret_key)
     return session
 
 
@@ -119,7 +119,7 @@ def client(db_session, test_user, auth_session):
     app.dependency_overrides[agents.get_credentials_store] = override_get_credentials_store
     
     client = TestClient(app)
-    client.cookies.set("session_token", auth_session.id)
+    client.cookies.set("session_token", auth_session._raw_token)
     
     yield client
     

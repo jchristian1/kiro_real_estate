@@ -17,7 +17,7 @@ import { flushSync } from 'react-dom';
 import axios, { AxiosError } from 'axios';
 
 // API base URL from environment variable
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 // User type matching backend UserResponse model
 export interface User {

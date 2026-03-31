@@ -32,7 +32,7 @@ def mock_db():
 
 def test_app_initialization():
     """Test that FastAPI app initializes correctly."""
-    assert app.title == "Gmail Lead Sync API"
+    assert app.title == "Lead Intake & Workflow Platform API"
     assert app.version == "1.0.0"
     assert app.docs_url == "/api/docs"
     assert app.redoc_url == "/api/redoc"
@@ -52,7 +52,7 @@ def test_root_endpoint(client):
     response = client.get("/api/v1")
     assert response.status_code == 200
     data = response.json()
-    assert data["message"] == "Gmail Lead Sync API"
+    assert data["message"] == "Lead Intake & Workflow Platform API"
     assert data["version"] == "1.0.0"
     assert data["docs"] == "/api/docs"
 
@@ -197,10 +197,10 @@ def test_database_dependency():
 
 
 def test_json_formatter():
-    """Test JSON log formatter."""
+    """Test JSON log formatter base fields."""
     from api.main import JSONFormatter
-    import logging
-    
+    import logging, json
+
     formatter = JSONFormatter()
     record = logging.LogRecord(
         name="test",
@@ -211,32 +211,126 @@ def test_json_formatter():
         args=(),
         exc_info=None
     )
-    
-    formatted = formatter.format(record)
-    
-    # Verify it's valid JSON
-    import json
-    data = json.loads(formatted)
-    
+
+    data = json.loads(formatter.format(record))
+
     assert data["level"] == "INFO"
     assert data["logger"] == "test"
     assert data["message"] == "Test message"
     assert "timestamp" in data
 
 
+def test_json_formatter_extra_fields_are_emitted():
+    """
+    extra={} fields must appear in JSON output.
+
+    Python logging injects extra keys directly as LogRecord attributes —
+    not as a nested .extra dict. The formatter must read them from
+    record.__dict__ after excluding standard LogRecord fields.
+    """
+    from api.main import JSONFormatter
+    import logging, json
+
+    formatter = JSONFormatter()
+    record = logging.LogRecord(
+        name="api",
+        level=logging.INFO,
+        pathname="api/main.py",
+        lineno=1,
+        msg="GET /api/v1/health - 200",
+        args=(),
+        exc_info=None
+    )
+    # Simulate what Python logging does with extra={...}
+    record.method = "GET"
+    record.path = "/api/v1/health"
+    record.status_code = 200
+    record.duration_seconds = 0.042
+    record.client_host = "127.0.0.1"
+
+    data = json.loads(formatter.format(record))
+
+    # Base fields still present
+    assert data["level"] == "INFO"
+    assert data["logger"] == "api"
+    assert data["message"] == "GET /api/v1/health - 200"
+    assert "timestamp" in data
+
+    # Extra fields must be present — this was the bug
+    assert data["method"] == "GET"
+    assert data["path"] == "/api/v1/health"
+    assert data["status_code"] == 200
+    assert data["duration_seconds"] == 0.042
+    assert data["client_host"] == "127.0.0.1"
+
+
+def test_json_formatter_no_standard_logrecord_fields_leaked():
+    """Standard LogRecord internals must not appear in JSON output."""
+    from api.main import JSONFormatter
+    import logging, json
+
+    formatter = JSONFormatter()
+    record = logging.LogRecord(
+        name="api",
+        level=logging.WARNING,
+        pathname="api/main.py",
+        lineno=42,
+        msg="something happened",
+        args=(),
+        exc_info=None
+    )
+    record.error_code = "AUTH_FAILED"  # one legitimate extra field
+
+    data = json.loads(formatter.format(record))
+
+    # Legitimate extra field present
+    assert data["error_code"] == "AUTH_FAILED"
+
+    # Standard internals must NOT appear
+    for noisy in ("lineno", "pathname", "filename", "module", "funcName",
+                  "thread", "threadName", "process", "processName",
+                  "msecs", "relativeCreated", "created", "levelno",
+                  "args", "msg"):
+        assert noisy not in data, f"Standard field '{noisy}' leaked into JSON output"
+
+
+def test_json_formatter_non_serializable_extra_does_not_crash():
+    """Non-JSON-serializable extra values must be coerced to str, not crash."""
+    from api.main import JSONFormatter
+    import logging, json
+    from datetime import datetime
+
+    formatter = JSONFormatter()
+    record = logging.LogRecord(
+        name="api",
+        level=logging.INFO,
+        pathname="",
+        lineno=0,
+        msg="test",
+        args=(),
+        exc_info=None
+    )
+    record.started_at = datetime(2026, 1, 1, 12, 0, 0)  # datetime is not JSON-native
+
+    # Must not raise
+    output = formatter.format(record)
+    data = json.loads(output)
+    assert "started_at" in data
+    assert isinstance(data["started_at"], str)
+
+
 def test_json_formatter_with_exception():
     """Test JSON log formatter with exception info."""
     from api.main import JSONFormatter
-    import logging
-    
+    import logging, json, sys
+
     formatter = JSONFormatter()
-    
+
     try:
         raise ValueError("Test exception")
     except ValueError:
-        import sys
         exc_info = sys.exc_info()
-        
+
         record = logging.LogRecord(
             name="test",
             level=logging.ERROR,
@@ -246,16 +340,14 @@ def test_json_formatter_with_exception():
             args=(),
             exc_info=exc_info
         )
-        
-        formatted = formatter.format(record)
-        
-        # Verify it's valid JSON
-        import json
-        data = json.loads(formatted)
-        
+
+        data = json.loads(formatter.format(record))
+
         assert data["level"] == "ERROR"
         assert "exception" in data
         assert "ValueError" in data["exception"]
+        # exception must not also appear as a raw extra field
+        assert "exc_info" not in data
 
 
 def test_startup_event():
@@ -266,7 +358,7 @@ def test_startup_event():
             pass
         
         # Verify startup was logged
-        assert any("Starting Gmail Lead Sync API" in str(call) for call in mock_logger.info.call_args_list)
+        assert any("Starting Lead Intake" in str(call) for call in mock_logger.info.call_args_list)
 
 
 def test_environment_configuration():
@@ -277,3 +369,100 @@ def test_environment_configuration():
     assert config.database_url is not None
     assert isinstance(config.cors_origins, list)
     assert config.log_level is not None
+
+
+# ---------------------------------------------------------------------------
+# Fail-closed startup tests
+# ---------------------------------------------------------------------------
+
+def test_load_config_fails_on_missing_encryption_key(monkeypatch):
+    """load_config() must raise ValueError when ENCRYPTION_KEY is absent."""
+    from api.config import load_config
+    monkeypatch.delenv("ENCRYPTION_KEY", raising=False)
+    monkeypatch.setenv("SECRET_KEY", "b" * 32)
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    with pytest.raises(ValueError, match="ENCRYPTION_KEY"):
+        load_config()
+
+
+def test_load_config_fails_on_missing_secret_key(monkeypatch):
+    """load_config() must raise ValueError when SECRET_KEY is absent."""
+    from api.config import load_config
+    monkeypatch.setenv("ENCRYPTION_KEY", "a" * 44)
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    with pytest.raises(ValueError, match="SECRET_KEY"):
+        load_config()
+
+
+def test_load_config_fails_on_short_encryption_key(monkeypatch):
+    """load_config() must raise ValueError when ENCRYPTION_KEY is too short."""
+    from api.config import load_config
+    monkeypatch.setenv("ENCRYPTION_KEY", "tooshort")
+    monkeypatch.setenv("SECRET_KEY", "b" * 32)
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    with pytest.raises(ValueError, match="ENCRYPTION_KEY must be at least 32 characters"):
+        load_config()
+
+
+def test_load_config_fails_on_short_secret_key(monkeypatch):
+    """load_config() must raise ValueError when SECRET_KEY is too short."""
+    from api.config import load_config
+    monkeypatch.setenv("ENCRYPTION_KEY", "a" * 44)
+    monkeypatch.setenv("SECRET_KEY", "tooshort")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    with pytest.raises(ValueError, match="SECRET_KEY must be at least 32 characters"):
+        load_config()
+
+
+def test_load_config_succeeds_with_valid_secrets(monkeypatch):
+    """load_config() must succeed when both secrets meet the minimum length."""
+    from api.config import load_config
+    monkeypatch.setenv("ENCRYPTION_KEY", "a" * 44)
+    monkeypatch.setenv("SECRET_KEY", "b" * 32)
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    config = load_config()
+    assert len(config.encryption_key) >= 32
+    assert len(config.secret_key) >= 32
+
+
+def test_api_main_exits_nonzero_when_encryption_key_missing():
+    """api.main must exit non-zero when ENCRYPTION_KEY is absent at import time."""
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, "-c", "import api.main"],
+        env={
+            **{k: v for k, v in __import__("os").environ.items()
+               if k not in ("ENCRYPTION_KEY", "SECRET_KEY")},
+            "SECRET_KEY": "b" * 32,
+            "DATABASE_URL": "sqlite:///:memory:",
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0, (
+        "api.main must exit non-zero when ENCRYPTION_KEY is missing"
+    )
+    assert "ENCRYPTION_KEY" in result.stderr or "Configuration" in result.stderr
+
+
+def test_api_main_exits_nonzero_when_secret_key_missing():
+    """api.main must exit non-zero when SECRET_KEY is absent at import time."""
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, "-c", "import api.main"],
+        env={
+            **{k: v for k, v in __import__("os").environ.items()
+               if k not in ("ENCRYPTION_KEY", "SECRET_KEY")},
+            "ENCRYPTION_KEY": "a" * 44,
+            "DATABASE_URL": "sqlite:///:memory:",
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0, (
+        "api.main must exit non-zero when SECRET_KEY is missing"
+    )
+    assert "SECRET_KEY" in result.stderr or "Configuration" in result.stderr

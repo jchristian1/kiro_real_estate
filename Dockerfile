@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for Gmail Lead Sync API
+# Multi-stage Dockerfile for the Lead Intake & Workflow Platform
 # Stage 1: Build dependencies
 FROM python:3.11-slim AS builder
 
@@ -9,9 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install Python dependencies
-COPY requirements.txt requirements-api.txt ./
-RUN pip install --no-cache-dir --user -r requirements-api.txt
+# Copy and install Python runtime dependencies
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Stage 2: Runtime image
 FROM python:3.11-slim AS runtime
@@ -35,9 +35,10 @@ COPY alembic.ini ./
 # Create directory for database and static files
 RUN mkdir -p /data /app/static
 
-# Environment defaults (override at runtime)
-ENV DATABASE_URL=sqlite:////data/gmail_lead_sync.db \
-    STATIC_FILES_DIR=/app/static \
+# Environment defaults (override at runtime via env_file or -e flags)
+# DATABASE_URL is intentionally not set here — it must be supplied explicitly.
+# Use postgresql://... for any multi-process deployment.
+ENV STATIC_FILES_DIR=/app/static \
     API_HOST=0.0.0.0 \
     API_PORT=8000 \
     LOG_LEVEL=INFO

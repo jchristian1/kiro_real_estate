@@ -66,7 +66,7 @@ def test_user(db_session):
 
 @pytest.fixture
 def auth_session(db_session, test_user):
-    return create_session(db_session, test_user.id)
+    return create_session(db_session, test_user.id, __import__("api.config", fromlist=["get_config"]).get_config().secret_key)
 
 
 @pytest.fixture
@@ -99,7 +99,7 @@ def client(db_session, test_user, auth_session):
     app.dependency_overrides[watchers.get_current_user] = override_get_current_user
 
     c = TestClient(app)
-    c.cookies.set("session_token", auth_session.id)
+    c.cookies.set("session_token", auth_session._raw_token)
     yield c
     app.dependency_overrides.clear()
 

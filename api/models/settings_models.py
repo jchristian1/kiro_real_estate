@@ -15,7 +15,7 @@ Requirements:
 
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SettingValue(BaseModel):
@@ -32,9 +32,8 @@ class SettingValue(BaseModel):
     value: str
     updated_at: datetime
     updated_by: Optional[int] = None
-    
-    class Config:
-        from_attributes = True
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SettingsResponse(BaseModel):

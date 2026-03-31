@@ -22,7 +22,7 @@ cp .env.example .env
 
 4. Edit `.env` and set your configuration values, especially:
    - `ENCRYPTION_KEY` - Use the same key from your existing CLI setup
-   - `SECRET_KEY` - Generate a secure random key for sessions
+   - `SECRET_KEY` - Generate a secure random key for HMAC session token protection at rest
 
 5. Run database migrations:
 ```bash

@@ -7,7 +7,7 @@ import { RegexVersionHistory } from '@/platformAdminComponents/RegexVersionHisto
 import { useT } from '@/shared/hooks/useT';
 import { LeadSource, LeadSourceFormValues, Template } from '@/models';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 const PAGE_SIZE = 20;
 
 type View = 'list' | 'create' | 'edit';

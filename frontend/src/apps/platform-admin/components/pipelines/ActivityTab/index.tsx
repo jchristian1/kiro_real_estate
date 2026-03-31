@@ -6,7 +6,6 @@
 import React, { useState } from 'react';
 import { useTheme } from '@/shared/contexts';
 import { getTokens } from '@/shared/utils';
-import { useLeadStageHistory } from '@/apps/platform-admin/hooks/usePipelineQueries';
 
 interface Props { pipelineId: number; }
 

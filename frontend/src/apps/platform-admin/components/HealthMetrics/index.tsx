@@ -13,9 +13,10 @@ interface HealthMetricsProps {
 export const HealthMetrics: React.FC<HealthMetricsProps> = ({ healthData }) => {
   const t = useT();
   const isHealthy = healthData.status === 'healthy';
-  const isDatabaseConnected = healthData.database?.connected === true;
-  const errorCount = healthData.errors?.count_24h ?? 0;
-  const activeWatchers = healthData.watchers?.active_count ?? 0;
+  const isDatabaseConnected = healthData.database === 'connected';
+  const errorCount = healthData.errors_last_24h ?? 0;
+  const activeWatchers = healthData.active_watchers ?? 0;
+  const failedWatchers = Object.values(healthData.watchers ?? {}).filter(w => w.status === 'failed').length;
 
   const statCard = (label: string, content: React.ReactNode) => (
     <div style={{ ...t.card, padding: '14px 18px', flex: 1, minWidth: 120 }}>
@@ -64,7 +65,7 @@ export const HealthMetrics: React.FC<HealthMetricsProps> = ({ healthData }) => {
 
         {/* Failed Watchers */}
         {statCard('Failed Watchers',
-          <span style={{ fontSize: 22, fontWeight: 700, color: t.textMuted }}>0</span>
+          <span style={{ fontSize: 22, fontWeight: 700, color: failedWatchers > 0 ? t.red : t.textMuted }}>{failedWatchers}</span>
         )}
 
         {/* Errors 24h */}
@@ -73,10 +74,6 @@ export const HealthMetrics: React.FC<HealthMetricsProps> = ({ healthData }) => {
             {errorCount}
           </span>
         )}
-      </div>
-
-      <div style={{ marginTop: 14, fontSize: 11, color: t.textFaint }}>
-        Last updated: {new Date(healthData.timestamp).toLocaleString()}
       </div>
     </div>
   );

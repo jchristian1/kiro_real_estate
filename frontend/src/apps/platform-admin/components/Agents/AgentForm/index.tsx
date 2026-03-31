@@ -7,7 +7,7 @@ import { formSchema } from '@/shared/utils/helpers/agent-helper';
 import { z } from 'zod';
 import { Company } from '@/models/platform-admin/components/agent';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 type FormValues = z.infer<typeof formSchema>;
 

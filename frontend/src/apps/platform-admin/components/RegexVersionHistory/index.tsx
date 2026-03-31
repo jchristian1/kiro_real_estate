@@ -8,7 +8,7 @@ import { ConfirmDialog } from '@/platformAdminComponents/ConfirmDialog';
 import { useT } from '@/shared/hooks/useT';
 import { RegexProfileVersion } from '@/models';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 
 

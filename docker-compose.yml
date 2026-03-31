@@ -1,14 +1,17 @@
 version: '3.8'
 
 # ---------------------------------------------------------------------------
-# Default stack (SQLite — zero-config local dev):
+# Default stack — Postgres is always started.
+#
 #   docker compose up --build
 #
-# Postgres stack (production-equivalent local dev):
-#   docker compose --profile postgres up --build
-#
-# When using the postgres profile, set DATABASE_URL in .env to:
+# Both api and worker connect to the bundled Postgres service.
+# Set DATABASE_URL in .env to:
 #   DATABASE_URL=postgresql://app:app@postgres:5432/kiro
+#
+# SQLite is NOT used in the compose stack. If you want SQLite for
+# single-process bare local dev (no worker), set DATABASE_URL=sqlite:///...
+# in your .env and run the API directly without docker compose.
 # ---------------------------------------------------------------------------
 
 services:
@@ -32,7 +35,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-        required: false   # only enforced when the postgres profile is active
 
   worker:
     build:
@@ -48,7 +50,6 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
-        required: false   # only enforced when the postgres profile is active
 
   frontend:
     build:
@@ -61,12 +62,10 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # Postgres service — only started when --profile postgres is passed.
-  # Provides a production-equivalent database for local development and CI.
+  # Postgres — always started as part of the default stack.
   # ---------------------------------------------------------------------------
   postgres:
     image: postgres:15-alpine
-    profiles: ["postgres"]
     environment:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: app

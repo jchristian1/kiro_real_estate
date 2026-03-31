@@ -193,34 +193,29 @@ class TestLogoutEndpoint:
     
     def test_logout_success(self, client, test_user, test_db):
         """Test successful logout."""
+        from api.auth import derive_session_digest
+        from api.config import get_config
         # First login to get a session
         login_response = client.post(
             "/api/v1/auth/login",
-            json={
-                "username": "testuser",
-                "password": "testpassword"
-            }
+            json={"username": "testuser", "password": "testpassword"}
         )
         assert login_response.status_code == 200
-        session_token = login_response.cookies[SESSION_COOKIE_NAME]
-        
-        # Verify session exists in database
-        session = test_db.query(SessionModel).filter(SessionModel.id == session_token).first()
+        raw_token = login_response.cookies[SESSION_COOKIE_NAME]
+
+        # The DB stores the HMAC digest, not the raw token
+        digest = derive_session_digest(get_config().secret_key, raw_token)
+        session = test_db.query(SessionModel).filter(SessionModel.id == digest).first()
         assert session is not None
-        
+
         # Now logout
         logout_response = client.post("/api/v1/auth/logout")
-        
         assert logout_response.status_code == 200
-        data = logout_response.json()
-        assert data["message"] == "Logged out successfully"
-        
-        # Verify session is deleted from database
-        session = test_db.query(SessionModel).filter(SessionModel.id == session_token).first()
+        assert logout_response.json()["message"] == "Logged out successfully"
+
+        # Verify session digest is deleted from database
+        session = test_db.query(SessionModel).filter(SessionModel.id == digest).first()
         assert session is None
-        
-        # Verify cookie is cleared (empty or expired)
-        # Note: TestClient may not perfectly simulate cookie clearing
     
     def test_logout_without_session(self, client):
         """Test logout without an active session."""
@@ -281,10 +276,14 @@ class TestGetMeEndpoint:
     
     def test_get_me_expired_session(self, client, test_user, test_db):
         """Test getting current user with expired session."""
-        # Create an expired session manually
+        from api.auth import derive_session_digest
+        from api.config import get_config
+        # Create an expired session: store the digest, set the raw token in the cookie
         now = datetime.utcnow()
+        raw_token = "expired_token_12345_raw_value_pad"
+        digest = derive_session_digest(get_config().secret_key, raw_token)
         expired_session = SessionModel(
-            id="expired_token_12345",
+            id=digest,
             user_id=test_user.id,
             created_at=now - timedelta(hours=25),
             expires_at=now - timedelta(hours=1),  # Expired 1 hour ago
@@ -292,19 +291,19 @@ class TestGetMeEndpoint:
         )
         test_db.add(expired_session)
         test_db.commit()
-        
-        # Set expired session cookie
-        client.cookies.set(SESSION_COOKIE_NAME, expired_session.id)
-        
+
+        # Set the raw token in the cookie
+        client.cookies.set(SESSION_COOKIE_NAME, raw_token)
+
         response = client.get("/api/v1/auth/me")
-        
+
         assert response.status_code == 401
         data = response.json()
         assert "message" in data
         assert "Invalid or expired session" in data["message"]
-        
+
         # Verify expired session was deleted
-        session = test_db.query(SessionModel).filter(SessionModel.id == expired_session.id).first()
+        session = test_db.query(SessionModel).filter(SessionModel.id == digest).first()
         assert session is None
 
 

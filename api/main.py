@@ -1,5 +1,5 @@
 """
-FastAPI application entry point for Gmail Lead Sync Web UI & API Layer.
+FastAPI application entry point for the Lead Intake & Workflow Platform API.
 
 This module initializes the FastAPI application with:
 - CORS middleware for cross-origin requests
@@ -36,7 +36,7 @@ from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTEN
 
 from api.models.web_ui_models import User
 from api.models.error_models import ErrorCode, create_error_response
-from api.config import load_config, Config
+from api.config import load_config, set_config
 from api.exceptions import (
     APIException,
     AuthenticationException,
@@ -72,42 +72,43 @@ from api.routers import (  # noqa: E402
     agent_reports,
 )
 from api.auth import get_current_user  # noqa: E402
+from api.middleware.csrf import CSRFOriginMiddleware  # noqa: E402
 
 
-# Load and validate configuration
-# For testing, use minimal configuration if required env vars are missing
-encryption_key = os.getenv("ENCRYPTION_KEY", "")
-secret_key = os.getenv("SECRET_KEY", "")
-
-if not encryption_key or not secret_key:
-    # Use test configuration with minimal valid values
-    # Generate a valid Fernet key for testing
-    from cryptography.fernet import Fernet
-    test_encryption_key = Fernet.generate_key().decode() if not encryption_key else encryption_key
-    test_secret_key = "b" * 32 if not secret_key else secret_key
-    
-    config = Config(
-        database_url=os.getenv("DATABASE_URL"),
-        encryption_key=test_encryption_key,
-        secret_key=test_secret_key
-    )
-else:
-    try:
-        config = load_config()
-    except ValueError as e:
-        print(f"Configuration error: {e}")
-        sys.exit(1)
+# Load and validate configuration.
+# Fails hard on missing or invalid secrets — see .env.example for required values.
+try:
+    config = load_config()
+    set_config(config)
+except ValueError as e:
+    print(f"Configuration error: {e}", file=sys.stderr)
+    print("Copy .env.example to .env and set ENCRYPTION_KEY and SECRET_KEY.", file=sys.stderr)
+    sys.exit(1)
 
 
 # Configure structured JSON logging
 class JSONFormatter(logging.Formatter):
     """
     Custom JSON formatter for structured logging.
-    
+
     Outputs log records as JSON objects with timestamp, level, message,
-    and additional context fields.
+    and any additional context fields injected via extra={...}.
+
+    Python's logging machinery injects extra={} keys directly as top-level
+    attributes on the LogRecord (not as a nested .extra dict). This formatter
+    reads those injected attributes by excluding the standard LogRecord fields.
     """
-    
+
+    # Standard LogRecord attributes that must not be included as extra fields.
+    # Derived from logging.LogRecord.__init__ in CPython.
+    _STANDARD_ATTRS: frozenset = frozenset({
+        "name", "msg", "args", "levelname", "levelno", "pathname",
+        "filename", "module", "exc_info", "exc_text", "stack_info",
+        "lineno", "funcName", "created", "msecs", "relativeCreated",
+        "thread", "threadName", "processName", "process", "message",
+        "taskName",
+    })
+
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON string."""
         log_data = {
@@ -116,16 +117,19 @@ class JSONFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
-        
-        # Add exception info if present
+
+        # Add exception info if present.
         if record.exc_info:
             log_data["exception"] = self.formatException(record.exc_info)
-        
-        # Add extra fields if present
-        if hasattr(record, "extra"):
-            log_data.update(record.extra)
-        
-        return json.dumps(log_data)
+
+        # Add extra fields injected via extra={...}.
+        # Python sets each key directly as a LogRecord attribute, so we
+        # collect any attribute not in the standard set.
+        for key, value in record.__dict__.items():
+            if key not in self._STANDARD_ATTRS and not key.startswith("_"):
+                log_data[key] = value
+
+        return json.dumps(log_data, default=str)
 
 
 # Set up logging
@@ -197,6 +201,11 @@ except ValueError:
     from prometheus_client import REGISTRY
     leads_processed_total = REGISTRY._names_to_collectors['leads_processed_total']
 
+# NOTE: leads_processed_total is registered but increment_leads_processed() is
+# never called in the current architecture — lead processing happens in the worker.
+# This counter will remain 0 until wired to the worker's processing path.
+# It is intentionally excluded from operator-facing monitoring documentation.
+
 
 def increment_leads_processed(count: int = 1) -> None:
     """
@@ -252,8 +261,8 @@ from api.dependencies.db import get_db  # noqa: E402
 
 # Create FastAPI application
 app = FastAPI(
-    title="Gmail Lead Sync API",
-    description="REST API for Gmail Lead Sync Web UI",
+    title="Lead Intake & Workflow Platform API",
+    description="REST API for the multi-vertical lead intake and workflow automation platform",
     version="1.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
@@ -269,6 +278,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# CSRF origin validation middleware
+# Blocks state-changing requests (POST/PUT/PATCH/DELETE) whose Origin header
+# does not match the CORS_ORIGINS allowlist.  Login/signup and public
+# endpoints are exempt — see api/middleware/csrf.py for full rationale.
+app.add_middleware(CSRFOriginMiddleware, allowed_origins=config.cors_origins)
 
 
 # Security headers middleware
@@ -632,23 +647,38 @@ async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
 async def metrics():
     """
     Prometheus metrics endpoint.
-    
+
     Returns metrics in Prometheus text format for scraping.
     This endpoint does NOT require authentication to allow
     Prometheus scraper to collect metrics.
-    
-    Metrics tracked:
+
+    Metrics tracked (API process):
     - api_requests_total: Counter for request count per endpoint, method, and status
     - api_request_duration_seconds: Histogram for request duration per endpoint and method
     - api_errors_total: Counter for error count per endpoint and status
-    - watchers_active: Gauge for active watcher count
-    - leads_processed_total: Counter for total leads processed
-    
+
+    Watcher metric (DB-backed, eventually consistent ~10s):
+    - watchers_active: Gauge read from watcher_status table at scrape time
+
+    Not yet wired (counter registered but never incremented):
+    - leads_processed_total: Will be wired when lead processing is instrumented
+
     Requirements: 8.2, 29.1, 29.2, 29.3, 29.4, 29.5, 29.6, 29.7
     """
-    # Watcher count is now owned by the worker process.
-    # The gauge is not updated here — it will be 0 unless the worker
-    # writes to a shared store (Phase 5C).
+    # Update watchers_active from DB-backed watcher_status table.
+    # Same source of truth used by /api/v1/health and /api/v1/watchers/status.
+    # Eventually consistent — worker writes status every ~10 seconds.
+    try:
+        from api.repositories.watcher_coordination_repository import WatcherStatusRepository
+        _metrics_db = SessionLocal()
+        try:
+            _status_repo = WatcherStatusRepository(_metrics_db)
+            _running = sum(1 for r in _status_repo.list_all() if r.status == "running")
+            watchers_active.set(_running)
+        finally:
+            _metrics_db.close()
+    except Exception as _e:
+        logger.debug("Could not update watchers_active gauge: %s", _e)
 
     # Generate Prometheus text format
     return Response(
@@ -662,7 +692,7 @@ async def metrics():
 async def root():
     """API root endpoint."""
     return {
-        "message": "Gmail Lead Sync API",
+        "message": "Lead Intake & Workflow Platform API",
         "version": "1.0.0",
         "docs": "/api/docs"
     }
@@ -672,7 +702,7 @@ async def root():
 # Create wrapper for get_current_user that works with FastAPI dependency injection
 def get_current_user_wrapper(request: Request, db: Session = Depends(get_db)) -> User:
     """Wrapper for get_current_user that uses FastAPI dependency injection."""
-    return get_current_user(request, db)
+    return get_current_user(request, db, config.secret_key)
 
 # Include routers
 # Public routers — no auth middleware
@@ -772,8 +802,16 @@ async def startup_event():
     
     Logs configuration and performs initialization tasks.
     """
-    logger.info("Starting Gmail Lead Sync API")
+    logger.info("Starting Lead Intake & Workflow Platform API")
     config.log_config(logger)
+
+    if "sqlite" in config.database_url:
+        logger.warning(
+            "SQLite detected as the database backend. "
+            "SQLite is not safe for multi-process deployments (api + worker). "
+            "Set DATABASE_URL to a PostgreSQL connection string for any deployment "
+            "that runs the worker process alongside the API."
+        )
 
     # Run DB migrations on startup so a fresh clone works without manual steps
     try:
@@ -784,43 +822,6 @@ async def startup_event():
         logger.info("Database migrations applied (alembic upgrade head)")
     except Exception as e:
         logger.warning(f"Could not run alembic upgrade head on startup: {e}")
-
-    # Auto-seed demo data on first run (only if no users exist yet)
-    try:
-        from api.models.web_ui_models import User as _User
-        _seed_db = SessionLocal()
-        try:
-            if _seed_db.query(_User).count() == 0:
-                logger.info("No users found — running seed data for first-time setup")
-                import sys as _sys
-                _sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                from scripts.seed_data import (
-                    seed_users, seed_templates, seed_agents,
-                    seed_lead_sources, seed_leads, seed_settings,
-                    seed_pipelines,
-                )
-                from gmail_lead_sync.credentials import EncryptedDBCredentialsStore as _ECS
-                _cstore = _ECS(_seed_db, encryption_key=config.encryption_key)
-                seed_users(_seed_db)
-                _tmpls = seed_templates(_seed_db)
-                seed_agents(_seed_db, _cstore)
-                _srcs = seed_lead_sources(_seed_db, _tmpls)
-                seed_leads(_seed_db, _srcs)
-                seed_settings(_seed_db)
-                try:
-                    from gmail_lead_sync.preapproval.seed import seed_all as _seed_preapproval
-                    _seed_preapproval(_seed_db, tenant_id=1)
-                except Exception:
-                    pass
-                try:
-                    seed_pipelines(_seed_db)
-                except Exception:
-                    pass
-                logger.info("Seed data created — login: admin/admin123")
-        finally:
-            _seed_db.close()
-    except Exception as e:
-        logger.warning(f"Could not auto-seed on startup: {e}")
 
     # Watcher auto-start is now the worker process's responsibility.
     # The API process no longer owns watcher lifecycle.
@@ -834,7 +835,7 @@ async def shutdown_event():
     
     Performs cleanup tasks before shutdown including stopping all watchers.
     """
-    logger.info("Shutting down Gmail Lead Sync API")
+    logger.info("Shutting down Lead Intake & Workflow Platform API")
     
     # Watcher shutdown is now the worker process's responsibility.
     # The API process no longer owns watcher lifecycle.
