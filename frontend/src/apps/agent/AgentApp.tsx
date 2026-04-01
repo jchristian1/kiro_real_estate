@@ -7,21 +7,18 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../../shared/contexts/ToastContext';
-import { ToastContainer } from './components/ToastContainer';
 import { AgentAuthProvider } from './contexts/AgentAuthContext';
-import { AgentAuthGuard } from './components/AgentAuthGuard';
-import { AgentOnboardingGuard } from './components/AgentOnboardingGuard';
-import { AgentLayout } from './components/AgentLayout';
+import { ToastContainer, AgentAuthGuard, AgentOnboardingGuard, AgentLayout } from './components';
 
 // Pages
 import { AgentLoginPage } from './pages/AgentLoginPage';
 import { AgentSignupPage } from './pages/AgentSignupPage';
-import { OnboardingWizard } from './pages/onboarding/OnboardingWizard';
+import { OnboardingPage } from './pages/OnboardingPage';
 import { AgentDashboardPage } from './pages/AgentDashboardPage';
 import { AgentLeadsPage } from './pages/AgentLeadsPage';
 import { AgentLeadDetailPage } from './pages/AgentLeadDetailPage';
-import { AgentSettingsLayout } from './pages/settings/AgentSettingsLayout';
-import { AccountSettingsPage } from './pages/settings/AccountSettingsPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { AccountSettings } from './pages/SettingsPage/components';
 import { AgentReportsPage } from './pages/AgentReportsPage';
 
 const queryClient = new QueryClient({
@@ -46,7 +43,7 @@ export const AgentApp: React.FC = () => (
             {/* Onboarding — auth required, onboarding not yet complete */}
             <Route path="onboarding/*" element={
               <AgentAuthGuard>
-                <OnboardingWizard />
+                <OnboardingPage />
               </AgentAuthGuard>
             } />
 
@@ -61,9 +58,9 @@ export const AgentApp: React.FC = () => (
               <Route path="dashboard" element={<AgentDashboardPage />} />
               <Route path="leads" element={<AgentLeadsPage />} />
               <Route path="leads/:id" element={<AgentLeadDetailPage />} />
-              <Route path="settings" element={<AgentSettingsLayout />}>
+              <Route path="settings" element={<SettingsPage />}>
                 <Route index element={<Navigate to="account" replace />} />
-                <Route path="account" element={<AccountSettingsPage />} />
+                <Route path="account" element={<AccountSettings />} />
               </Route>
               <Route path="reports" element={<AgentReportsPage />} />
             </Route>

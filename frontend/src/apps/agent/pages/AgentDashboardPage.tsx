@@ -9,7 +9,8 @@ import { getTokens } from '../../../shared/utils/theme';
 import {
   useAgentDashboard, useAgentGmail, useToggleWatcher, useAgentMe,
 } from '../hooks/useAgentQueries';
-import { BackendPendingBadge } from '../components/BackendPendingBadge';
+import { BackendPendingBadge } from '../components';
+
 
 // ── Inject styles once ────────────────────────────────────────────────────────
 if (typeof document !== 'undefined' && !document.getElementById('dash-css')) {

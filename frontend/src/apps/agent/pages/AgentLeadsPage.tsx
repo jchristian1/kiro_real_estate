@@ -8,7 +8,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTheme } from '../../../shared/contexts/ThemeContext';
 import { getTokens } from '../../../shared/utils/theme';
 import { useAgentLeads } from '../hooks/useAgentQueries';
-import { BackendPendingBadge } from '../components/BackendPendingBadge';
+import { BackendPendingBadge } from '../components';
+
 import type { Lead } from '../hooks/useAgentQueries';
 
 // Inject responsive CSS once

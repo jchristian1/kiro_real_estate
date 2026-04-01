@@ -1,4 +1,4 @@
-import { ActionType, BuiltInEventType, StageCategory } from "@/apps/platform-admin/api/pipelinesApi";
+import { ActionType, BuiltInEventType, StageCategory } from "@/models/platform-admin/pipeline-api-model";
 import { ToastType } from "@/shared/contexts";
 
 export const PAGE_TITLES: Record<string, string> = {

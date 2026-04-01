@@ -12,7 +12,8 @@ import {
   useAgentLead, useUpdateLeadStatus, useAddLeadNote, useLeadPipeline,
 } from '../hooks/useAgentQueries';
 import { getAgentErrorMessage } from '../api/agentApi';
-import { BackendPendingBadge } from '../components/BackendPendingBadge';
+import { BackendPendingBadge } from '../components';
+
 
 // ── CSS ───────────────────────────────────────────────────────────────────────
 
