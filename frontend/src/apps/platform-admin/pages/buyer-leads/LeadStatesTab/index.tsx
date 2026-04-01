@@ -3,8 +3,7 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
-
-const API = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
 interface LeadStateRow { lead_id: number; name: string | null; source_email: string | null; current_state: string | null; current_state_updated_at: string | null; }
 interface LeadsStateResponse { items: LeadStateRow[]; total: number; page: number; page_size: number; }
@@ -34,7 +33,7 @@ export const LeadStatesTab: React.FC = () => {
       const params: Record<string, string> = { page: String(page), page_size: '25' };
       if (stateFilter) params.state = stateFilter;
       if (bucketFilter) params.bucket = bucketFilter;
-      const res = await axios.get<LeadsStateResponse>(`${API}/buyer-leads/tenants/${tenantId}/leads/states`, { params });
+      const res = await axios.get<LeadsStateResponse>(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/leads/states`, { params });
       setLeads(res.data.items);
       setTotalPages(Math.max(1, Math.ceil(res.data.total / 25)));
       setTotal(res.data.total);
@@ -44,7 +43,7 @@ export const LeadStatesTab: React.FC = () => {
   const fetchFunnel = useCallback(async () => {
     setFunnelLoading(true);
     try {
-      const res = await axios.get<Record<string, number>>(`${API}/buyer-leads/tenants/${tenantId}/leads/funnel`);
+      const res = await axios.get<Record<string, number>>(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/leads/funnel`);
       setFunnel(Object.entries(res.data).map(([state, count]) => ({ state, count })));
     } catch { /* non-critical */ } finally { setFunnelLoading(false); }
   }, [tenantId]);

@@ -6,8 +6,7 @@ import { ConfirmDialog } from '@/platformAdminComponents/ConfirmDialog';
 import { RegexVersionHistory } from '@/platformAdminComponents/RegexVersionHistory';
 import { useT } from '@/shared/hooks/useT';
 import { LeadSource, LeadSourceFormValues, Template } from '@/models';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 const PAGE_SIZE = 20;
 
 type View = 'list' | 'create' | 'edit';

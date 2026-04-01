@@ -3,8 +3,7 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
-
-const API = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
 interface QuestionOption { value: string; label: string; }
 interface Question { question_key: string; type: string; label: string; required: boolean; options?: QuestionOption[]; order: number; }
@@ -25,11 +24,11 @@ export const SimulationTab: React.FC = () => {
   const fetchActiveForm = useCallback(async () => {
     setLoading(true);
     try {
-      const formsRes = await axios.get(`${API}/buyer-leads/tenants/${tenantId}/forms`);
+      const formsRes = await axios.get(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/forms`);
       const forms = formsRes.data as { id: number; status: string }[];
       const activeForm = forms.find((f) => f.status === 'active') ?? forms[0];
       if (!activeForm) { setLoading(false); return; }
-      const versRes = await axios.get(`${API}/buyer-leads/tenants/${tenantId}/forms/${activeForm.id}/versions`);
+      const versRes = await axios.get(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/forms/${activeForm.id}/versions`);
       const activeVersion = (versRes.data as { is_active: boolean; schema_json: string }[]).find((v) => v.is_active);
       if (activeVersion?.schema_json) {
         const schema = JSON.parse(activeVersion.schema_json) as { questions: Question[] };
@@ -50,7 +49,7 @@ export const SimulationTab: React.FC = () => {
   const handleSimulate = async () => {
     setSimulating(true); setResult(null);
     try {
-      const res = await axios.post<SimulateResult>(`${API}/buyer-leads/tenants/${tenantId}/simulate`, { answers });
+      const res = await axios.post<SimulateResult>(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/simulate`, { answers });
       setResult(res.data);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;

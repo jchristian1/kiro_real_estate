@@ -3,8 +3,7 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
-
-const API = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
 interface ScoringRule { key: string; answer_value: string; points: number; reason: string; }
 interface Thresholds { HOT: number; WARM: number; }
@@ -32,7 +31,7 @@ export const BuyerScoringTab: React.FC = () => {
   const fetchConfigs = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axios.get<ScoringConfig[]>(`${API}/buyer-leads/tenants/${tenantId}/scoring`);
+      const res = await axios.get<ScoringConfig[]>(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/scoring`);
       setConfigs(res.data);
       if (res.data.length > 0) await loadConfig(res.data[0]);
     } catch { toastError('Failed to load scoring configs'); } finally { setLoading(false); }
@@ -43,7 +42,7 @@ export const BuyerScoringTab: React.FC = () => {
   const loadConfig = async (config: ScoringConfig) => {
     setSelectedConfig(config);
     try {
-      const res = await axios.get<ScoringVersion[]>(`${API}/buyer-leads/tenants/${tenantId}/scoring/${config.id}/versions`);
+      const res = await axios.get<ScoringVersion[]>(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/scoring/${config.id}/versions`);
       setVersions(res.data);
       const active = res.data.find((v) => v.is_active);
       if (active) {
@@ -57,7 +56,7 @@ export const BuyerScoringTab: React.FC = () => {
     if (!newConfigName.trim()) return;
     setCreating(true);
     try {
-      const res = await axios.post<ScoringConfig>(`${API}/buyer-leads/tenants/${tenantId}/scoring`, { name: newConfigName.trim(), intent_type: 'BUY' });
+      const res = await axios.post<ScoringConfig>(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/scoring`, { name: newConfigName.trim(), intent_type: 'BUY' });
       success('Scoring config created'); setNewConfigName(''); setShowCreate(false);
       await fetchConfigs(); await loadConfig(res.data);
     } catch { toastError('Failed to create scoring config'); } finally { setCreating(false); }
@@ -66,7 +65,7 @@ export const BuyerScoringTab: React.FC = () => {
   const handleRename = async (config: ScoringConfig) => {
     if (!editConfigName.trim() || editConfigName === config.name) { setEditingConfigId(null); return; }
     try {
-      await axios.put(`${API}/buyer-leads/tenants/${tenantId}/scoring/${config.id}`, { name: editConfigName.trim(), intent_type: config.intent_type });
+      await axios.put(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/scoring/${config.id}`, { name: editConfigName.trim(), intent_type: config.intent_type });
       success('Renamed'); setEditingConfigId(null); fetchConfigs();
     } catch { toastError('Rename failed'); }
   };
@@ -74,7 +73,7 @@ export const BuyerScoringTab: React.FC = () => {
   const handleDelete = async (config: ScoringConfig) => {
     if (!confirm(`Delete scoring config "${config.name}"?`)) return;
     try {
-      await axios.delete(`${API}/buyer-leads/tenants/${tenantId}/scoring/${config.id}`);
+      await axios.delete(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/scoring/${config.id}`);
       success('Deleted'); setSelectedConfig(null); setVersions([]); setRules([]); fetchConfigs();
     } catch { toastError('Delete failed'); }
   };
@@ -82,7 +81,7 @@ export const BuyerScoringTab: React.FC = () => {
   const handleRollback = async (vid: number) => {
     if (!selectedConfig) return;
     try {
-      await axios.post(`${API}/buyer-leads/tenants/${tenantId}/scoring/${selectedConfig.id}/versions/${vid}/rollback`);
+      await axios.post(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/scoring/${selectedConfig.id}/versions/${vid}/rollback`);
       success('Rolled back'); loadConfig(selectedConfig);
     } catch { toastError('Rollback failed'); }
   };
@@ -91,7 +90,7 @@ export const BuyerScoringTab: React.FC = () => {
     if (!selectedConfig) return;
     setPublishing(true);
     try {
-      await axios.post(`${API}/buyer-leads/tenants/${tenantId}/scoring/${selectedConfig.id}/versions`, { rules, thresholds });
+      await axios.post(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/scoring/${selectedConfig.id}/versions`, { rules, thresholds });
       success('Scoring version published'); loadConfig(selectedConfig);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;

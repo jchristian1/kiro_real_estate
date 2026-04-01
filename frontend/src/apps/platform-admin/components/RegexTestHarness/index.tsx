@@ -6,21 +6,8 @@ import React, { useState } from 'react';
 import axios, { AxiosError } from 'axios';
 import { useT } from '@/shared/hooks/useT';
 import { RegexTestResponse, RegexTestResult } from '@/models';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
-
-// export interface RegexTestResult {
-//   matched: boolean;
-//   match_text: string | null;
-//   groups: string[];
-//   named_groups: Record<string, string>;
-// }
-
-// interface RegexTestResponse {
-//   pattern: string;
-//   test_text: string;
-//   result: RegexTestResult;
-// }
 
 export interface RegexTestHarnessProps {
   initialPattern?: string;

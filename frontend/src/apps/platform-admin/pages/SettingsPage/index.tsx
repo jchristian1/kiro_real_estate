@@ -6,8 +6,7 @@ import axios, { AxiosError } from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useTheme } from '@/shared/contexts/ThemeContext';
 import { getTokens } from '@/shared/utils/theme';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
 interface Settings {
   sync_interval_seconds: number;

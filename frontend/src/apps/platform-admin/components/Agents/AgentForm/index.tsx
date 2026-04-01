@@ -6,8 +6,7 @@ import { useT } from '../../../../../shared/hooks/useT';
 import { formSchema } from '@/shared/utils/helpers/agent-helper';
 import { z } from 'zod';
 import { Company } from '@/models/platform-admin/components/agent';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
 type FormValues = z.infer<typeof formSchema>;
 

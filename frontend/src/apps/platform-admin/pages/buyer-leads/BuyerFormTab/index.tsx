@@ -3,8 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
-
-const API = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
 interface FormTemplate { id: number; name: string; status: string; intent_type: string; created_at: string; }
 interface FormVersion { id: number; version_number: number; is_active: boolean; published_at: string | null; }
@@ -29,7 +28,7 @@ export const BuyerFormTab: React.FC = () => {
   const fetchTemplates = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axios.get<FormTemplate[]>(`${API}/buyer-leads/tenants/${tenantId}/forms`);
+      const res = await axios.get<FormTemplate[]>(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/forms`);
       setTemplates(res.data);
     } catch { toastError('Failed to load form templates'); } finally { setLoading(false); }
   }, [tenantId]);
@@ -39,7 +38,7 @@ export const BuyerFormTab: React.FC = () => {
   const fetchVersions = async (tmpl: FormTemplate) => {
     setSelectedTemplate(tmpl); setVersionsLoading(true);
     try {
-      const res = await axios.get<FormVersion[]>(`${API}/buyer-leads/tenants/${tenantId}/forms/${tmpl.id}/versions`);
+      const res = await axios.get<FormVersion[]>(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/forms/${tmpl.id}/versions`);
       setVersions(res.data);
     } catch { toastError('Failed to load versions'); } finally { setVersionsLoading(false); }
   };
@@ -48,7 +47,7 @@ export const BuyerFormTab: React.FC = () => {
     if (!newName.trim()) return;
     setCreating(true);
     try {
-      await axios.post(`${API}/buyer-leads/tenants/${tenantId}/forms`, { name: newName.trim(), intent_type: 'BUY' });
+      await axios.post(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/forms`, { name: newName.trim(), intent_type: 'BUY' });
       success('Form template created'); setNewName(''); setShowCreate(false); fetchTemplates();
     } catch { toastError('Failed to create form template'); } finally { setCreating(false); }
   };
@@ -56,7 +55,7 @@ export const BuyerFormTab: React.FC = () => {
   const handleRename = async (tmpl: FormTemplate) => {
     if (!editName.trim() || editName === tmpl.name) { setEditingId(null); return; }
     try {
-      await axios.put(`${API}/buyer-leads/tenants/${tenantId}/forms/${tmpl.id}`, { name: editName.trim() });
+      await axios.put(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/forms/${tmpl.id}`, { name: editName.trim() });
       success('Renamed'); setEditingId(null); fetchTemplates();
     } catch { toastError('Rename failed'); }
   };
@@ -64,7 +63,7 @@ export const BuyerFormTab: React.FC = () => {
   const handleDelete = async (tmpl: FormTemplate) => {
     if (!confirm(`Delete "${tmpl.name}"?`)) return;
     try {
-      await axios.delete(`${API}/buyer-leads/tenants/${tenantId}/forms/${tmpl.id}`);
+      await axios.delete(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/forms/${tmpl.id}`);
       success('Deleted');
       if (selectedTemplate?.id === tmpl.id) { setSelectedTemplate(null); setVersions([]); }
       fetchTemplates();
@@ -73,7 +72,7 @@ export const BuyerFormTab: React.FC = () => {
 
   const handleRollback = async (templateId: number, versionId: number) => {
     try {
-      await axios.post(`${API}/buyer-leads/tenants/${tenantId}/forms/${templateId}/versions/${versionId}/rollback`);
+      await axios.post(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/forms/${templateId}/versions/${versionId}/rollback`);
       success('Rolled back to version');
       if (selectedTemplate) fetchVersions(selectedTemplate);
     } catch { toastError('Rollback failed'); }

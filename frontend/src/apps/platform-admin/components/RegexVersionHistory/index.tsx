@@ -7,8 +7,7 @@ import axios, { AxiosError } from 'axios';
 import { ConfirmDialog } from '@/platformAdminComponents/ConfirmDialog';
 import { useT } from '@/shared/hooks/useT';
 import { RegexProfileVersion } from '@/models';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
 
 

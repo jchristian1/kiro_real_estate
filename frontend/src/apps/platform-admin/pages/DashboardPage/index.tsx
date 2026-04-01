@@ -7,7 +7,7 @@ import axios from 'axios';
 import { useTheme } from '@/shared/contexts';
 import { getTokens } from '@/shared/utils';
 import { WatcherStatus, HealthData } from '@/models';
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
 
 

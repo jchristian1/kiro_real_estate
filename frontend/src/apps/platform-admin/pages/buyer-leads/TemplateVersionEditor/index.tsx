@@ -3,8 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
-
-const API = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
 const SUPPORTED_VARS = ['lead_name', 'agent_name', 'property_address', 'form_url', 'score', 'bucket', 'tenant_name'];
 const BUCKETS = ['HOT', 'WARM', 'NURTURE'] as const;
@@ -37,8 +36,8 @@ export const TemplateVersionEditor: React.FC = () => {
     setLoading(true);
     try {
       const [tmplRes, versRes] = await Promise.all([
-        axios.get(`${API}/buyer-leads/tenants/${tenantId}/message-templates/${templateId}`),
-        axios.get(`${API}/buyer-leads/tenants/${tenantId}/message-templates/${templateId}/versions`),
+        axios.get(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/message-templates/${templateId}`),
+        axios.get(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/message-templates/${templateId}/versions`),
       ]);
       setTemplateKey(tmplRes.data.key);
       setHasVariants(tmplRes.data.key === 'POST_SUBMISSION_EMAIL');
@@ -66,7 +65,7 @@ export const TemplateVersionEditor: React.FC = () => {
   const handlePreview = async () => {
     setPreviewing(true);
     try {
-      const res = await axios.post<PreviewResult>(`${API}/buyer-leads/tenants/${tenantId}/message-templates/${templateId}/preview`, {
+      const res = await axios.post<PreviewResult>(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/message-templates/${templateId}/preview`, {
         subject_template: hasVariants ? (variants[previewBucket]?.subject ?? subject) : subject,
         body_template: hasVariants ? (variants[previewBucket]?.body ?? body) : body,
         context: sampleContext,
@@ -78,7 +77,7 @@ export const TemplateVersionEditor: React.FC = () => {
   const handlePublish = async () => {
     setPublishing(true);
     try {
-      await axios.post(`${API}/buyer-leads/tenants/${tenantId}/message-templates/${templateId}/versions`, {
+      await axios.post(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/message-templates/${templateId}/versions`, {
         subject_template: subject, body_template: body,
         variants_json: hasVariants ? JSON.stringify(variants) : undefined,
       });

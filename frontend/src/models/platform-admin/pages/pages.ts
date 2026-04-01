@@ -8,8 +8,9 @@ export interface WatcherStatus {
 
 export interface HealthData {
   status: string;
-  timestamp: string;
-  database: { connected: boolean; message: string };
-  watchers: { active_count: number; heartbeats: Record<string, unknown> };
-  errors: { count_24h: number; recent_errors: unknown[] };
+  database: string;           // "connected" | "error"
+  db_dialect: string;
+  active_watchers: number;
+  errors_last_24h: number;
+  watchers: Record<string, { status: string; last_heartbeat: string | null }>;
 }

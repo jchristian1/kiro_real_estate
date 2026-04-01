@@ -11,9 +11,10 @@ import { useToast } from '@/shared/contexts/ToastContext';
 import { Template } from '@/models/app-model';
 import { PLACEHOLDERS } from '@/shared/utils';
 import { ConfirmDialog } from '@/platformAdminComponents/ConfirmDialog';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
 
-const API = '/api/v1';
+
 
 
 interface TemplateVersion {
@@ -78,7 +79,7 @@ const TemplateDrawer: React.FC<DrawerProps> = ({ template, onClose, onSaved }) =
     if (!template) return;
     setVersLoading(true);
     try {
-      const r = await axios.get<{ versions: TemplateVersion[] }>(`${API}/templates/${template.id}/versions`);
+      const r = await axios.get<{ versions: TemplateVersion[] }>(`${API_BASE_URL}/templates/${template.id}/versions`);
       setVersions(r.data.versions ?? []);
     } catch { toastError('Failed to load version history'); }
     finally { setVersLoading(false); }
@@ -116,10 +117,10 @@ const TemplateDrawer: React.FC<DrawerProps> = ({ template, onClose, onSaved }) =
     setSaving(true); setServerError(null);
     try {
       if (template) {
-        await axios.put(`${API}/templates/${template.id}`, { name, subject, body });
+        await axios.put(`${API_BASE_URL}/templates/${template.id}`, { name, subject, body });
         success('Template updated');
       } else {
-        await axios.post(`${API}/templates`, { name, subject, body });
+        await axios.post(`${API_BASE_URL}/templates`, { name, subject, body });
         success('Template created');
       }
       onSaved();
@@ -132,7 +133,7 @@ const TemplateDrawer: React.FC<DrawerProps> = ({ template, onClose, onSaved }) =
   const handleRollback = async (versionNumber: number) => {
     if (!template) return;
     try {
-      await axios.post(`${API}/templates/${template.id}/rollback`, { version: versionNumber });
+      await axios.post(`${API_BASE_URL}/templates/${template.id}/rollback`, { version: versionNumber });
       success('Rolled back'); loadVersions(); onSaved();
     } catch { toastError('Rollback failed'); }
   };
@@ -503,7 +504,7 @@ export const TemplatesPage: React.FC = () => {
   const fetchTemplates = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axios.get<{ templates: Template[] }>(`${API}/templates`);
+      const res = await axios.get<{ templates: Template[] }>(`${API_BASE_URL}/templates`);
       setTemplates(res.data.templates ?? []);
       setFetchError(null);
     } catch { setFetchError('Failed to load templates'); }
@@ -521,7 +522,7 @@ export const TemplatesPage: React.FC = () => {
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
     try {
-      await axios.delete(`${API}/templates/${deleteTarget.id}`);
+      await axios.delete(`${API_BASE_URL}/templates/${deleteTarget.id}`);
       success('Template deleted');
       setTemplates(prev => prev.filter(t => t.id !== deleteTarget.id));
       queryClient.invalidateQueries({ queryKey: ['admin-templates'] });

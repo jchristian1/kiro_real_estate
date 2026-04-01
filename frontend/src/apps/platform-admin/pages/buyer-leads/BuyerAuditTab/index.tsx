@@ -3,8 +3,7 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
-
-const API = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
 interface AuditEntry { id: number; lead_id: number | null; event_type: string; actor_type?: string; occurred_at: string; metadata_json?: string; }
 interface AuditResponse { items: AuditEntry[]; total: number; page: number; page_size: number; }
@@ -35,7 +34,7 @@ export const BuyerAuditTab: React.FC = () => {
       if (eventTypeFilter) params.event_type = eventTypeFilter;
       if (startDate) params.date_from = startDate;
       if (endDate) params.date_to = endDate;
-      const res = await axios.get<AuditResponse>(`${API}/buyer-leads/tenants/${tenantId}/audit`, { params });
+      const res = await axios.get<AuditResponse>(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/audit`, { params });
       setEntries(res.data.items);
       setTotalPages(Math.max(1, Math.ceil(res.data.total / 25)));
       setTotal(res.data.total);

@@ -7,8 +7,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
-
-const API = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
 interface MessageTemplate {
   id: number;
@@ -56,7 +55,7 @@ export const EmailTemplatesTab: React.FC = () => {
     setLoading(true);
     try {
       const res = await axios.get<MessageTemplate[]>(
-        `${API}/buyer-leads/tenants/${tenantId}/message-templates`
+        `${API_BASE_URL}/buyer-leads/tenants/${tenantId}/message-templates`
       );
       setTemplates(res.data);
     } catch {
@@ -73,7 +72,7 @@ export const EmailTemplatesTab: React.FC = () => {
     setVersionsLoading(true);
     try {
       const res = await axios.get<MessageTemplateVersion[]>(
-        `${API}/buyer-leads/tenants/${tenantId}/message-templates/${template.id}/versions`
+        `${API_BASE_URL}/buyer-leads/tenants/${tenantId}/message-templates/${template.id}/versions`
       );
       setVersions(res.data);
     } catch {
@@ -86,7 +85,7 @@ export const EmailTemplatesTab: React.FC = () => {
   const handleCreate = async () => {
     setCreating(true);
     try {
-      await axios.post(`${API}/buyer-leads/tenants/${tenantId}/message-templates`, {
+      await axios.post(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/message-templates`, {
         key: newKey,
         intent_type: 'BUY',
       });
@@ -103,7 +102,7 @@ export const EmailTemplatesTab: React.FC = () => {
   const handleDelete = async (tmpl: MessageTemplate) => {
     if (!confirm(`Delete "${KEY_LABELS[tmpl.key] ?? tmpl.key}"? This cannot be undone.`)) return;
     try {
-      await axios.delete(`${API}/buyer-leads/tenants/${tenantId}/message-templates/${tmpl.id}`);
+      await axios.delete(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/message-templates/${tmpl.id}`);
       success('Deleted');
       if (selectedTemplate?.id === tmpl.id) { setSelectedTemplate(null); setVersions([]); }
       fetchTemplates();
@@ -116,7 +115,7 @@ export const EmailTemplatesTab: React.FC = () => {
     if (!selectedTemplate) return;
     try {
       await axios.post(
-        `${API}/buyer-leads/tenants/${tenantId}/message-templates/${selectedTemplate.id}/versions/${vid}/rollback`
+        `${API_BASE_URL}/buyer-leads/tenants/${tenantId}/message-templates/${selectedTemplate.id}/versions/${vid}/rollback`
       );
       success('Rolled back');
       fetchVersions(selectedTemplate);

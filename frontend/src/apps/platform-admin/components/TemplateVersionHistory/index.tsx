@@ -9,8 +9,6 @@ import { useT } from '@/shared/hooks';
 import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 import { TemplateVersion } from '@/models/app-model';
 
-
-
 export interface TemplateVersionHistoryProps {
   templateId: number;
   templateName: string;

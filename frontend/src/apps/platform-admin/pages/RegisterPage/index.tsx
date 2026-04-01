@@ -7,8 +7,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTheme } from '@/shared/contexts/ThemeContext';
 import { getTokens } from '@/shared/utils/theme';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 type Step = 'company' | 'account' | 'done';
 
@@ -56,7 +56,7 @@ export const RegisterPage: React.FC = () => {
     if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
     setError(''); setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/register`, {
+      const res = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

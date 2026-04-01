@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import axios, { AxiosError } from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 const PAGE_SIZE = 20;
 
 interface Company { id: number; name: string; phone: string | null; email: string | null; active_form_version_id: number | null; created_at: string; }

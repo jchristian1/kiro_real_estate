@@ -3,8 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
-
-const API = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
 interface QuestionOption { value: string; label: string; }
 interface Question {
@@ -38,8 +37,8 @@ export const FormVersionEditor: React.FC = () => {
     setLoading(true);
     try {
       const [tmplRes, versRes] = await Promise.all([
-        axios.get(`${API}/buyer-leads/tenants/${tenantId}/forms/${formId}`),
-        axios.get(`${API}/buyer-leads/tenants/${tenantId}/forms/${formId}/versions`),
+        axios.get(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/forms/${formId}`),
+        axios.get(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/forms/${formId}/versions`),
       ]);
       setTemplateName(tmplRes.data.name);
       const activeVersion = (versRes.data as { is_active: boolean; schema_json?: string }[]).find(v => v.is_active);
@@ -103,7 +102,7 @@ export const FormVersionEditor: React.FC = () => {
         logic_rules: logicRules.map(r => ({ rule_json: JSON.stringify(r) })),
       };
       console.log('Publishing payload:', JSON.stringify(payload, null, 2));
-      await axios.post(`${API}/buyer-leads/tenants/${tenantId}/forms/${formId}/versions`, payload);
+      await axios.post(`${API_BASE_URL}/buyer-leads/tenants/${tenantId}/forms/${formId}/versions`, payload);
       success('New version published');
       navigate(`/buyer-leads/${tenantId}/forms`);
     } catch (err: unknown) {

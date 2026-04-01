@@ -6,11 +6,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
 // Use relative URLs so the Vite dev proxy handles routing.
 // API calls go to /api/v1/public/... (proxied to backend).
 // The page itself lives at /public/buyer-qualification/:token (React Router).
-const PUBLIC_API = '/api/v1';
+
 
 interface Option { value: string; label: string; }
 interface Question {
@@ -35,7 +36,7 @@ export const PublicFormPage: React.FC = () => {
 
   useEffect(() => {
     if (!token) return;
-    axios.get(`${PUBLIC_API}/public/buyer-qualification/${token}`)
+    axios.get(`${API_BASE_URL}/public/buyer-qualification/${token}`)
       .then(r => {
         setQuestions((r.data.questions || []).sort((a: Question, b: Question) => a.order - b.order));
         setLoading(false);
@@ -78,7 +79,7 @@ export const PublicFormPage: React.FC = () => {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await axios.post(`${PUBLIC_API}/public/buyer-qualification/${token}/submit`, {
+      const res = await axios.post(`${API_BASE_URL}/public/buyer-qualification/${token}/submit`, {
         answers,
       });
       void res; // score data intentionally not shown to user

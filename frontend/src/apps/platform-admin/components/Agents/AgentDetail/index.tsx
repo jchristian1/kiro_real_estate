@@ -7,8 +7,7 @@ import axios, { AxiosError } from 'axios';
 import { useT } from '@/shared/hooks/useT';
 import { formatTimestamp } from '@/shared/utils';
 import { AgentDetailData, WatcherStatus, AgentTemplate } from '@/models/platform-admin';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 
 
 export interface AgentDetailProps {
