@@ -1,53 +1,12 @@
 /**
- * Agent API client — axios wrapper with session cookie handling and 401 redirect.
- * All requests go to /api/v1/agent/* with credentials included.
+ * Agent API client — uses shared createApiClient factory.
+ * 401s redirect to /agent/login (or /agent/signup if already there).
  */
 
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
+import { createApiClient } from '@/shared/api/client';
 
-const BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
-
-const client = axios.create({
-  baseURL: BASE,
-  withCredentials: true,
-});
-
-// 401 → redirect to agent login
-client.interceptors.response.use(
-  r => r,
-  (err: AxiosError) => {
-    if (err.response?.status === 401) {
-      const current = window.location.pathname;
-      if (!current.startsWith('/agent/login') && !current.startsWith('/agent/signup')) {
-        window.location.href = '/agent/login';
-      }
-    }
-    return Promise.reject(err);
-  }
-);
-
-export const agentApi = {
-  get: async <T>(path: string, params?: Record<string, unknown>): Promise<T> => {
-    const r = await client.get<T>(path, { params });
-    return r.data;
-  },
-  post: async <T>(path: string, body: unknown): Promise<T> => {
-    const r = await client.post<T>(path, body);
-    return r.data;
-  },
-  put: async <T>(path: string, body: unknown): Promise<T> => {
-    const r = await client.put<T>(path, body);
-    return r.data;
-  },
-  patch: async <T>(path: string, body: unknown): Promise<T> => {
-    const r = await client.patch<T>(path, body);
-    return r.data;
-  },
-  delete: async <T>(path: string): Promise<T> => {
-    const r = await client.delete<T>(path);
-    return r.data;
-  },
-};
+export const agentApi = createApiClient(['/agent/login', '/agent/signup']);
 
 /** Extract a user-friendly error message from an axios error */
 export const getAgentErrorMessage = (err: unknown): string => {

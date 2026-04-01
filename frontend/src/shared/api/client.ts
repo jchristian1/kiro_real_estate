@@ -48,3 +48,7 @@ export const getFriendlyErrorMessage = (error: unknown): string => {
 
   return 'An unexpected error occurred. Please try again.';
 };
+
+export { createApiClient } from './createClient';
+export type { ApiClient } from './createClient';
+
