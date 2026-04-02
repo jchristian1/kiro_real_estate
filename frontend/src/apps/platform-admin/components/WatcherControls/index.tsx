@@ -6,9 +6,7 @@ import { API_BASE_URL } from '@/shared/utils/config/enviroments';
 import { WatcherStatus } from '@/models/platform-admin';
 import { POLL_INTERVAL_MS } from '@/shared/utils/config/const-app';
 import { formatTs } from '@/shared/utils/helpers';
-
-
-
+import styles from './index.module.css';
 
 
 export const WatcherControls: React.FC = () => {
@@ -50,17 +48,17 @@ export const WatcherControls: React.FC = () => {
     await doAction(stopTarget, 'stop');
   };
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 120, color: t.textMuted }} data-testid="watcher-controls-loading">Loading watchers…</div>;
+  if (loading) return <div className={styles.loadingContainer} style={{ color: t.textMuted }} data-testid="watcher-controls-loading">Loading watchers…</div>;
 
   if (watchers.length === 0) return (
-    <div style={{ ...t.card, textAlign: 'center', padding: '48px 24px' }} data-testid="watcher-controls-empty">
+    <div className={styles.emptyContainer} style={t.card} data-testid="watcher-controls-empty">
       <p style={{ color: t.textMuted }}>No watchers configured. Create an agent to get started.</p>
     </div>
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }} data-testid="watcher-controls">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+    <div className={styles.container} data-testid="watcher-controls">
+      <div className={styles.grid}>
         {watchers.map((w) => {
           const isRunning = w.status.toLowerCase() === 'running';
           const busy = actionLoading?.startsWith(w.agent_id) ?? false;
@@ -70,40 +68,43 @@ export const WatcherControls: React.FC = () => {
 
           return (
             <div key={w.agent_id} style={t.card} data-testid={`watcher-card-${w.agent_id}`}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <h3 style={{ fontSize: 13, fontWeight: 600, color: t.text, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={w.agent_id}>{w.agent_id}</h3>
-                <span style={{ padding: '2px 8px', fontSize: 10, fontWeight: 600, background: statusBg, color: statusColor, borderRadius: 20 }} data-testid={`status-badge-${w.agent_id}`}>{w.status}</span>
+              <div className={styles.cardHeader}>
+                <h3 className={styles.agentTitle} style={{ color: t.text }} title={w.agent_id}>{w.agent_id}</h3>
+                <span className={styles.statusBadge} style={{ background: statusBg, color: statusColor }} data-testid={`status-badge-${w.agent_id}`}>{w.status}</span>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
+              <div className={styles.metaColumn}>
                 {[['Last Heartbeat', w.last_heartbeat, `heartbeat-${w.agent_id}`], ['Last Sync', w.last_sync, `last-sync-${w.agent_id}`]].map(([label, val, testId]) => (
-                  <div key={label as string} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 11, color: t.textFaint }}>{label}</span>
-                    <span style={{ fontSize: 11, color: t.textMuted }} data-testid={testId as string}>{formatTs(val as string | null)}</span>
+                  <div key={label as string} className={styles.metaRow}>
+                    <span className={styles.metaLabel} style={{ color: t.textFaint }}>{label}</span>
+                    <span className={styles.metaValue} style={{ color: t.textMuted }} data-testid={testId as string}>{formatTs(val as string | null)}</span>
                   </div>
                 ))}
               </div>
 
-              {w.error && <div style={{ marginBottom: 10, padding: '6px 10px', background: t.redBg, border: `1px solid ${t.red}30`, borderRadius: 8, fontSize: 11, color: t.red }} data-testid={`watcher-error-${w.agent_id}`}>{w.error}</div>}
-              {fb && <div style={{ marginBottom: 10, padding: '6px 10px', background: fb.isError ? t.redBg : t.greenBg, borderRadius: 8, fontSize: 11, color: fb.isError ? t.red : t.green }} data-testid={`feedback-${w.agent_id}`}>{fb.msg}</div>}
+              {w.error && <div className={styles.errorBox} style={{ background: t.redBg, border: `1px solid ${t.red}30`, color: t.red }} data-testid={`watcher-error-${w.agent_id}`}>{w.error}</div>}
+              {fb && <div className={styles.feedbackBox} style={{ background: fb.isError ? t.redBg : t.greenBg, color: fb.isError ? t.red : t.green }} data-testid={`feedback-${w.agent_id}`}>{fb.msg}</div>}
 
-              <div style={{ display: 'flex', gap: 8 }} data-testid={`controls-${w.agent_id}`}>
+              <div className={styles.controlsRow} data-testid={`controls-${w.agent_id}`}>
                 {!isRunning && (
                   <button onClick={() => doAction(w.agent_id, 'start')} disabled={busy}
-                    style={{ flex: 1, padding: '6px 10px', fontSize: 12, fontWeight: 600, background: t.greenBg, color: t.green, border: `1px solid ${t.green}30`, borderRadius: 8, cursor: 'pointer', opacity: busy ? 0.5 : 1 }}
+                    className={styles.actionBtn}
+                    style={{ background: t.greenBg, color: t.green, border: `1px solid ${t.green}30`, opacity: busy ? 0.5 : 1 }}
                     data-testid={`start-btn-${w.agent_id}`}>
                     {actionLoading === `${w.agent_id}-start` ? 'Starting…' : 'Start'}
                   </button>
                 )}
                 {isRunning && (
                   <button onClick={() => setStopTarget(w.agent_id)} disabled={busy}
-                    style={{ flex: 1, padding: '6px 10px', fontSize: 12, fontWeight: 600, background: t.redBg, color: t.red, border: `1px solid ${t.red}30`, borderRadius: 8, cursor: 'pointer', opacity: busy ? 0.5 : 1 }}
+                    className={styles.actionBtn}
+                    style={{ background: t.redBg, color: t.red, border: `1px solid ${t.red}30`, opacity: busy ? 0.5 : 1 }}
                     data-testid={`stop-btn-${w.agent_id}`}>
                     {actionLoading === `${w.agent_id}-stop` ? 'Stopping…' : 'Stop'}
                   </button>
                 )}
                 <button onClick={() => doAction(w.agent_id, 'sync')} disabled={busy}
-                  style={{ flex: 1, ...t.btnPrimary, padding: '6px 10px', fontSize: 12, opacity: busy ? 0.5 : 1 }}
+                  className={styles.actionBtn}
+                  style={{ ...t.btnPrimary, padding: '6px 10px', fontSize: 12, opacity: busy ? 0.5 : 1 }}
                   data-testid={`sync-btn-${w.agent_id}`}>
                   {actionLoading === `${w.agent_id}-sync` ? 'Syncing…' : 'Sync'}
                 </button>

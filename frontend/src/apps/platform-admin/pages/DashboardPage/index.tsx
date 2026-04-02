@@ -8,6 +8,7 @@ import { useTheme } from '@/shared/contexts';
 import { getTokens } from '@/shared/utils';
 import { WatcherStatus, HealthData } from '@/models';
 import { API_BASE_URL } from '@/shared/utils/config/enviroments';
+import styles from './index.module.css';
 
 
 
@@ -53,7 +54,7 @@ export const DashboardPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: t.textFaint, fontSize: 14 }}>
+      <div className={styles.loadingContainer} style={{ color: t.textFaint }}>
         Loading…
       </div>
     );
@@ -67,23 +68,22 @@ export const DashboardPage: React.FC = () => {
   return (
     <div style={{ maxWidth: 960 }}>
       {/* Status bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 28 }}>
-        <span style={dot(isHealthy)} />
-        <span style={{ fontSize: 13, color: isHealthy ? t.green : t.red, fontWeight: 600 }}>
+      <div className={styles.statusBar}>
+        <span className={styles.dot} style={{ background: isHealthy ? t.green : t.red, boxShadow: isHealthy ? `0 0 6px ${t.green}80` : `0 0 6px ${t.red}80` }} />
+        <span className={styles.statusBarText} style={{ color: isHealthy ? t.green : t.red }}>
           {isHealthy ? 'All systems operational' : 'System degraded'}
         </span>
         {health && (
-          <span style={{ fontSize: 12, color: t.textFaint, marginLeft: 8 }}>
+          <span className={styles.statusBarSubtext} style={{ color: t.textFaint }}>
             · {activeWatchers} watcher{activeWatchers !== 1 ? 's' : ''} running
           </span>
         )}
         <button
           onClick={fetchAll}
+          className={styles.refreshButtonStyle}
           style={{
-            marginLeft: 'auto',
             background: t.bgCard, border: `1px solid ${t.border}`,
-            borderRadius: 8, padding: '5px 14px', fontSize: 12,
-            color: t.textMuted, cursor: 'pointer', transition: 'all 0.15s',
+            color: t.textMuted,
           }}
         >
           Refresh
@@ -91,39 +91,37 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 24 }}>
+      <div className={styles.metricsGrid}>
         {[
           { label: 'Database', value: dbOk ? 'Connected' : 'Disconnected', ok: dbOk },
           { label: 'Active Watchers', value: String(activeWatchers), ok: activeWatchers > 0 },
           { label: 'Errors (24h)', value: String(errors24h), ok: errors24h === 0 },
         ].map(s => (
-          <div key={s.label} style={card}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>
+          <div key={s.label} className={styles.metricCard} style={{ background: t.bgCard, border: `1px solid ${t.border}` }}>
+            <div className={styles.metricLabel} style={{ color: t.textFaint }}>
               {s.label}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={dot(s.ok)} />
-              <span style={{ fontSize: 22, fontWeight: 700, color: t.text, letterSpacing: '-0.5px' }}>{s.value}</span>
+            <div className={styles.metricValue}>
+              <span className={styles.dot} style={{ background: s.ok ? t.green : t.red, boxShadow: s.ok ? `0 0 6px ${t.green}80` : `0 0 6px ${t.red}80` }} />
+              <span style={{ color: t.text }}>{s.value}</span>
             </div>
           </div>
         ))}
       </div>
 
       {/* Watchers table */}
-      <div style={card}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: t.text, marginBottom: 16 }}>Watchers</div>
+      <div className={styles.card} style={{ background: t.bgCard, border: `1px solid ${t.border}` }}>
+        <div className={styles.watchersTitle} style={{ color: t.text }}>Watchers</div>
 
         {watchers.length === 0 ? (
-          <div style={{ fontSize: 13, color: t.textFaint, padding: '12px 0' }}>No watchers configured.</div>
+          <div className={styles.emptyState} style={{ color: t.textFaint }}>No watchers configured.</div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table className={styles.watchersTable}>
             <thead>
               <tr>
                 {['Agent', 'Status', 'Last Sync', 'Error'].map(h => (
-                  <th key={h} style={{
-                    textAlign: 'left', padding: '0 0 10px',
-                    color: t.textFaint, fontWeight: 500,
-                    fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px',
+                  <th key={h} className={styles.watchersTableHeader} style={{
+                    color: t.textFaint,
                     borderBottom: `1px solid ${t.border}`,
                   }}>{h}</th>
                 ))}
@@ -132,22 +130,21 @@ export const DashboardPage: React.FC = () => {
             <tbody>
               {watchers.map((w, i) => (
                 <tr key={w.agent_id} style={{ borderBottom: i < watchers.length - 1 ? `1px solid ${t.border}` : 'none' }}>
-                  <td style={{ padding: '11px 0', color: t.text, fontWeight: 500 }}>{w.agent_id}</td>
-                  <td style={{ padding: '11px 0' }}>
-                    <span style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-                      background: w.status === 'running' ? t.greenBg : t.redBg,
-                      color: w.status === 'running' ? t.green : t.red,
-                    }}>
-                      <span style={dot(w.status === 'running')} />
+                  <td className={styles.watchersTableCell} style={{ color: t.text, fontWeight: 500 }}>{w.agent_id}</td>
+                  <td className={styles.watchersTableCell}>
+                    <span className={styles.watcherStatusBadgeStyle}
+                      style={{
+                        background: w.status === 'running' ? t.greenBg : t.redBg,
+                        color: w.status === 'running' ? t.green : t.red,
+                      }}>
+                      <span className={styles.dot} style={{ background: w.status === 'running' ? t.green : t.red, boxShadow: w.status === 'running' ? `0 0 6px ${t.green}80` : `0 0 6px ${t.red}80` }} />
                       {w.status}
                     </span>
                   </td>
-                  <td style={{ padding: '11px 0', color: t.textMuted, fontSize: 12 }}>
+                  <td className={styles.watchersTableCell} style={{ color: t.textMuted, fontSize: 12 }}>
                     {w.last_sync ? new Date(w.last_sync).toLocaleString() : '—'}
                   </td>
-                  <td style={{ padding: '11px 0', color: t.red, fontSize: 12, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <td className={styles.watcherErrorCellStyle} style={{ color: t.red }}>
                     {w.error || '—'}
                   </td>
                 </tr>

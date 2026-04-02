@@ -11,8 +11,9 @@ import {
   useCreateRule, useUpdateRule, useDeleteRule,
   useAdminTemplates,
 } from '@/apps/platform-admin/hooks/usePipelineQueries';
-import type { PipelineActionRule, PipelineStage, RuleCreate, RuleUpdate, ActionType } from '@/apps/platform-admin/api/pipelinesApi';
+import type { PipelineActionRule, PipelineStage, RuleCreate, RuleUpdate, ActionType } from '@/models/platform-admin'
 import { TRIGGER_OPTIONS, CONDITION_OPTIONS, ACTION_OPTIONS } from '@/shared/utils';
+import styles from './index.module.css';
 
 
 interface Props { pipelineId: number; }
@@ -38,20 +39,16 @@ export const AutomationsTab: React.FC<Props> = ({ pipelineId }) => {
     } as RuleCreate & { pipelineId: number });
   };
 
-  if (isLoading) return <div style={{ color: t.textFaint, fontSize: 14, padding: 24 }}>Loading…</div>;
+  if (isLoading) return <div className={styles.loadingText} style={{ color: t.textFaint }}>Loading…</div>;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div className={styles.container}>
       {/* Explainer */}
-      <div style={{
-        background: t.accentBg, border: `1px solid ${t.accent}22`,
-        borderRadius: 12, padding: '14px 18px',
-        display: 'flex', alignItems: 'flex-start', gap: 12,
-      }}>
-        <span style={{ fontSize: 20 }}>⚡</span>
+      <div className={styles.explainer} style={{ background: t.accentBg, border: `1px solid ${t.accent}22` }}>
+        <span className={styles.explainerIcon}>⚡</span>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: t.text, marginBottom: 2 }}>Automate your pipeline</div>
-          <div style={{ fontSize: 12, color: t.textMuted }}>
+          <div className={styles.explainerTitle} style={{ color: t.text }}>Automate your pipeline</div>
+          <div className={styles.explainerDesc} style={{ color: t.textMuted }}>
             Create rules that run automatically. Each rule has a <strong>trigger</strong> (when something happens),
             an optional <strong>condition</strong> (only if…), and one or more <strong>actions</strong> (do this).
           </div>
@@ -59,24 +56,13 @@ export const AutomationsTab: React.FC<Props> = ({ pipelineId }) => {
       </div>
 
       {sorted.length === 0 && (
-        <div style={{
-          background: t.bgCard, border: `1.5px dashed ${t.border}`,
-          borderRadius: 14, padding: '48px 24px', textAlign: 'center',
-        }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>🤖</div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: t.text, marginBottom: 6 }}>No automations yet</div>
-          <div style={{ fontSize: 13, color: t.textMuted, marginBottom: 20 }}>
+        <div className={styles.emptyState} style={{ background: t.bgCard, border: `1.5px dashed ${t.border}` }}>
+          <div className={styles.emptyIcon}>🤖</div>
+          <div className={styles.emptyTitle} style={{ color: t.text }}>No automations yet</div>
+          <div className={styles.emptyDesc} style={{ color: t.textMuted }}>
             Automations save time by taking actions automatically when leads move through your pipeline.
           </div>
-          <button
-            onClick={handleNewRule}
-            disabled={createRule.isPending}
-            style={{
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              border: 'none', borderRadius: 9, color: '#fff',
-              fontSize: 13, fontWeight: 600, padding: '10px 22px', cursor: 'pointer',
-            }}
-          >
+          <button onClick={handleNewRule} disabled={createRule.isPending} className={styles.primaryBtn}>
             Create your first automation
           </button>
         </div>
@@ -90,11 +76,8 @@ export const AutomationsTab: React.FC<Props> = ({ pipelineId }) => {
         <button
           onClick={handleNewRule}
           disabled={createRule.isPending}
-          style={{
-            background: t.bgCard, border: `1.5px dashed ${t.border}`,
-            borderRadius: 12, color: t.textMuted, fontSize: 13, fontWeight: 600,
-            padding: '12px', cursor: 'pointer', transition: 'all 0.15s',
-          }}
+          className={styles.addBtn}
+          style={{ background: t.bgCard, border: `1.5px dashed ${t.border}`, color: t.textMuted }}
         >
           {createRule.isPending ? 'Creating…' : '+ Add Automation'}
         </button>
@@ -102,6 +85,7 @@ export const AutomationsTab: React.FC<Props> = ({ pipelineId }) => {
     </div>
   );
 };
+
 
 // ── Rule Card ─────────────────────────────────────────────────────────────
 
@@ -152,29 +136,25 @@ const RuleCard: React.FC<{ rule: PipelineActionRule; pipelineId: number; stages:
   };
 
   return (
-    <div style={{
+    <div className={styles.ruleCard} style={{
       background: t.bgCard, border: `1px solid ${t.border}`,
-      borderRadius: 14, overflow: 'hidden',
       opacity: rule.is_enabled ? 1 : 0.75,
     }}>
       {/* Header */}
-      <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button
-          onClick={() => setExpanded(e => !e)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, fontSize: 14, padding: 0, flexShrink: 0 }}
-        >
+      <div className={styles.ruleHeader}>
+        <button onClick={() => setExpanded(e => !e)} className={styles.expandBtn} style={{ color: t.textMuted }}>
           {expanded ? '▾' : '▸'}
         </button>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: t.text, marginBottom: 2 }}>{rule.name}</div>
-          <div style={{ fontSize: 12, color: t.textMuted, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ background: t.accentBg, color: t.accent, padding: '1px 7px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>WHEN</span>
+        <div className={styles.ruleInfo}>
+          <div className={styles.ruleName} style={{ color: t.text }}>{rule.name}</div>
+          <div className={styles.ruleSummary} style={{ color: t.textMuted }}>
+            <span className={styles.badge} style={{ background: t.accentBg, color: t.accent }}>WHEN</span>
             <span>{summary}</span>
             {rule.steps.length > 0 && (
               <>
                 <span style={{ color: t.textFaint }}>→</span>
-                <span style={{ background: '#16a34a22', color: '#16a34a', padding: '1px 7px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>THEN</span>
+                <span className={styles.badge} style={{ background: '#16a34a22', color: '#16a34a' }}>THEN</span>
                 <span>{rule.steps.length} action{rule.steps.length !== 1 ? 's' : ''}</span>
               </>
             )}
@@ -184,13 +164,11 @@ const RuleCard: React.FC<{ rule: PipelineActionRule; pipelineId: number; stages:
         {/* Toggle */}
         <button
           onClick={handleToggle}
+          className={styles.toggleBtn}
           style={{
             background: rule.is_enabled ? '#16a34a22' : t.bgCardHover,
             border: `1px solid ${rule.is_enabled ? '#16a34a44' : t.border}`,
-            borderRadius: 20, padding: '4px 12px', cursor: 'pointer',
-            fontSize: 12, fontWeight: 600,
             color: rule.is_enabled ? '#16a34a' : t.textMuted,
-            flexShrink: 0,
           }}
         >
           {rule.is_enabled ? '● On' : '○ Off'}
@@ -198,17 +176,18 @@ const RuleCard: React.FC<{ rule: PipelineActionRule; pipelineId: number; stages:
 
         <button
           onClick={() => deleteRule.mutate({ pipelineId, ruleId: rule.id })}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textFaint, fontSize: 18, padding: '0 2px', flexShrink: 0, lineHeight: 1 }}
+          className={styles.deleteBtn}
+          style={{ color: t.textFaint }}
           title="Delete"
         >×</button>
       </div>
 
       {/* Expanded editor */}
       {expanded && (
-        <div style={{ borderTop: `1px solid ${t.border}`, padding: '20px 18px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div className={styles.ruleEditor} style={{ borderTop: `1px solid ${t.border}` }}>
           {/* Name */}
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 6 }}>
+          <div className={styles.fieldGroup}>
+            <label className={styles.fieldLabel} style={{ color: t.textFaint }}>
               Automation Name
             </label>
             <input
@@ -220,22 +199,17 @@ const RuleCard: React.FC<{ rule: PipelineActionRule; pipelineId: number; stages:
           </div>
 
           {/* WHEN block */}
-          <ZapBlock
-            color="#6366f1"
-            label="WHEN"
-            icon="⚡"
-            description="This automation runs when…"
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <ZapBlock color="#6366f1" label="WHEN" icon="⚡" description="This automation runs when…">
+            <div className={styles.stepsContainer}>
               <div>
-                <label style={{ fontSize: 11, color: t.textFaint, display: 'block', marginBottom: 4 }}>Trigger event</label>
+                <label className={styles.smallLabel} style={{ color: t.textFaint }}>Trigger event</label>
                 <select value={draft.trigger_type ?? ''} onChange={e => setDraft(d => ({ ...d, trigger_type: e.target.value }))} style={sel}>
                   {TRIGGER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.icon} {o.label}</option>)}
                 </select>
               </div>
               {(draft.trigger_type === 'on_stage_enter') && (
                 <div>
-                  <label style={{ fontSize: 11, color: t.textFaint, display: 'block', marginBottom: 4 }}>Which stage?</label>
+                  <label className={styles.smallLabel} style={{ color: t.textFaint }}>Which stage?</label>
                   <select value={draft.trigger_stage_id ?? ''} onChange={e => setDraft(d => ({ ...d, trigger_stage_id: e.target.value ? Number(e.target.value) : undefined }))} style={sel}>
                     <option value="">Any stage</option>
                     {[...stages].sort((a, b) => a.position - b.position).map(s => (
@@ -251,19 +225,19 @@ const RuleCard: React.FC<{ rule: PipelineActionRule; pipelineId: number; stages:
 
           {/* IF block */}
           <ZapBlock color="#f59e0b" label="IF" icon="🔍" description="But only if…">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className={styles.stepsContainer}>
               <div>
-                <label style={{ fontSize: 11, color: t.textFaint, display: 'block', marginBottom: 4 }}>Condition</label>
+                <label className={styles.smallLabel} style={{ color: t.textFaint }}>Condition</label>
                 <select value={draft.condition_type ?? 'always'} onChange={e => setDraft(d => ({ ...d, condition_type: e.target.value }))} style={sel}>
                   {CONDITION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
-                <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>
+                <div className={styles.conditionDesc} style={{ color: t.textFaint }}>
                   {CONDITION_OPTIONS.find(o => o.value === draft.condition_type)?.desc}
                 </div>
               </div>
               {draft.condition_type !== 'always' && (
                 <div>
-                  <label style={{ fontSize: 11, color: t.textFaint, display: 'block', marginBottom: 4 }}>Value</label>
+                  <label className={styles.smallLabel} style={{ color: t.textFaint }}>Value</label>
                   <input
                     value={draft.condition_value ?? ''}
                     onChange={e => setDraft(d => ({ ...d, condition_value: e.target.value }))}
@@ -279,9 +253,9 @@ const RuleCard: React.FC<{ rule: PipelineActionRule; pipelineId: number; stages:
 
           {/* THEN block */}
           <ZapBlock color="#16a34a" label="THEN" icon="✅" description="Do these actions…">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className={styles.stepsContainer}>
               {(draft.steps ?? []).length === 0 && (
-                <div style={{ fontSize: 12, color: t.textFaint, fontStyle: 'italic' }}>No actions yet — add one below.</div>
+                <div className={styles.noActionsText} style={{ color: t.textFaint }}>No actions yet — add one below.</div>
               )}
               {(draft.steps ?? []).map((step, _idx) => (
                 <ActionRow
@@ -296,22 +270,19 @@ const RuleCard: React.FC<{ rule: PipelineActionRule; pipelineId: number; stages:
               ))}
               <button
                 onClick={addStep}
-                style={{
-                  background: 'none', border: `1.5px dashed ${t.border}`,
-                  borderRadius: 8, color: t.textMuted, fontSize: 12,
-                  padding: '8px', cursor: 'pointer', textAlign: 'center',
-                }}
+                className={styles.addActionBtn}
+                style={{ border: `1.5px dashed ${t.border}`, color: t.textMuted }}
               >
                 + Add action
               </button>
             </div>
           </ZapBlock>
 
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-            <button onClick={() => setExpanded(false)} style={{ background: 'none', border: `1px solid ${t.border}`, borderRadius: 8, color: t.textMuted, fontSize: 13, padding: '8px 16px', cursor: 'pointer' }}>
+          <div className={styles.editorActions}>
+            <button onClick={() => setExpanded(false)} className={styles.cancelBtn} style={{ border: `1px solid ${t.border}`, color: t.textMuted }}>
               Cancel
             </button>
-            <button onClick={handleSave} disabled={updateRule.isPending} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, padding: '8px 20px', cursor: 'pointer' }}>
+            <button onClick={handleSave} disabled={updateRule.isPending} className={styles.saveBtn}>
               {updateRule.isPending ? 'Saving…' : 'Save Automation'}
             </button>
           </div>
@@ -327,13 +298,13 @@ const ZapBlock: React.FC<{ color: string; label: string; icon: string; descripti
   const { theme } = useTheme();
   const t = getTokens(theme);
   return (
-    <div style={{ border: `1.5px solid ${color}33`, borderRadius: 12, overflow: 'hidden' }}>
-      <div style={{ background: `${color}18`, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: `1px solid ${color}22` }}>
-        <span style={{ fontSize: 16 }}>{icon}</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color, letterSpacing: '0.8px' }}>{label}</span>
-        <span style={{ fontSize: 12, color: t.textMuted }}>{description}</span>
+    <div className={styles.zapBlock} style={{ border: `1.5px solid ${color}33` }}>
+      <div className={styles.zapBlockHeader} style={{ background: `${color}18`, borderBottom: `1px solid ${color}22` }}>
+        <span className={styles.zapBlockIcon}>{icon}</span>
+        <span className={styles.zapBlockLabel} style={{ color }}>{label}</span>
+        <span className={styles.zapBlockDesc} style={{ color: t.textMuted }}>{description}</span>
       </div>
-      <div style={{ padding: '14px' }}>{children}</div>
+      <div className={styles.zapBlockBody}>{children}</div>
     </div>
   );
 };
@@ -344,7 +315,7 @@ const Connector: React.FC = () => {
   const { theme } = useTheme();
   const t = getTokens(theme);
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0', color: t.textFaint, fontSize: 18 }}>↓</div>
+    <div className={styles.connector} style={{ color: t.textFaint }}>↓</div>
   );
 };
 
@@ -372,9 +343,9 @@ const ActionRow: React.FC<{
   };
 
   return (
-    <div style={{ background: t.bgCardHover, border: `1px solid ${t.border}`, borderRadius: 10, padding: '12px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span style={{ fontSize: 16 }}>{opt?.icon ?? '▶'}</span>
+    <div className={styles.actionRow} style={{ background: t.bgCardHover, border: `1px solid ${t.border}` }}>
+      <div className={styles.actionHeader}>
+        <span className={styles.actionIcon}>{opt?.icon ?? '▶'}</span>
         <select
           value={step.action_type}
           onChange={e => onUpdate({ ...step, action_type: e.target.value as ActionType })}
@@ -382,14 +353,14 @@ const ActionRow: React.FC<{
         >
           {ACTION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.icon} {o.label}</option>)}
         </select>
-        <button onClick={onRemove} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textFaint, fontSize: 18, padding: '0 2px', lineHeight: 1 }}>×</button>
+        <button onClick={onRemove} className={styles.actionRemoveBtn} style={{ color: t.textFaint }}>×</button>
       </div>
-      {opt && <div style={{ fontSize: 11, color: t.textFaint, marginBottom: 8 }}>{opt.desc}</div>}
+      {opt && <div className={styles.actionDesc} style={{ color: t.textFaint }}>{opt.desc}</div>}
 
       {/* Friendly config fields per action type */}
       {step.action_type === 'send_email_template' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label style={{ fontSize: 11, color: t.textFaint }}>Email template</label>
+        <div className={styles.actionFields}>
+          <label className={styles.smallLabel} style={{ color: t.textFaint }}>Email template</label>
           <select
             value={config.template_id ?? ''}
             onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, template_id: e.target.value }) })}
@@ -401,7 +372,7 @@ const ActionRow: React.FC<{
             ))}
           </select>
           {templates.length === 0 && (
-            <div style={{ fontSize: 11, color: t.textFaint }}>No templates found. Create one in the Templates page first.</div>
+            <div className={styles.noTemplatesText} style={{ color: t.textFaint }}>No templates found. Create one in the Templates page first.</div>
           )}
         </div>
       )}
@@ -409,8 +380,8 @@ const ActionRow: React.FC<{
         <input placeholder="Form ID" value={config.form_id ?? ''} onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, form_id: e.target.value }) })} style={sel} />
       )}
       {step.action_type === 'send_bucket_followup_email' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label style={{ fontSize: 11, color: t.textFaint }}>Email template (optional)</label>
+        <div className={styles.actionFields}>
+          <label className={styles.smallLabel} style={{ color: t.textFaint }}>Email template (optional)</label>
           <select
             value={config.template_id ?? ''}
             onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, template_id: e.target.value }) })}
@@ -424,8 +395,8 @@ const ActionRow: React.FC<{
         </div>
       )}
       {step.action_type === 'move_to_stage' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label style={{ fontSize: 11, color: t.textFaint }}>Target stage</label>
+        <div className={styles.actionFields}>
+          <label className={styles.smallLabel} style={{ color: t.textFaint }}>Target stage</label>
           <select
             value={config.stage_id ?? ''}
             onChange={e => onUpdate({ ...step, action_config_json: JSON.stringify({ ...config, stage_id: e.target.value }) })}

@@ -3,6 +3,7 @@ import axios, { AxiosError } from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
 import { API_BASE_URL } from '@/shared/utils/config/enviroments';
+import styles from './index.module.css';
 
 const PAGE_SIZE = 20;
 
@@ -65,21 +66,21 @@ export const CompaniesPage: React.FC = () => {
   const inputStyle = { ...t.input };
 
   return (
-    <div style={{ maxWidth: 900 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <span style={{ fontSize: 22, fontWeight: 700, color: t.text, letterSpacing: '-0.5px' }}>Companies</span>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <span className={styles.title} style={{ color: t.text }}>Companies</span>
         <button onClick={openCreate} style={t.btnPrimary}>Add Company</button>
       </div>
 
       {/* Inline form */}
       {showForm && (
         <div style={{ ...t.card, marginBottom: 20, maxWidth: 520 }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: t.text, marginBottom: 18 }}>
+          <div className={styles.formTitle} style={{ color: t.text }}>
             {editing ? 'Edit Company' : 'New Company'}
           </div>
           <form onSubmit={handleSubmit}>
             {formError && (
-              <div style={{ padding: '10px 14px', background: t.redBg, border: `1px solid ${t.red}30`, borderRadius: 9, fontSize: 13, color: t.red, marginBottom: 14 }}>
+              <div className={styles.errorAlert} style={{ background: t.redBg, border: `1px solid ${t.red}30`, color: t.red }}>
                 {formError}
               </div>
             )}
@@ -88,7 +89,7 @@ export const CompaniesPage: React.FC = () => {
               { key: 'phone' as const, label: 'Phone', type: 'tel', placeholder: '555-123-4567' },
               { key: 'email' as const, label: 'Email', type: 'email', placeholder: 'contact@company.com' },
             ].map(f => (
-              <div key={f.key} style={{ marginBottom: 14 }}>
+              <div key={f.key} className={styles.formField}>
                 <label style={t.labelStyle}>{f.label}</label>
                 <input type={f.type} value={form[f.key]} placeholder={f.placeholder}
                   onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
@@ -97,7 +98,7 @@ export const CompaniesPage: React.FC = () => {
                   onBlur={e => (e.target.style.borderColor = t.border)} />
               </div>
             ))}
-            <div style={{ marginBottom: 14 }}>
+            <div className={styles.formField}>
               <label style={t.labelStyle}>Qualification Form</label>
               <select
                 value={form.active_form_version_id ?? ''}
@@ -110,7 +111,7 @@ export const CompaniesPage: React.FC = () => {
                 ))}
               </select>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
+            <div className={styles.formActions}>
               <button type="button" onClick={() => setShowForm(false)} disabled={submitting} style={t.btnSecondary}>Cancel</button>
               <button type="submit" disabled={submitting} style={{ ...t.btnPrimary, opacity: submitting ? 0.6 : 1 }}>
                 {submitting ? 'Saving…' : editing ? 'Update' : 'Create'}
@@ -121,17 +122,17 @@ export const CompaniesPage: React.FC = () => {
       )}
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 60, color: t.textFaint, fontSize: 14 }}>Loading…</div>
+        <div className={styles.loadingContainer} style={{ color: t.textFaint }}>Loading…</div>
       ) : companies.length === 0 ? (
-        <div style={{ ...t.card, textAlign: 'center', padding: 60, color: t.textFaint }}>No companies yet</div>
+        <div style={{ ...t.card, ...{ textAlign: 'center', padding: 60 }, color: t.textFaint }}>No companies yet</div>
       ) : (
         <>
           <div style={t.card}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table className={styles.table}>
               <thead>
                 <tr>
                   {['Name', 'Phone', 'Email', 'Created', 'Actions'].map(h => (
-                    <th key={h} style={{ ...t.th, textAlign: h === 'Actions' ? 'right' : 'left' }}>{h}</th>
+                    <th key={h} style={t.th} className={h === 'Actions' ? styles.tableHeaderCellRight : styles.tableHeaderCell}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -153,10 +154,10 @@ export const CompaniesPage: React.FC = () => {
           </div>
 
           {Math.ceil(companies.length / PAGE_SIZE) > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
+            <div className={styles.paginationContainer}>
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
                 style={{ ...t.btnSecondary, opacity: page === 1 ? 0.4 : 1 }}>Previous</button>
-              <span style={{ fontSize: 13, color: t.textMuted }}>Page {page} of {Math.ceil(companies.length / PAGE_SIZE)}</span>
+              <span className={styles.paginationText} style={{ color: t.textMuted }}>Page {page} of {Math.ceil(companies.length / PAGE_SIZE)}</span>
               <button onClick={() => setPage(p => Math.min(Math.ceil(companies.length / PAGE_SIZE), p + 1))} disabled={page === Math.ceil(companies.length / PAGE_SIZE)}
                 style={{ ...t.btnSecondary, opacity: page === Math.ceil(companies.length / PAGE_SIZE) ? 0.4 : 1 }}>Next</button>
             </div>

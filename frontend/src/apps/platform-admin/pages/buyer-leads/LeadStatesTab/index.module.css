@@ -1,0 +1,92 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.funnelRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.funnelLabel {
+  font-size: 11px;
+  width: 200px;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.funnelBarOuter {
+  flex: 1;
+  border-radius: 4px;
+  height: 14px;
+  overflow: hidden;
+}
+
+.funnelBarInner {
+  height: 14px;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.funnelCount {
+  font-size: 11px;
+  font-weight: 600;
+  width: 28px;
+  text-align: right;
+}
+
+.funnelContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filtersRow {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.filterCount {
+  font-size: 13px;
+  padding-bottom: 2px;
+}
+
+.loadingState {
+  padding: 32px;
+  text-align: center;
+}
+
+.emptyState {
+  padding: 32px;
+  text-align: center;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.paginationText {
+  font-size: 13px;
+}
+
+.paginationButtonDisabled {
+  opacity: 0.4;
+}

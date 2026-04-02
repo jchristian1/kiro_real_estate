@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
 import { API_BASE_URL } from '@/shared/utils/config/enviroments';
+import styles from './index.module.css';
 
 const SUPPORTED_VARS = ['lead_name', 'agent_name', 'property_address', 'form_url', 'score', 'bucket', 'tenant_name'];
 const BUCKETS = ['HOT', 'WARM', 'NURTURE'] as const;
@@ -88,9 +89,8 @@ export const TemplateVersionEditor: React.FC = () => {
     } finally { setPublishing(false); }
   };
 
-  if (loading) return <div style={{ padding: 32, textAlign: 'center', color: t.textMuted }}>Loading…</div>;
+  if (loading) return <div className={styles.loadingState} style={{ color: t.textMuted }}>Loading…</div>;
 
-  const varBtn: React.CSSProperties = { padding: '2px 8px', background: t.accentBg, color: t.accent, border: 'none', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontFamily: 'monospace' };
   const bucketColors: Record<Bucket, { bg: string; color: string }> = {
     HOT: { bg: t.redBg, color: t.red },
     WARM: { bg: t.orangeBg, color: t.orange },
@@ -98,78 +98,76 @@ export const TemplateVersionEditor: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+    <div className={styles.container}>
+      <div className={styles.headerRow}>
         <div>
-          <button onClick={() => navigate('/templates')} style={{ color: t.accent, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, marginBottom: 6, padding: 0 }}>← Back to Templates</button>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: t.text, margin: 0 }}>{KEY_LABELS[templateKey] ?? templateKey}</h2>
+          <button onClick={() => navigate('/templates')} className={styles.backButton} style={{ color: t.accent }}>← Back to Templates</button>
+          <h2 className={styles.pageTitle} style={{ color: t.text }}>{KEY_LABELS[templateKey] ?? templateKey}</h2>
         </div>
         <button onClick={handlePublish} disabled={publishing} style={{ ...t.btnPrimary, opacity: publishing ? 0.6 : 1 }}>
           {publishing ? 'Publishing…' : 'Publish Version'}
         </button>
       </div>
 
-      {/* Variable picker */}
       <div style={t.card}>
         <div style={t.sectionTitle}>Available Variables</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <div className={styles.variablesRow}>
           {SUPPORTED_VARS.map(v => (
-            <span key={v} style={{ padding: '3px 10px', background: t.bgBadge, color: t.textSecondary, fontSize: 11, borderRadius: 6, fontFamily: 'monospace' }}>{`{{${v}}}`}</span>
+            <span key={v} className={styles.variableTag} style={{ background: t.bgBadge, color: t.textSecondary }}>{`{{${v}}}`}</span>
           ))}
         </div>
       </div>
 
       {!hasVariants ? (
-        <div style={{ ...t.card, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={t.card} className={styles.editorCard}>
           <div>
             <label style={t.labelStyle}>Subject</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
-              {SUPPORTED_VARS.map(v => <button key={v} onClick={() => insertVar(v, 'subject')} style={varBtn}>+{v}</button>)}
+            <div className={styles.varButtonsRow}>
+              {SUPPORTED_VARS.map(v => <button key={v} onClick={() => insertVar(v, 'subject')} className={styles.varButton} style={{ background: t.accentBg, color: t.accent }}>+{v}</button>)}
             </div>
             <input type="text" value={subject} onChange={(e) => setSubject(e.target.value)} style={t.input} />
           </div>
           <div>
             <label style={t.labelStyle}>Body</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
-              {SUPPORTED_VARS.map(v => <button key={v} onClick={() => insertVar(v, 'body')} style={varBtn}>+{v}</button>)}
+            <div className={styles.varButtonsRow}>
+              {SUPPORTED_VARS.map(v => <button key={v} onClick={() => insertVar(v, 'body')} className={styles.varButton} style={{ background: t.accentBg, color: t.accent }}>+{v}</button>)}
             </div>
             <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={8}
-              style={{ ...t.input, fontFamily: 'monospace', resize: 'vertical' }} />
+              style={{ ...t.input }} className={styles.textarea} />
           </div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className={styles.variantsContainer}>
           {BUCKETS.map((bucket) => (
-            <div key={bucket} style={{ ...t.card, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ padding: '2px 10px', fontSize: 11, fontWeight: 700, background: bucketColors[bucket].bg, color: bucketColors[bucket].color, borderRadius: 20 }}>{bucket}</span>
-                <span style={{ fontSize: 13, fontWeight: 500, color: t.textSecondary }}>Variant</span>
+            <div key={bucket} style={t.card} className={styles.variantCard}>
+              <div className={styles.bucketHeader}>
+                <span className={styles.bucketBadge} style={{ background: bucketColors[bucket].bg, color: bucketColors[bucket].color }}>{bucket}</span>
+                <span className={styles.bucketLabel} style={{ color: t.textSecondary }}>Variant</span>
               </div>
               <div>
                 <label style={t.labelStyle}>Subject</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
-                  {SUPPORTED_VARS.map(v => <button key={v} onClick={() => insertVarInVariant(bucket, v, 'subject')} style={varBtn}>+{v}</button>)}
+                <div className={styles.varButtonsRow}>
+                  {SUPPORTED_VARS.map(v => <button key={v} onClick={() => insertVarInVariant(bucket, v, 'subject')} className={styles.varButton} style={{ background: t.accentBg, color: t.accent }}>+{v}</button>)}
                 </div>
                 <input type="text" value={variants[bucket]?.subject ?? ''} onChange={(e) => setVariants(vs => ({ ...vs, [bucket]: { subject: e.target.value, body: vs[bucket]?.body ?? '' } }))} style={t.input} />
               </div>
               <div>
                 <label style={t.labelStyle}>Body</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
-                  {SUPPORTED_VARS.map(v => <button key={v} onClick={() => insertVarInVariant(bucket, v, 'body')} style={varBtn}>+{v}</button>)}
+                <div className={styles.varButtonsRow}>
+                  {SUPPORTED_VARS.map(v => <button key={v} onClick={() => insertVarInVariant(bucket, v, 'body')} className={styles.varButton} style={{ background: t.accentBg, color: t.accent }}>+{v}</button>)}
                 </div>
                 <textarea value={variants[bucket]?.body ?? ''} onChange={(e) => setVariants(vs => ({ ...vs, [bucket]: { subject: vs[bucket]?.subject ?? '', body: e.target.value } }))} rows={6}
-                  style={{ ...t.input, fontFamily: 'monospace', resize: 'vertical' }} />
+                  style={{ ...t.input }} className={styles.textarea} />
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Live preview */}
       <div style={t.card}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div className={styles.previewHeader}>
           <div style={t.sectionTitle}>Live Preview</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className={styles.previewActions}>
             {hasVariants && (
               <select value={previewBucket} onChange={(e) => setPreviewBucket(e.target.value as Bucket)} style={{ ...t.input, width: 'auto' }}>
                 {BUCKETS.map(b => <option key={b} value={b}>{b}</option>)}
@@ -181,14 +179,14 @@ export const TemplateVersionEditor: React.FC = () => {
           </div>
         </div>
         {previewResult && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className={styles.previewContent}>
             <div>
-              <p style={{ fontSize: 10, color: t.textFaint, textTransform: 'uppercase', marginBottom: 4 }}>Subject</p>
-              <p style={{ fontSize: 13, color: t.text, background: t.bgInput, padding: '8px 12px', borderRadius: 8, margin: 0 }}>{previewResult.subject}</p>
+              <p className={styles.previewLabel} style={{ color: t.textFaint }}>Subject</p>
+              <p className={styles.previewSubject} style={{ color: t.text, background: t.bgInput }}>{previewResult.subject}</p>
             </div>
             <div>
-              <p style={{ fontSize: 10, color: t.textFaint, textTransform: 'uppercase', marginBottom: 4 }}>Body</p>
-              <pre style={{ fontSize: 12, color: t.text, background: t.bgInput, padding: '8px 12px', borderRadius: 8, margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{previewResult.body}</pre>
+              <p className={styles.previewLabel} style={{ color: t.textFaint }}>Body</p>
+              <pre className={styles.previewBody} style={{ color: t.text, background: t.bgInput }}>{previewResult.body}</pre>
             </div>
           </div>
         )}

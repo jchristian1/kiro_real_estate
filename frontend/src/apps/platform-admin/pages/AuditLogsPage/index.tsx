@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { useT } from '@/shared/hooks';
 import { API_BASE_URL } from '@/shared/utils/config/enviroments';
+import styles from './index.module.css';
 
 interface AuditLog {
   id: number; timestamp: string; user_id: number; username: string;
@@ -53,24 +54,24 @@ export const AuditLogsPage: React.FC = () => {
   const inputStyle = { ...t.input, width: '100%' };
 
   return (
-    <div style={{ maxWidth: 1100 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <div style={{ fontSize: 13, color: t.textMuted }}>
-          <span style={{ fontSize: 22, fontWeight: 700, color: t.text, letterSpacing: '-0.5px' }}>Audit Logs</span>
-          <span style={{ marginLeft: 10 }}>{total} entries</span>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <div style={{ color: t.textMuted }}>
+          <span className={styles.headerTitle} style={{ color: t.text }}>Audit Logs</span>
+          <span className={styles.headerSubtitle}>{total} entries</span>
         </div>
       </div>
 
       {/* Filters */}
-      <div style={{ ...t.card, marginBottom: 20, padding: '16px 20px' }} data-testid="audit-filters">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+      <div style={t.card} className={styles.filtersContainer} data-testid="audit-filters">
+        <div className={styles.filtersGrid}>
           {[
             { key: 'action' as const, label: 'Action', placeholder: 'e.g. agent_created', type: 'text' },
             { key: 'user_id' as const, label: 'User ID', placeholder: 'User ID', type: 'text' },
             { key: 'start_date' as const, label: 'Start Date', placeholder: '', type: 'date' },
             { key: 'end_date' as const, label: 'End Date', placeholder: '', type: 'date' },
           ].map(f => (
-            <div key={f.key}>
+            <div key={f.key} className={styles.filterField}>
               <label style={t.labelStyle}>{f.label}</label>
               <input type={f.type} value={filters[f.key]} placeholder={f.placeholder}
                 onChange={e => handleFilter(f.key, e.target.value)}
@@ -84,17 +85,17 @@ export const AuditLogsPage: React.FC = () => {
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 60, color: t.textFaint, fontSize: 14 }}>Loading…</div>
+        <div className={styles.loadingContainer} style={{ color: t.textFaint }}>Loading…</div>
       ) : fetchError ? (
-        <div style={{ textAlign: 'center', padding: 60, color: t.red, fontSize: 14 }}>{fetchError}</div>
+        <div className={styles.errorContainer} style={{ color: t.red }}>{fetchError}</div>
       ) : logs.length === 0 ? (
-        <div style={{ ...t.card, textAlign: 'center', padding: 60, color: t.textFaint }} data-testid="audit-empty">
+       <div className={styles.emptyState} style={{ ...t.card, color: t.textFaint }} data-testid="audit-empty">
           No audit logs found
         </div>
       ) : (
         <>
           <div style={t.card}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }} data-testid="audit-table">
+            <table className={styles.table} data-testid="audit-table">
               <thead>
                 <tr>
                   {['Timestamp', 'User', 'Action', 'Resource', 'Details'].map(h => (
@@ -108,19 +109,19 @@ export const AuditLogsPage: React.FC = () => {
                   return (
                     <tr key={log.id} data-testid={`audit-row-${log.id}`}
                       style={{ borderBottom: i < logs.length - 1 ? `1px solid ${t.border}` : 'none' }}>
-                      <td style={{ ...t.td, color: t.textMuted, whiteSpace: 'nowrap' }}>
+                      <td style={{ ...t.td, color: t.textMuted }} className={styles.timestampCell}>
                         {new Date(log.timestamp).toLocaleString()}
                       </td>
                       <td style={{ ...t.td, fontWeight: 500 }}>{log.username}</td>
                       <td style={t.td}>
-                        <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: ac.color, background: ac.bg }}>
+                        <span className={styles.actionBadge} style={{ color: ac.color, background: ac.bg }}>
                           {log.action}
                         </span>
                       </td>
                       <td style={{ ...t.td, color: t.textMuted }}>
                         {log.resource_type}{log.resource_id ? ` #${log.resource_id}` : ''}
                       </td>
-                      <td style={{ ...t.td, color: t.textMuted, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      <td style={{ ...t.td, color: t.textMuted }} className={styles.detailsCell}
                         title={log.details ?? ''}>
                         {log.details || '—'}
                       </td>
@@ -132,10 +133,10 @@ export const AuditLogsPage: React.FC = () => {
           </div>
 
           {totalPages > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }} data-testid="pagination">
+            <div className={styles.paginationContainer} data-testid="pagination">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
                 style={{ ...t.btnSecondary, opacity: page === 1 ? 0.4 : 1 }}>Previous</button>
-              <span style={{ fontSize: 13, color: t.textMuted }}>Page {page} of {totalPages}</span>
+              <span className={styles.paginationText} style={{ color: t.textMuted }}>Page {page} of {totalPages}</span>
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
                 style={{ ...t.btnSecondary, opacity: page === totalPages ? 0.4 : 1 }}>Next</button>
             </div>

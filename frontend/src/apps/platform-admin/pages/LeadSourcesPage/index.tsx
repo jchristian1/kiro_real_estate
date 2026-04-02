@@ -7,6 +7,7 @@ import { RegexVersionHistory } from '@/platformAdminComponents/RegexVersionHisto
 import { useT } from '@/shared/hooks/useT';
 import { LeadSource, LeadSourceFormValues, Template } from '@/models';
 import { API_BASE_URL } from '@/shared/utils/config/enviroments';
+import styles from './index.module.css';
 const PAGE_SIZE = 20;
 
 type View = 'list' | 'create' | 'edit';
@@ -88,9 +89,9 @@ export const LeadSourcesPage: React.FC = () => {
 
   if (view === 'create') {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, margin: 0 }}>Create Lead Source</h1>
-        <div style={{ ...t.card, maxWidth: 640 }}>
+      <div className={styles.formContainer}>
+        <h1 className={styles.title} style={{ color: t.text }}>Create Lead Source</h1>
+        <div style={{ ...t.card }} className={styles.formCard}>
           <LeadSourceForm onSubmit={handleCreate} onCancel={() => { setView('list'); setServerError(null); }}
             isSubmitting={submitting} serverError={serverError} templates={templates} />
         </div>
@@ -100,9 +101,9 @@ export const LeadSourcesPage: React.FC = () => {
 
   if (view === 'edit' && selected) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, margin: 0 }}>Edit Lead Source</h1>
-        <div style={{ ...t.card, maxWidth: 640 }}>
+      <div className={styles.formContainer}>
+        <h1 className={styles.title} style={{ color: t.text }}>Edit Lead Source</h1>
+        <div style={{ ...t.card }} className={styles.formCard}>
           <LeadSourceForm isEditMode initialValues={selected}
             onSubmit={handleEdit}
             onCancel={() => { setView('list'); setSelected(null); setServerError(null); }}
@@ -113,29 +114,29 @@ export const LeadSourcesPage: React.FC = () => {
   }
 
   if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: t.textMuted }}>
+    <div className={styles.loadingContainer} style={{ color: t.textMuted }}>
       Loading lead sources…
     </div>
   );
   if (error) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: t.red }}>
+    <div className={styles.errorContainer} style={{ color: t.red }}>
       {error}
     </div>
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, margin: 0 }}>Lead Sources</h1>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <h1 className={styles.title} style={{ color: t.text }}>Lead Sources</h1>
         <button onClick={() => { setServerError(null); setView('create'); }} style={t.btnPrimary}>
           Create Lead Source
         </button>
       </div>
 
       {leadSources.length === 0 ? (
-        <div style={{ ...t.card, textAlign: 'center', padding: '48px 24px' }}>
-          <div style={{ color: t.textMuted, marginBottom: 8 }}>No lead sources configured</div>
-          <div style={{ fontSize: 12, color: t.textFaint }}>Create your first lead source to start matching incoming leads</div>
+        <div style={{ ...t.card }} className={styles.emptyState}>
+          <div className={styles.emptyStateText} style={{ color: t.textMuted }}>No lead sources configured</div>
+          <div className={styles.emptyStateSubtext} style={{ color: t.textFaint }}>Create your first lead source to start matching incoming leads</div>
         </div>
       ) : (
         <>
@@ -147,10 +148,10 @@ export const LeadSourcesPage: React.FC = () => {
             onViewHistory={(ls) => setHistoryTarget(ls)}
           />
           {Math.ceil(leadSources.length / PAGE_SIZE) > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
+            <div className={styles.paginationContainer}>
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
                 style={{ ...t.btnSecondary, opacity: page === 1 ? 0.4 : 1 }}>Previous</button>
-              <span style={{ fontSize: 13, color: t.textMuted }}>Page {page} of {Math.ceil(leadSources.length / PAGE_SIZE)}</span>
+              <span className={styles.paginationText} style={{ color: t.textMuted }}>Page {page} of {Math.ceil(leadSources.length / PAGE_SIZE)}</span>
               <button onClick={() => setPage(p => Math.min(Math.ceil(leadSources.length / PAGE_SIZE), p + 1))} disabled={page === Math.ceil(leadSources.length / PAGE_SIZE)}
                 style={{ ...t.btnSecondary, opacity: page === Math.ceil(leadSources.length / PAGE_SIZE) ? 0.4 : 1 }}>Next</button>
             </div>

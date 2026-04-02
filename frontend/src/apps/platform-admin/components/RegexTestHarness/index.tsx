@@ -7,6 +7,7 @@ import axios, { AxiosError } from 'axios';
 import { useT } from '@/shared/hooks/useT';
 import { RegexTestResponse, RegexTestResult } from '@/models';
 import { API_BASE_URL } from '@/shared/utils/config/enviroments';
+import styles from './index.module.css';
 
 
 export interface RegexTestHarnessProps {
@@ -62,8 +63,8 @@ export const RegexTestHarness: React.FC<RegexTestHarnessProps> = ({ initialPatte
   const hasGroups = result && (result.groups.length > 0 || Object.keys(result.named_groups).length > 0);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }} data-testid="regex-test-harness">
-      <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: t.text }}>Regex Test Harness</h3>
+    <div className={styles.container} data-testid="regex-test-harness">
+      <h3 className={styles.heading} style={{ color: t.text }}>Regex Test Harness</h3>
 
       {/* Pattern */}
       <div>
@@ -80,7 +81,8 @@ export const RegexTestHarness: React.FC<RegexTestHarnessProps> = ({ initialPatte
         <textarea id="rth-text" value={testText} onChange={(e) => setTestText(e.target.value)}
           placeholder="Paste sample email subject or body here..."
           rows={4}
-          style={{ ...t.input, resize: 'vertical', fontFamily: 'inherit' }}
+          className={styles.resizableTextarea}
+          style={{ ...t.input }}
           data-testid="test-text-input" />
       </div>
 
@@ -96,23 +98,22 @@ export const RegexTestHarness: React.FC<RegexTestHarnessProps> = ({ initialPatte
       {/* Error */}
       {error && (
         <div role="alert" data-testid="test-error"
-          style={{ padding: '10px 14px', background: t.redBg, border: `1px solid ${t.red}30`, borderRadius: 10, fontSize: 13, color: t.red }}>
+          className={styles.errorAlert}
+          style={{ background: t.redBg, border: `1px solid ${t.red}30`, color: t.red }}>
           {error}
         </div>
       )}
 
       {/* Results */}
       {result && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }} data-testid="test-results">
+        <div className={styles.resultsContainer} data-testid="test-results">
           {/* Match status badge */}
           <div>
-            <span data-testid="match-status" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+            <span data-testid="match-status" className={styles.matchBadge} style={{
               background: result.matched ? t.greenBg : t.redBg,
               color: result.matched ? t.green : t.red,
             }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: result.matched ? t.green : t.red, display: 'inline-block' }} />
+              <span className={styles.matchDot} style={{ background: result.matched ? t.green : t.red }} />
               {result.matched ? 'Match found' : 'No match'}
             </span>
           </div>
@@ -120,7 +121,8 @@ export const RegexTestHarness: React.FC<RegexTestHarnessProps> = ({ initialPatte
           {/* Highlighted text */}
           {result.matched && (
             <div data-testid="highlighted-text"
-              style={{ padding: '10px 12px', background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 10, fontSize: 12, fontFamily: 'monospace', wordBreak: 'break-all', color: t.textSecondary }}>
+              className={styles.highlightedBox}
+              style={{ background: t.bgInput, border: `1px solid ${t.border}`, color: t.textSecondary }}>
               <HighlightedText text={testText} matchText={result.match_text} />
             </div>
           )}
@@ -129,17 +131,17 @@ export const RegexTestHarness: React.FC<RegexTestHarnessProps> = ({ initialPatte
           {hasGroups && (
             <div data-testid="captured-groups">
               <span style={t.labelStyle}>Captured Groups</span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+              <div className={styles.groupsContainer}>
                 {result.groups.map((g, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12 }}>
-                    <span style={{ color: t.textMuted, fontFamily: 'monospace' }}>Group {i + 1}:</span>
-                    <span data-testid={`group-${i + 1}`} style={{ fontFamily: 'monospace', color: t.accent, background: t.accentBg, padding: '1px 6px', borderRadius: 5 }}>{g}</span>
+                  <div key={i} className={styles.groupRow}>
+                    <span className={styles.groupLabel} style={{ color: t.textMuted }}>Group {i + 1}:</span>
+                    <span data-testid={`group-${i + 1}`} className={styles.groupValue} style={{ color: t.accent, background: t.accentBg }}>{g}</span>
                   </div>
                 ))}
                 {Object.entries(result.named_groups).map(([name, val]) => (
-                  <div key={name} style={{ display: 'flex', gap: 8, fontSize: 12 }}>
-                    <span style={{ color: t.textMuted, fontFamily: 'monospace' }}>?&lt;{name}&gt;:</span>
-                    <span data-testid={`named-group-${name}`} style={{ fontFamily: 'monospace', color: t.orange, background: t.orangeBg, padding: '1px 6px', borderRadius: 5 }}>{val}</span>
+                  <div key={name} className={styles.groupRow}>
+                    <span className={styles.groupLabel} style={{ color: t.textMuted }}>?&lt;{name}&gt;:</span>
+                    <span data-testid={`named-group-${name}`} className={styles.groupValue} style={{ color: t.orange, background: t.orangeBg }}>{val}</span>
                   </div>
                 ))}
               </div>

@@ -3,10 +3,7 @@ import axios from 'axios';
 import { useT } from '@/shared/hooks';
 import { PreviewResult } from '@/models/app-model';
 import { API_BASE_URL } from '@/shared/utils/config/enviroments';
-
-
-
-
+import styles from './index.module.css';
 
 export interface TemplatePreviewProps { subject: string; body: string; }
 
@@ -36,23 +33,23 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ subject, body 
 
   return (
     <div style={{ ...t.card, background: t.bgInput }} data-testid="template-preview">
-      <div style={{ ...t.sectionTitle, marginBottom: 12 }}>Preview (with sample data)</div>
-      {loading && <p style={{ fontSize: 13, color: t.textMuted }} data-testid="preview-loading">Loading preview…</p>}
-      {error && <p style={{ fontSize: 13, color: t.red }} role="alert" data-testid="preview-error">{error}</p>}
+      <div className={styles.sectionTitle} style={t.sectionTitle}>Preview (with sample data)</div>
+      {loading && <p className={styles.statusText} style={{ color: t.textMuted }} data-testid="preview-loading">Loading preview…</p>}
+      {error && <p className={styles.statusText} style={{ color: t.red }} role="alert" data-testid="preview-error">{error}</p>}
       {preview && !loading && (
         <div data-testid="preview-content">
-          <div style={{ marginBottom: 12 }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Subject</span>
-            <p style={{ marginTop: 6, fontSize: 13, color: t.text, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: '8px 12px' }} data-testid="preview-subject">{preview.subject}</p>
+          <div className={styles.subjectSection}>
+            <span className={styles.sectionLabel} style={{ color: t.textFaint }}>Subject</span>
+            <p className={styles.previewSubject} style={{ color: t.text, background: t.bgCard, border: `1px solid ${t.border}` }} data-testid="preview-subject">{preview.subject}</p>
           </div>
           <div>
-            <span style={{ fontSize: 10, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Body</span>
-            <pre style={{ marginTop: 6, fontSize: 12, color: t.text, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: '8px 12px', whiteSpace: 'pre-wrap', fontFamily: 'inherit' }} data-testid="preview-body">{preview.body}</pre>
+            <span className={styles.sectionLabel} style={{ color: t.textFaint }}>Body</span>
+            <pre className={styles.previewBody} style={{ color: t.text, background: t.bgCard, border: `1px solid ${t.border}` }} data-testid="preview-body">{preview.body}</pre>
           </div>
         </div>
       )}
       {!loading && !error && !preview && (
-        <p style={{ fontSize: 13, color: t.textFaint }} data-testid="preview-empty">Enter subject and body to see preview</p>
+        <p className={styles.statusText} style={{ color: t.textFaint }} data-testid="preview-empty">Enter subject and body to see preview</p>
       )}
     </div>
   );

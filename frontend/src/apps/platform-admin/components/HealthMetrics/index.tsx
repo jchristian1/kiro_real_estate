@@ -5,6 +5,7 @@
 import React from 'react';
 import { useT } from '@/shared/hooks';
 import { HealthData } from '@/models';
+import styles from './index.module.css';
 
 interface HealthMetricsProps {
   healthData: HealthData;
@@ -19,58 +20,52 @@ export const HealthMetrics: React.FC<HealthMetricsProps> = ({ healthData }) => {
   const failedWatchers = Object.values(healthData.watchers ?? {}).filter(w => w.status === 'failed').length;
 
   const statCard = (label: string, content: React.ReactNode) => (
-    <div style={{ ...t.card, padding: '14px 18px', flex: 1, minWidth: 120 }}>
+    <div className={styles.statCard} style={t.card}>
       <div style={t.labelStyle}>{label}</div>
-      <div style={{ marginTop: 6 }}>{content}</div>
+      <div className={styles.statValue}>{content}</div>
     </div>
   );
 
   const statusDot = (ok: boolean) => (
-    <span style={{
-      display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-      background: ok ? t.green : t.red, marginRight: 7, flexShrink: 0,
+    <span className={styles.statusDot} style={{
+      background: ok ? t.green : t.red,
       boxShadow: ok ? `0 0 6px ${t.green}80` : `0 0 6px ${t.red}80`,
     }} />
   );
 
   return (
-    <div style={{ ...t.card, padding: '20px 24px' }}>
-      <h2 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600, color: t.text }}>System Health</h2>
+    <div className={styles.container} style={t.card}>
+      <h2 className={styles.heading} style={{ color: t.text }}>System Health</h2>
 
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        {/* Overall Status */}
+      <div className={styles.statsRow}>
         {statCard('Status',
-          <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div className={styles.statusRow}>
             {statusDot(isHealthy)}
-            <span style={{ fontSize: 14, fontWeight: 600, color: isHealthy ? t.green : t.red }}>
+            <span className={styles.statusText} style={{ color: isHealthy ? t.green : t.red }}>
               {healthData.status}
             </span>
           </div>
         )}
 
-        {/* Database */}
         {statCard('Database',
-          <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div className={styles.statusRow}>
             {statusDot(isDatabaseConnected)}
-            <span style={{ fontSize: 14, fontWeight: 600, color: isDatabaseConnected ? t.green : t.red }}>
+            <span className={styles.statusText} style={{ color: isDatabaseConnected ? t.green : t.red }}>
               {isDatabaseConnected ? 'connected' : 'disconnected'}
             </span>
           </div>
         )}
 
-        {/* Active Watchers */}
         {statCard('Active Watchers',
-          <span style={{ fontSize: 22, fontWeight: 700, color: t.accent }}>{activeWatchers}</span>
+          <span className={styles.bigNumber} style={{ color: t.accent }}>{activeWatchers}</span>
         )}
 
-        {/* Failed Watchers */}
         {statCard('Failed Watchers',
-          <span style={{ fontSize: 22, fontWeight: 700, color: failedWatchers > 0 ? t.red : t.textMuted }}>{failedWatchers}</span>
+          <span className={styles.bigNumber} style={{ color: failedWatchers > 0 ? t.red : t.textMuted }}>{failedWatchers}</span>
         )}
 
-        {/* Errors 24h */}
         {statCard('Errors (24h)',
-          <span style={{ fontSize: 22, fontWeight: 700, color: errorCount > 0 ? t.orange : t.textMuted }}>
+          <span className={styles.bigNumber} style={{ color: errorCount > 0 ? t.orange : t.textMuted }}>
             {errorCount}
           </span>
         )}

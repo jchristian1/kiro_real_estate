@@ -14,6 +14,7 @@ import { AutomationsTab } from '@/apps/platform-admin/components/pipelines/Autom
 import { ActivityTab } from '@/apps/platform-admin/components/pipelines/ActivityTab';
 import { TemplateChooserModal } from '@/apps/platform-admin/components/pipelines/TemplateChooserModal';
 import type { Pipeline } from '@/apps/platform-admin/api/pipelinesApi';
+import styles from './index.module.css';
 
 type Tab = 'builder' | 'rules' | 'automations' | 'activity';
 
@@ -43,43 +44,37 @@ export const PipelinesPage: React.FC = () => {
   // Show template chooser when no pipelines exist
   const showTemplateChooser = !isLoading && pipelines.length === 0;
 
-  const card: React.CSSProperties = {
-    background: t.bgCard,
-    border: `1px solid ${t.border}`,
-    borderRadius: 16,
-    padding: '20px 24px',
-  };
-
-  if (isLoading) {
+  return (
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: t.textFaint, fontSize: 14 }}>
+      <div className={styles.loadingContainer} style={{ color: t.textFaint }}>
         Loading…
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className={styles.container}>
       {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, margin: 0 }}>Pipelines</h1>
+      <div className={styles.headerRow}>
+        <div className={styles.headerLeft}>
+          <h1 className={styles.title} style={{ color: t.text }}>Pipelines</h1>
           {currentPipeline?.is_active && (
-            <span style={{ fontSize: 11, fontWeight: 600, color: t.green, background: t.greenBg, padding: '3px 10px', borderRadius: 20 }}>
+            <span className={styles.activeBadge} style={{ color: t.green, background: t.greenBg }}>
               Active
             </span>
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className={styles.headerRight}>
           {/* Pipeline selector */}
           {pipelines.length > 1 && (
             <select
               value={currentId ?? ''}
               onChange={e => setSelectedPipelineId(Number(e.target.value))}
+              className={styles.pipelineSelect}
               style={{
-                background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 9,
-                color: t.text, fontSize: 13, padding: '7px 12px', cursor: 'pointer',
+                background: t.bgInput, border: `1px solid ${t.border}`,
+                color: t.text,
               }}
             >
               {pipelines.map(p => (
@@ -92,9 +87,10 @@ export const PipelinesPage: React.FC = () => {
             <button
               onClick={() => activatePipeline.mutate(currentPipeline.id)}
               disabled={activatePipeline.isPending}
+              className={styles.setActiveButton}
               style={{
-                background: t.accentBg, border: `1px solid ${t.accent}`, borderRadius: 9,
-                color: t.accent, fontSize: 13, fontWeight: 600, padding: '7px 14px', cursor: 'pointer',
+                background: t.accentBg, border: `1px solid ${t.accent}`,
+                color: t.accent,
               }}
             >
               Set Active
@@ -103,10 +99,8 @@ export const PipelinesPage: React.FC = () => {
 
           <button
             onClick={() => setShowNewModal(true)}
+            className={styles.newPipelineButton}
             style={{
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              border: 'none', borderRadius: 9, color: '#fff',
-              fontSize: 13, fontWeight: 600, padding: '7px 14px', cursor: 'pointer',
               boxShadow: `0 4px 14px ${t.accentGlow}`,
             }}
           >
@@ -119,17 +113,15 @@ export const PipelinesPage: React.FC = () => {
       {currentId && <PipelineMetricsRow pipelineId={currentId} />}
 
       {/* Tab bar */}
-      <div style={{ display: 'flex', gap: 2, borderBottom: `1px solid ${t.border}`, paddingBottom: 0 }}>
+      <div className={styles.tabBar} style={{ borderBottom: `1px solid ${t.border}` }}>
         {TABS.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
+            className={`${styles.tab} ${activeTab === tab.id ? styles.tabActive : styles.tabInactive}`}
             style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              padding: '10px 18px', fontSize: 13, fontWeight: activeTab === tab.id ? 600 : 400,
               color: activeTab === tab.id ? t.accent : t.textMuted,
               borderBottom: activeTab === tab.id ? `2px solid ${t.accent}` : '2px solid transparent',
-              marginBottom: -1, transition: 'all 0.15s',
             }}
           >
             {tab.label}
@@ -139,7 +131,7 @@ export const PipelinesPage: React.FC = () => {
 
       {/* Tab content */}
       {!currentId ? (
-        <div style={{ ...card, textAlign: 'center', padding: '48px 24px', color: t.textMuted }}>
+        <div className={styles.emptyState} style={{ background: t.bgCard, border: `1px solid ${t.border}`, color: t.textMuted }}>
           No pipeline selected. Create one to get started.
         </div>
       ) : (
@@ -166,10 +158,6 @@ export const PipelinesPage: React.FC = () => {
   );
 };
 
-// ── Metrics row sub-component ─────────────────────────────────────────────
-
-import { usePipelineMetrics } from '@/apps/platform-admin/hooks/usePipelineQueries';
-
 const PipelineMetricsRow: React.FC<{ pipelineId: number }> = ({ pipelineId }) => {
   const { theme } = useTheme();
   const t = getTokens(theme);
@@ -183,13 +171,13 @@ const PipelineMetricsRow: React.FC<{ pipelineId: number }> = ({ pipelineId }) =>
   ];
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+    <div className={styles.metricsGrid}>
       {cards.map(c => (
-        <div key={c.label} style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: '16px 20px' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>
+        <div key={c.label} className={styles.metricCard} style={{ background: t.bgCard, border: `1px solid ${t.border}` }}>
+          <div className={styles.metricLabel} style={{ color: t.textFaint }}>
             {c.label}
           </div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: t.text, letterSpacing: '-0.5px' }}>{c.value}</div>
+          <div className={styles.metricValue} style={{ color: t.text }}>{c.value}</div>
         </div>
       ))}
     </div>

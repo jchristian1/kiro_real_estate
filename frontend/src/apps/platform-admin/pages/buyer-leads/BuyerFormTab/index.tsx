@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
 import { API_BASE_URL } from '@/shared/utils/config/enviroments';
+import styles from './index.module.css';
 
 interface FormTemplate { id: number; name: string; status: string; intent_type: string; created_at: string; }
 interface FormVersion { id: number; version_number: number; is_active: boolean; published_at: string | null; }
@@ -85,23 +86,23 @@ export const BuyerFormTab: React.FC = () => {
       archived: { bg: t.bgBadge, color: t.textMuted },
     };
     const c = colors[status] ?? { bg: t.bgBadge, color: t.textMuted };
-    return <span style={{ padding: '2px 8px', fontSize: 10, fontWeight: 600, background: c.bg, color: c.color, borderRadius: 20 }}>{status}</span>;
+    return <span className={styles.activeBadge} style={{ background: c.bg, color: c.color }}>{status}</span>;
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, color: t.text, margin: 0 }}>Buyer Qualification Forms</h2>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <h2 className={styles.title} style={{ color: t.text }}>Buyer Qualification Forms</h2>
         <button onClick={() => setShowCreate(true)} style={t.btnPrimary}>New Form Template</button>
       </div>
 
       {showCreate && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ ...t.card, width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 600, color: t.text, margin: 0 }}>New Form Template</h3>
+        <div className={styles.modalOverlay}>
+          <div style={t.card} className={styles.modalContent}>
+            <h3 className={styles.modalTitle} style={{ color: t.text }}>New Form Template</h3>
             <input type="text" placeholder="Template name" value={newName} onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()} style={t.input} autoFocus />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <div className={styles.modalActions}>
               <button onClick={() => setShowCreate(false)} style={t.btnSecondary}>Cancel</button>
               <button onClick={handleCreate} disabled={creating || !newName.trim()} style={{ ...t.btnPrimary, opacity: creating || !newName.trim() ? 0.5 : 1 }}>
                 {creating ? 'Creating…' : 'Create'}
@@ -111,14 +112,14 @@ export const BuyerFormTab: React.FC = () => {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className={styles.splitGrid}>
         <div style={t.card}>
           {loading ? (
-            <div style={{ padding: 32, textAlign: 'center', color: t.textMuted }}>Loading…</div>
+            <div className={styles.loadingState} style={{ color: t.textMuted }}>Loading…</div>
           ) : templates.length === 0 ? (
-            <div style={{ padding: 32, textAlign: 'center', color: t.textMuted }}>No form templates yet</div>
+            <div className={styles.emptyState} style={{ color: t.textMuted }}>No form templates yet</div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className={styles.table}>
               <thead><tr>
                 {['Name', 'Status', ''].map(h => <th key={h} style={{ ...t.th, textAlign: h === '' ? 'right' : 'left' }}>{h}</th>)}
               </tr></thead>
@@ -135,17 +136,17 @@ export const BuyerFormTab: React.FC = () => {
                     </td>
                     <td style={t.td}>{statusBadge(tmpl.status)}</td>
                     <td style={{ ...t.td, textAlign: 'right' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+                      <div className={styles.actionsCell}>
                         {editingId === tmpl.id ? (
                           <>
-                            <button onClick={(e) => { e.stopPropagation(); handleRename(tmpl); }} style={{ color: t.green, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Save</button>
-                            <button onClick={(e) => { e.stopPropagation(); setEditingId(null); }} style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>Cancel</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleRename(tmpl); }} className={styles.linkButtonBold} style={{ color: t.green }}>Save</button>
+                            <button onClick={(e) => { e.stopPropagation(); setEditingId(null); }} className={styles.linkButton} style={{ color: t.textMuted }}>Cancel</button>
                           </>
                         ) : (
                           <>
-                            <button onClick={(e) => { e.stopPropagation(); setEditingId(tmpl.id); setEditName(tmpl.name); }} style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>Rename</button>
-                            <button onClick={(e) => { e.stopPropagation(); navigate(`/buyer-leads/${tenantId}/forms/${tmpl.id}`); }} style={{ color: t.accent, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Edit</button>
-                            <button onClick={(e) => { e.stopPropagation(); handleDelete(tmpl); }} style={{ color: t.red, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>Delete</button>
+                            <button onClick={(e) => { e.stopPropagation(); setEditingId(tmpl.id); setEditName(tmpl.name); }} className={styles.linkButton} style={{ color: t.textMuted }}>Rename</button>
+                            <button onClick={(e) => { e.stopPropagation(); navigate(`/buyer-leads/${tenantId}/forms/${tmpl.id}`); }} className={styles.linkButtonBold} style={{ color: t.accent }}>Edit</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleDelete(tmpl); }} className={styles.linkButton} style={{ color: t.red }}>Delete</button>
                           </>
                         )}
                       </div>
@@ -159,13 +160,13 @@ export const BuyerFormTab: React.FC = () => {
 
         {selectedTemplate && (
           <div style={t.card}>
-            <div style={{ ...t.sectionTitle, marginBottom: 12 }}>Versions — {selectedTemplate.name}</div>
+            <div style={t.sectionTitle} className={styles.versionSectionTitle}>Versions — {selectedTemplate.name}</div>
             {versionsLoading ? (
-              <div style={{ padding: 24, textAlign: 'center', color: t.textMuted }}>Loading…</div>
+              <div className={styles.versionsLoadingState} style={{ color: t.textMuted }}>Loading…</div>
             ) : versions.length === 0 ? (
-              <div style={{ padding: 24, textAlign: 'center', color: t.textMuted }}>No versions published yet</div>
+              <div className={styles.versionsEmptyState} style={{ color: t.textMuted }}>No versions published yet</div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className={styles.table}>
                 <thead><tr>
                   {['Version', 'Published', 'Active', ''].map(h => <th key={h} style={{ ...t.th, textAlign: h === '' ? 'right' : 'left' }}>{h}</th>)}
                 </tr></thead>
@@ -174,9 +175,9 @@ export const BuyerFormTab: React.FC = () => {
                     <tr key={v.id} style={{ borderBottom: `1px solid ${t.border}` }}>
                       <td style={t.td}>v{v.version_number}</td>
                       <td style={{ ...t.td, color: t.textMuted }}>{v.published_at ? new Date(v.published_at).toLocaleDateString() : '—'}</td>
-                      <td style={t.td}>{v.is_active && <span style={{ padding: '2px 8px', fontSize: 10, fontWeight: 600, background: t.greenBg, color: t.green, borderRadius: 20 }}>Active</span>}</td>
+                      <td style={t.td}>{v.is_active && <span className={styles.activeBadge} style={{ background: t.greenBg, color: t.green }}>Active</span>}</td>
                       <td style={{ ...t.td, textAlign: 'right' }}>
-                        {!v.is_active && <button onClick={() => handleRollback(selectedTemplate.id, v.id)} style={{ color: t.accent, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Rollback</button>}
+                        {!v.is_active && <button onClick={() => handleRollback(selectedTemplate.id, v.id)} className={styles.linkButtonBold} style={{ color: t.accent }}>Rollback</button>}
                       </td>
                     </tr>
                   ))}

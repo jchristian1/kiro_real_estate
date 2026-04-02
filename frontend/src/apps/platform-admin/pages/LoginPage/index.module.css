@@ -1,0 +1,154 @@
+.page {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+  padding: 0 16px;
+  transition: background 0.2s;
+  position: relative;
+}
+
+.glowOrb {
+  position: fixed;
+  top: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 700px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(99, 102, 241, 0.07) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.themeToggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card {
+  width: 100%;
+  max-width: 380px;
+  border-radius: 22px;
+  padding: 40px 36px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.cardShadowDark {
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+}
+
+.cardShadowLight {
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.1);
+}
+
+.logoContainer {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.logoIcon {
+  width: 54px;
+  height: 54px;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  color: #fff;
+  font-weight: 800;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+}
+
+.logoTitle {
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.logoSubtitle {
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.input {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 11px;
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.fieldUsername {
+  margin-bottom: 14px;
+}
+
+.fieldPassword {
+  margin-bottom: 20px;
+}
+
+.errorAlert {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+}
+
+.submitButton {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 11px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  transition: opacity 0.15s;
+  letter-spacing: -0.1px;
+}
+
+.submitButtonActive {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+}
+
+.submitButtonLoading {
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.signUpLink {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 13px;
+}
+
+.signUpAnchor {
+  text-decoration: none;
+  font-weight: 500;
+}

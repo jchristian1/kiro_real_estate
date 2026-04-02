@@ -3,8 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useT } from '@/shared/hooks';
 import { PLACEHOLDERS, TemplateFormValues, templateSchema } from '@/shared/utils';
-
-
+import styles from './index.module.css';
 
 export interface TemplateEditorProps {
   initialValues?: Partial<TemplateFormValues>;
@@ -36,44 +35,46 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate aria-label="Template editor form" data-testid="template-editor-form">
       {serverError && (
-        <div style={{ marginBottom: 16, padding: '10px 14px', background: t.redBg, border: `1px solid ${t.red}40`, color: t.red, borderRadius: 10, fontSize: 13 }} role="alert" data-testid="server-error">{serverError}</div>
+        <div className={styles.serverError} style={{ background: t.redBg, border: `1px solid ${t.red}40`, color: t.red }} role="alert" data-testid="server-error">{serverError}</div>
       )}
 
-      <div style={{ marginBottom: 16 }}>
-        <p style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Available Placeholders</p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }} data-testid="placeholder-buttons">
+      <div className={styles.placeholderSection}>
+        <p className={styles.placeholderLabel} style={{ color: t.textFaint }}>Available Placeholders</p>
+        <div className={styles.placeholderRow} data-testid="placeholder-buttons">
           {PLACEHOLDERS.map((p) => (
-            <div key={p} style={{ display: 'flex', gap: 4 }}>
+            <div key={p} className={styles.placeholderBtnGroup}>
               <button type="button" onClick={() => insertPlaceholder('subject', p)}
-                style={{ padding: '3px 8px', fontSize: 11, background: t.bgBadge, color: t.textMuted, border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'monospace' }}
+                className={styles.placeholderBtn}
+                style={{ background: t.bgBadge, color: t.textMuted }}
                 data-testid={`insert-subject-${p}`}>+Subject</button>
               <button type="button" onClick={() => insertPlaceholder('body', p)}
-                style={{ padding: '3px 8px', fontSize: 11, background: t.accentBg, color: t.accent, border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'monospace' }}
+                className={styles.placeholderBtn}
+                style={{ background: t.accentBg, color: t.accent }}
                 data-testid={`insert-body-${p}`}>{p}</button>
             </div>
           ))}
         </div>
       </div>
 
-      <div style={{ marginBottom: 16 }}>
+      <div className={styles.fieldGroup}>
         <label htmlFor="name" style={t.labelStyle}>Name <span style={{ color: t.red }}>*</span></label>
         <input id="name" type="text" {...register('name')} disabled={isSubmitting} style={fieldStyle(!!errors.name?.message)} data-testid="name-input" />
-        {errors.name && <p style={{ marginTop: 4, fontSize: 12, color: t.red }} role="alert" data-testid="error-name">{errors.name.message}</p>}
+        {errors.name && <p className={styles.fieldError} style={{ color: t.red }} role="alert" data-testid="error-name">{errors.name.message}</p>}
       </div>
 
-      <div style={{ marginBottom: 16 }}>
+      <div className={styles.fieldGroup}>
         <label htmlFor="subject" style={t.labelStyle}>Subject <span style={{ color: t.red }}>*</span></label>
         <input id="subject" type="text" {...register('subject')} disabled={isSubmitting} style={fieldStyle(!!errors.subject?.message)} data-testid="subject-input" />
-        {errors.subject && <p style={{ marginTop: 4, fontSize: 12, color: t.red }} role="alert" data-testid="error-subject">{errors.subject.message}</p>}
+        {errors.subject && <p className={styles.fieldError} style={{ color: t.red }} role="alert" data-testid="error-subject">{errors.subject.message}</p>}
       </div>
 
-      <div style={{ marginBottom: 16 }}>
+      <div className={styles.fieldGroup}>
         <label htmlFor="body" style={t.labelStyle}>Body <span style={{ color: t.red }}>*</span></label>
         <textarea id="body" rows={8} {...register('body')} disabled={isSubmitting} style={fieldStyle(!!errors.body?.message)} data-testid="body-input" />
-        {errors.body && <p style={{ marginTop: 4, fontSize: 12, color: t.red }} role="alert" data-testid="error-body">{errors.body.message}</p>}
+        {errors.body && <p className={styles.fieldError} style={{ color: t.red }} role="alert" data-testid="error-body">{errors.body.message}</p>}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+      <div className={styles.formActions}>
         <button type="button" onClick={onCancel} disabled={isSubmitting} style={{ ...t.btnSecondary, opacity: isSubmitting ? 0.5 : 1 }}>Cancel</button>
         <button type="submit" disabled={isSubmitting} style={{ ...t.btnPrimary, opacity: isSubmitting ? 0.5 : 1 }} data-testid="submit-button">
           {isSubmitting ? 'Saving…' : isEditMode ? 'Update Template' : 'Create Template'}

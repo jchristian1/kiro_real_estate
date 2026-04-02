@@ -1,0 +1,94 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.agentTitle {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusBadge {
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 20px;
+}
+
+.metaColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.metaRow {
+  display: flex;
+  justify-content: space-between;
+}
+
+.metaLabel {
+  font-size: 11px;
+}
+
+.metaValue {
+  font-size: 11px;
+}
+
+.errorBox {
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+
+.feedbackBox {
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+
+.controlsRow {
+  display: flex;
+  gap: 8px;
+}
+
+.actionBtn {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+}
+
+.emptyContainer {
+  text-align: center;
+  padding: 48px 24px;
+}

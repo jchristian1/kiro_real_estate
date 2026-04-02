@@ -1,0 +1,41 @@
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.codeSnippet {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.autoRespondBadge {
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 20px;
+}
+
+.actionsCell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.actionBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.actionBtnPrimary {
+  composes: actionBtn;
+  font-weight: 600;
+}
+
+.fontMedium {
+  font-weight: 500;
+}

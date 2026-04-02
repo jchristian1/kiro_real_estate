@@ -1,0 +1,227 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  padding: 0 16px;
+  transition: background 0.2s;
+  position: relative;
+}
+
+.glowOrb {
+  position: fixed;
+  top: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 700px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(99, 102, 241, 0.07) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.themeToggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  border-radius: 22px;
+  padding: 40px 36px;
+}
+
+.cardShadowDark {
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+}
+
+.cardShadowLight {
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.1);
+}
+
+.logoContainer {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.logoIcon {
+  width: 54px;
+  height: 54px;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  color: #fff;
+  font-weight: 800;
+  margin-bottom: 14px;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+}
+
+.logoTitle {
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.logoSubtitle {
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.progressBar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 28px;
+}
+
+.progressSegment {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  transition: background 0.2s;
+}
+
+.stepForm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.stepTitle {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.input {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 11px;
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.errorAlert {
+  padding: 10px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+}
+
+.primaryButton {
+  padding: 12px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: none;
+  border-radius: 11px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+  margin-top: 4px;
+}
+
+.actionsRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.backButton {
+  flex: 1;
+  padding: 12px;
+  background: none;
+  border-radius: 11px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.submitButton {
+  flex: 2;
+  padding: 12px;
+  border: none;
+  border-radius: 11px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.submitButtonActive {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+}
+
+.submitButtonLoading {
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.doneContainer {
+  text-align: center;
+}
+
+.doneEmoji {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.doneTitle {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.doneMessage {
+  font-size: 13px;
+  margin-bottom: 28px;
+  line-height: 1.6;
+}
+
+.doneButton {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: none;
+  border-radius: 11px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+}
+
+.signInLink {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 13px;
+}
+
+.signInAnchor {
+  text-decoration: none;
+  font-weight: 500;
+}

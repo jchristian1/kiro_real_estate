@@ -1,0 +1,174 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.panel {
+  position: relative;
+  z-index: 10;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 16px;
+  display: flex;
+  flex-direction: column;
+  max-height: 80vh;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(20px);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+}
+
+.headerTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.headerSubtitle {
+  margin: 3px 0 0;
+  font-size: 12px;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 16px 24px;
+}
+
+.alertBox {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.centeredState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+}
+
+.stateText {
+  font-size: 13px;
+}
+
+.versionList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.versionItem {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.versionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+}
+
+.versionMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.versionNumber {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.currentBadge {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 20px;
+}
+
+.versionDate {
+  font-size: 11px;
+}
+
+.versionActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggleBtn {
+  font-size: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.rollbackBtn {
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  padding: 3px 10px;
+  border-radius: 6px;
+}
+
+.versionDetails {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detailBody {
+  margin: 4px 0 0;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  font-family: monospace;
+}
+
+.detailSubject {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+
+.footer {
+  padding: 14px 24px;
+  display: flex;
+  justify-content: flex-end;
+}

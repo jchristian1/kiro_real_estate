@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
 import { API_BASE_URL } from '@/shared/utils/config/enviroments';
+import styles from './index.module.css';
 
 interface QuestionOption { value: string; label: string; }
 interface Question {
@@ -91,13 +92,8 @@ export const FormVersionEditor: React.FC = () => {
     try {
       const payload = {
         questions: questions.map(q => ({
-          question_key: q.question_key,
-          type: q.type,
-          label: q.label,
-          required: q.required,
-          order: q.order,
-          options_json: q.options.length > 0 ? JSON.stringify(q.options) : null,
-          validation_json: null,
+          question_key: q.question_key, type: q.type, label: q.label, required: q.required, order: q.order,
+          options_json: q.options.length > 0 ? JSON.stringify(q.options) : null, validation_json: null,
         })),
         logic_rules: logicRules.map(r => ({ rule_json: JSON.stringify(r) })),
       };
@@ -113,18 +109,18 @@ export const FormVersionEditor: React.FC = () => {
     } finally { setPublishing(false); }
   };
 
-  if (loading) return <div style={{ padding: 32, textAlign: 'center', color: t.textMuted }}>Loading…</div>;
+  if (loading) return <div className={styles.loadingState} style={{ color: t.textMuted }}>Loading…</div>;
 
   const inputSm: React.CSSProperties = { ...t.input, padding: '6px 10px', fontSize: 12 };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+    <div className={styles.container}>
+      <div className={styles.headerRow}>
         <div>
-          <button onClick={() => navigate(`/buyer-leads/${tenantId}/forms`)} style={{ color: t.accent, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, marginBottom: 6, padding: 0 }}>← Back to Forms</button>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: t.text, margin: 0 }}>{templateName}</h2>
+          <button onClick={() => navigate(`/buyer-leads/${tenantId}/forms`)} className={styles.backButton} style={{ color: t.accent }}>← Back to Forms</button>
+          <h2 className={styles.pageTitle} style={{ color: t.text }}>{templateName}</h2>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className={styles.headerActions}>
           <button onClick={() => setShowPreview(v => !v)} style={t.btnSecondary}>{showPreview ? 'Hide Preview' : 'JSON Preview'}</button>
           <button onClick={handlePublish} disabled={publishing || questions.length === 0} style={{ ...t.btnPrimary, opacity: publishing || questions.length === 0 ? 0.5 : 1 }}>
             {publishing ? 'Publishing…' : 'Publish Version'}
@@ -133,26 +129,25 @@ export const FormVersionEditor: React.FC = () => {
       </div>
 
       {showPreview && (
-        <pre style={{ background: '#0d1117', color: '#7ee787', fontSize: 11, padding: 16, borderRadius: 12, overflow: 'auto', maxHeight: 240, border: `1px solid ${t.border}` }}>
+        <pre className={styles.jsonPreview} style={{ border: `1px solid ${t.border}` }}>
           {JSON.stringify({ questions, logic_rules: logicRules }, null, 2)}
         </pre>
       )}
 
-      {/* Questions */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className={styles.questionsContainer}>
+        <div className={styles.sectionHeader}>
           <div style={t.sectionTitle}>Questions</div>
           <button onClick={() => setQuestions(qs => [...qs, { ...emptyQuestion(), order: qs.length + 1 }])} style={t.btnSecondary}>+ Add Question</button>
         </div>
 
         {questions.map((q, qi) => (
           <div key={qi} draggable onDragStart={() => handleDragStart(qi)} onDragOver={(e) => handleDragOver(e, qi)} onDragEnd={() => setDragIndex(null)}
-            style={{ ...t.card, cursor: 'grab', opacity: dragIndex === qi ? 0.5 : 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 11, color: t.textFaint, fontWeight: 500 }}>Q{q.order} ⠿</span>
-              <button onClick={() => removeQuestion(qi)} style={{ color: t.red, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>Remove</button>
+            style={t.card} className={`${styles.questionCard} ${dragIndex === qi ? styles.questionCardDragging : ''}`}>
+            <div className={styles.questionHeader}>
+              <span className={styles.questionOrder} style={{ color: t.textFaint }}>Q{q.order} ⠿</span>
+              <button onClick={() => removeQuestion(qi)} className={styles.removeButton} style={{ color: t.red }}>Remove</button>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className={styles.twoColGrid}>
               <div>
                 <label style={t.labelStyle}>Question Key</label>
                 <input type="text" value={q.question_key} onChange={(e) => updateQuestion(qi, { question_key: e.target.value })} placeholder="e.g. timeline" style={inputSm} />
@@ -168,21 +163,21 @@ export const FormVersionEditor: React.FC = () => {
               <label style={t.labelStyle}>Label</label>
               <input type="text" value={q.label} onChange={(e) => updateQuestion(qi, { label: e.target.value })} placeholder="Question text shown to the lead" style={inputSm} />
             </div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: t.textSecondary, cursor: 'pointer' }}>
+            <label className={styles.checkboxLabel} style={{ color: t.textSecondary }}>
               <input type="checkbox" checked={q.required} onChange={(e) => updateQuestion(qi, { required: e.target.checked })} style={{ accentColor: t.accent }} />
               Required
             </label>
             {(q.type === 'single_choice' || q.type === 'multi_select') && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 11, color: t.textMuted }}>Options</span>
-                  <button onClick={() => addOption(qi)} style={{ color: t.accent, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>+ Add Option</button>
+              <div className={styles.optionsContainer}>
+                <div className={styles.optionsHeader}>
+                  <span className={styles.optionsLabel} style={{ color: t.textMuted }}>Options</span>
+                  <button onClick={() => addOption(qi)} className={styles.addOptionButton} style={{ color: t.accent }}>+ Add Option</button>
                 </div>
                 {q.options.map((opt, oi) => (
-                  <div key={oi} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <input type="text" value={opt.value} onChange={(e) => updateOption(qi, oi, { value: e.target.value })} placeholder="value" style={{ ...inputSm, flex: 1 }} />
-                    <input type="text" value={opt.label} onChange={(e) => updateOption(qi, oi, { label: e.target.value })} placeholder="label" style={{ ...inputSm, flex: 1 }} />
-                    <button onClick={() => updateQuestion(qi, { options: q.options.filter((_, i) => i !== oi) })} style={{ color: t.red, background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                  <div key={oi} className={styles.optionRow}>
+                    <input type="text" value={opt.value} onChange={(e) => updateOption(qi, oi, { value: e.target.value })} placeholder="value" style={inputSm} className={styles.optionInput} />
+                    <input type="text" value={opt.label} onChange={(e) => updateOption(qi, oi, { label: e.target.value })} placeholder="label" style={inputSm} className={styles.optionInput} />
+                    <button onClick={() => updateQuestion(qi, { options: q.options.filter((_, i) => i !== oi) })} className={styles.removeOptionButton} style={{ color: t.red }}>✕</button>
                   </div>
                 ))}
               </div>
@@ -191,19 +186,18 @@ export const FormVersionEditor: React.FC = () => {
         ))}
       </div>
 
-      {/* Logic Rules */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className={styles.logicRulesContainer}>
+        <div className={styles.sectionHeader}>
           <div style={t.sectionTitle}>Conditional Logic Rules</div>
           <button onClick={() => setLogicRules(rs => [...rs, { if: { question_key: '', answer: '' }, then: { hide: [] } }])} style={t.btnSecondary}>+ Add Rule</button>
         </div>
         {logicRules.map((rule, ri) => (
-          <div key={ri} style={{ ...t.card, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 11, color: t.textMuted, fontWeight: 500 }}>Rule {ri + 1}</span>
-              <button onClick={() => setLogicRules(rs => rs.filter((_, i) => i !== ri))} style={{ color: t.red, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>Remove</button>
+          <div key={ri} style={t.card} className={styles.ruleCard}>
+            <div className={styles.ruleHeader}>
+              <span className={styles.ruleLabel} style={{ color: t.textMuted }}>Rule {ri + 1}</span>
+              <button onClick={() => setLogicRules(rs => rs.filter((_, i) => i !== ri))} className={styles.removeButton} style={{ color: t.red }}>Remove</button>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className={styles.twoColGrid}>
               <div>
                 <label style={t.labelStyle}>If question_key</label>
                 <input type="text" value={rule.if.question_key} onChange={(e) => setLogicRules(rs => rs.map((r, i) => i === ri ? { ...r, if: { ...r.if, question_key: e.target.value } } : r))} placeholder="e.g. has_agent" style={inputSm} />

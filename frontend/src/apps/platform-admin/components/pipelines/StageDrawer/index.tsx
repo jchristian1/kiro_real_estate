@@ -21,6 +21,7 @@ import type {
 } from '@/apps/platform-admin/api/pipelinesApi';
 
 import { COLORS, CATEGORIES, EVENT_LABELS, ACTION_OPTIONS } from '@/shared/utils/config/const';
+import styles from './index.module.css';
 
 interface Props {
   stage: PipelineStage;
@@ -42,81 +43,59 @@ export const StageDrawer: React.FC<Props> = ({ stage, pipelineId, stages, onClos
   return (
     <>
       {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{ position: 'fixed', inset: 0, zIndex: 900, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)' }}
-      />
+      <div onClick={onClose} className={styles.backdrop} />
 
       {/* Drawer panel */}
-      <div style={{
-        position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 901,
-        width: 440,
+      <div className={styles.drawer} style={{
         background: drawerBg,
         borderLeft: `1px solid ${divider}`,
         boxShadow: '-20px 0 60px rgba(0,0,0,0.35)',
-        display: 'flex', flexDirection: 'column',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}>
 
         {/* ── Header ── */}
-        <div style={{
-          padding: '20px 24px 18px',
+        <div className={styles.drawerHeader} style={{
           borderBottom: `1px solid ${divider}`,
           background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)',
-          flexShrink: 0,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{
-                width: 14, height: 14, borderRadius: '50%',
+          <div className={styles.drawerHeaderRow}>
+            <div className={styles.drawerHeaderLeft}>
+              <div className={styles.stageColorDot} style={{
                 background: stage.color,
                 boxShadow: `0 0 10px ${stage.color}88`,
-                flexShrink: 0,
               }} />
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: t.text, letterSpacing: '-0.2px' }}>{stage.name}</div>
-                <div style={{ fontSize: 11, color: t.textFaint, marginTop: 1 }}>Stage configuration</div>
+                <div className={styles.drawerTitle} style={{ color: t.text }}>{stage.name}</div>
+                <div className={styles.drawerSubtitle} style={{ color: t.textFaint }}>Stage configuration</div>
               </div>
             </div>
             <button
               onClick={onClose}
+              className={styles.closeBtn}
               style={{
                 background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-                border: 'none', borderRadius: 8, cursor: 'pointer',
-                color: t.textMuted, fontSize: 18, width: 32, height: 32,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                lineHeight: 1, transition: 'background 0.15s',
+                color: t.textMuted,
               }}
             >×</button>
           </div>
         </div>
 
         {/* ── Scrollable body ── */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 0 24px' }}>
-
-          {/* Section 1: Settings */}
+        <div className={styles.scrollBody}>
           <SectionBlock label="Settings" icon="⚙" sectionBg={sectionBg} divider={divider}>
-            <SettingsSection
-              stage={stage} pipelineId={pipelineId} stages={stages}
-              onClose={onClose}
-            />
+            <SettingsSection stage={stage} pipelineId={pipelineId} stages={stages} onClose={onClose} />
           </SectionBlock>
-
-          {/* Section 2: Entry triggers */}
           <SectionBlock label="Entry Triggers" icon="⚡" sectionBg={sectionBg} divider={divider}>
             <TriggersSection stage={stage} pipelineId={pipelineId} />
           </SectionBlock>
-
-          {/* Section 3: Actions */}
           <SectionBlock label="Actions" icon="▶" sectionBg={sectionBg} divider={divider}>
             <ActionsSection stage={stage} pipelineId={pipelineId} stages={stages} />
           </SectionBlock>
-
         </div>
       </div>
     </>
   );
 };
+
 
 // ── Section wrapper ───────────────────────────────────────────────────────
 
@@ -129,19 +108,12 @@ const SectionBlock: React.FC<{
   const t = getTokens(theme);
   return (
     <div style={{ marginTop: 0 }}>
-      <div style={{
-        padding: '14px 24px 10px',
-        background: sectionBg,
-        borderBottom: `1px solid ${divider}`,
-        display: 'flex', alignItems: 'center', gap: 8,
-      }}>
-        <span style={{ fontSize: 12, opacity: 0.5 }}>{icon}</span>
-        <span style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px' }}>{label}</span>
+      <div className={styles.sectionHeader} style={{ background: sectionBg, borderBottom: `1px solid ${divider}` }}>
+        <span className={styles.sectionIcon}>{icon}</span>
+        <span className={styles.sectionLabel} style={{ color: t.textMuted }}>{label}</span>
       </div>
-      <div style={{ padding: '16px 24px' }}>
-        {children}
-      </div>
-      <div style={{ height: 1, background: divider }} />
+      <div className={styles.sectionBody}>{children}</div>
+      <div className={styles.sectionDivider} style={{ background: divider }} />
     </div>
   );
 };
@@ -201,47 +173,45 @@ const SettingsSection: React.FC<{
   const otherStages = stages.filter(s => s.id !== stage.id);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className={styles.settingsForm}>
       {/* Name */}
       <div>
-        <label style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 6 }}>Name</label>
+        <label className={styles.fieldLabel} style={{ color: t.textFaint }}>Name</label>
         <input value={name} onChange={e => setName(e.target.value)} style={inp} />
       </div>
 
       {/* Key */}
       <div>
-        <label style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 6 }}>Key</label>
+        <label className={styles.fieldLabel} style={{ color: t.textFaint }}>Key</label>
         <input value={key} onChange={e => setKey(e.target.value)} style={{ ...inp, color: t.textMuted, fontFamily: 'monospace', fontSize: 12 }} />
       </div>
 
       {/* Color */}
       <div>
-        <label style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 8 }}>Color</label>
-        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
+        <label className={styles.colorFieldLabel} style={{ color: t.textFaint }}>Color</label>
+        <div className={styles.colorRow}>
           {COLORS.map(c => (
-            <button key={c} type="button" onClick={() => setColor(c)} style={{
-              width: 24, height: 24, borderRadius: '50%', background: c, border: 'none', cursor: 'pointer',
+            <button key={c} type="button" onClick={() => setColor(c)} className={styles.colorBtn} style={{
+              background: c,
               outline: color === c ? `2.5px solid ${t.text}` : `2px solid transparent`,
-              outlineOffset: 2, transition: 'outline 0.1s',
+              outlineOffset: 2,
               boxShadow: color === c ? `0 0 8px ${c}88` : 'none',
             }} />
           ))}
-          <input type="color" value={color} onChange={e => setColor(e.target.value)} style={{ width: 24, height: 24, borderRadius: '50%', border: 'none', cursor: 'pointer', padding: 0, background: 'none' }} title="Custom color" />
+          <input type="color" value={color} onChange={e => setColor(e.target.value)} className={styles.customColorInput} title="Custom color" />
         </div>
       </div>
 
       {/* Category */}
       <div>
-        <label style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 8 }}>Category</label>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <label className={styles.colorFieldLabel} style={{ color: t.textFaint }}>Category</label>
+        <div className={styles.categoryRow}>
           {CATEGORIES.map(cat => (
-            <button key={cat.value} type="button" onClick={() => setCategory(cat.value)} style={{
+            <button key={cat.value} type="button" onClick={() => setCategory(cat.value)} className={styles.categoryBtn} style={{
               background: category === cat.value ? t.accentBg : (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'),
               border: `1px solid ${category === cat.value ? t.accent + '66' : t.border}`,
-              borderRadius: 8, padding: '5px 12px', cursor: 'pointer',
-              fontSize: 12, fontWeight: category === cat.value ? 600 : 400,
+              fontWeight: category === cat.value ? 600 : 400,
               color: category === cat.value ? t.accent : t.textMuted,
-              transition: 'all 0.15s',
             }}>
               {cat.icon} {cat.label}
             </button>
@@ -250,72 +220,58 @@ const SettingsSection: React.FC<{
       </div>
 
       {/* Toggles */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className={styles.toggleList}>
         {[
           { label: 'Default stage', sub: 'New leads start here', val: isDefault, set: setIsDefault },
           { label: 'Closed Won', sub: 'Marks lead as won', val: isClosedWon, set: (v: boolean) => { setIsClosedWon(v); if (v) setIsClosedLost(false); } },
           { label: 'Closed Lost', sub: 'Marks lead as lost', val: isClosedLost, set: (v: boolean) => { setIsClosedLost(v); if (v) setIsClosedWon(false); } },
         ].map(({ label, sub, val, set }) => (
-          <label key={label} style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          <label key={label} className={styles.toggleRow} style={{
             background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-            border: `1px solid ${t.border}`, borderRadius: 10, padding: '10px 14px', cursor: 'pointer',
+            border: `1px solid ${t.border}`,
           }}>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: t.text }}>{label}</div>
-              <div style={{ fontSize: 11, color: t.textFaint, marginTop: 1 }}>{sub}</div>
+              <div className={styles.toggleLabel} style={{ color: t.text }}>{label}</div>
+              <div className={styles.toggleSub} style={{ color: t.textFaint }}>{sub}</div>
             </div>
-            <div onClick={() => set(!val)} style={{
-              width: 36, height: 20, borderRadius: 10,
+            <div onClick={() => set(!val)} className={styles.toggleSwitch} style={{
               background: val ? t.accent : (isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.15)'),
-              position: 'relative', transition: 'background 0.2s', flexShrink: 0, cursor: 'pointer',
             }}>
-              <div style={{
-                position: 'absolute', top: 2, left: val ? 18 : 2,
-                width: 16, height: 16, borderRadius: '50%', background: '#fff',
-                transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-              }} />
+              <div className={styles.toggleKnob} style={{ left: val ? 18 : 2 }} />
             </div>
           </label>
         ))}
       </div>
 
       {/* Save / Delete */}
-      <div style={{ display: 'flex', gap: 8, paddingTop: 4 }}>
-        <button onClick={handleSave} disabled={updateStage.isPending} style={{
-          flex: 1, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-          border: 'none', borderRadius: 10, color: '#fff',
-          fontSize: 13, fontWeight: 600, padding: '10px', cursor: 'pointer',
-          boxShadow: '0 4px 14px rgba(99,102,241,0.35)',
-        }}>
+      <div className={styles.saveDeleteRow}>
+        <button onClick={handleSave} disabled={updateStage.isPending} className={styles.saveBtn}>
           {updateStage.isPending ? 'Saving…' : 'Save Changes'}
         </button>
-        <button onClick={() => setShowDelete(true)} style={{
-          background: 'transparent', border: `1px solid ${t.red}22`,
-          borderRadius: 10, color: t.red, fontSize: 13, fontWeight: 600,
-          padding: '10px 16px', cursor: 'pointer',
+        <button onClick={() => setShowDelete(true)} className={styles.deleteBtn} style={{
+          border: `1px solid ${t.red}22`, color: t.red,
         }}>Delete</button>
       </div>
 
       {/* Delete confirm */}
       {showDelete && (
-        <div style={{ background: t.redBg, border: `1px solid ${t.red}44`, borderRadius: 12, padding: 14 }}>
-          <div style={{ fontSize: 13, color: t.text, marginBottom: 10, fontWeight: 500 }}>Delete "{stage.name}"?</div>
+        <div className={styles.deleteConfirm} style={{ background: t.redBg, border: `1px solid ${t.red}44` }}>
+          <div className={styles.deleteConfirmTitle} style={{ color: t.text }}>Delete "{stage.name}"?</div>
           {otherStages.length > 0 && (
-            <div style={{ marginBottom: 10 }}>
-              <label style={{ fontSize: 11, color: t.textFaint, display: 'block', marginBottom: 4 }}>Reassign leads to</label>
+            <div className={styles.deleteConfirmField}>
+              <label className={styles.deleteConfirmLabel} style={{ color: t.textFaint }}>Reassign leads to</label>
               <select value={reassignTo} onChange={e => setReassignTo(e.target.value ? Number(e.target.value) : '')} style={inp}>
                 <option value="">— none —</option>
                 {otherStages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
           )}
-          {deleteError && <div style={{ fontSize: 12, color: t.red, marginBottom: 8 }}>{deleteError}</div>}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={handleDelete} disabled={deleteStage.isPending} style={{ flex: 1, background: t.red, border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, padding: '8px', cursor: 'pointer' }}>
+          {deleteError && <div className={styles.deleteError} style={{ color: t.red }}>{deleteError}</div>}
+          <div className={styles.deleteActions}>
+            <button onClick={handleDelete} disabled={deleteStage.isPending} className={styles.confirmDeleteBtn} style={{ background: t.red }}>
               {deleteStage.isPending ? 'Deleting…' : 'Confirm Delete'}
             </button>
-            <button onClick={() => { setShowDelete(false); setDeleteError(null); }} style={{ background: 'none', border: `1px solid ${t.border}`, borderRadius: 8, color: t.textMuted, fontSize: 13, padding: '8px 12px', cursor: 'pointer' }}>
+            <button onClick={() => { setShowDelete(false); setDeleteError(null); }} className={styles.cancelDeleteBtn} style={{ border: `1px solid ${t.border}`, color: t.textMuted }}>
               Cancel
             </button>
           </div>
@@ -324,6 +280,7 @@ const SettingsSection: React.FC<{
     </div>
   );
 };
+
 
 // ── Entry Triggers section ────────────────────────────────────────────────
 
@@ -351,35 +308,27 @@ const TriggersSection: React.FC<{ stage: PipelineStage; pipelineId: number }> = 
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ fontSize: 12, color: t.textFaint, marginBottom: 4 }}>
-        When these platform events fire, leads automatically move into <span style={{ color: t.text, fontWeight: 600 }}>{stage.name}</span>.
+    <div className={styles.triggersContainer}>
+      <div className={styles.triggersDesc} style={{ color: t.textFaint }}>
+        When these platform events fire, leads automatically move into <span className={styles.triggersDescHighlight} style={{ color: t.text }}>{stage.name}</span>.
       </div>
       {allEvents.map(ev => {
         const active = isActive(ev);
         const elsewhere = pointsElsewhere(ev);
         return (
-          <div key={ev} style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+          <div key={ev} className={styles.triggerRow} style={{
             background: active ? t.accentBg : (isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'),
             border: `1px solid ${active ? t.accent + '44' : t.border}`,
-            borderRadius: 10, padding: '10px 14px', transition: 'all 0.15s',
           }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, color: t.text, fontWeight: active ? 500 : 400 }}>{EVENT_LABELS[ev]}</div>
-              {elsewhere && <div style={{ fontSize: 11, color: t.textFaint, marginTop: 2 }}>Mapped to another stage</div>}
+              <div className={styles.triggerName} style={{ color: t.text, fontWeight: active ? 500 : 400 }}>{EVENT_LABELS[ev]}</div>
+              {elsewhere && <div className={styles.triggerElsewhere} style={{ color: t.textFaint }}>Mapped to another stage</div>}
             </div>
             {/* Toggle pill */}
-            <div onClick={() => toggle(ev)} style={{
-              width: 36, height: 20, borderRadius: 10,
+            <div onClick={() => toggle(ev)} className={styles.toggleSwitch} style={{
               background: active ? t.accent : (isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.15)'),
-              position: 'relative', transition: 'background 0.2s', flexShrink: 0, cursor: 'pointer',
             }}>
-              <div style={{
-                position: 'absolute', top: 2, left: active ? 18 : 2,
-                width: 16, height: 16, borderRadius: '50%', background: '#fff',
-                transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-              }} />
+              <div className={styles.toggleKnob} style={{ left: active ? 18 : 2 }} />
             </div>
           </div>
         );
@@ -419,33 +368,26 @@ const ActionsSection: React.FC<{
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div className={styles.actionsContainer}>
       {/* When header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
+      <div className={styles.whenHeader} style={{
         background: isDark ? 'rgba(99,102,241,0.08)' : 'rgba(99,102,241,0.06)',
-        border: `1px solid ${t.accent}22`, borderRadius: 10, padding: '10px 14px',
+        border: `1px solid ${t.accent}22`,
       }}>
-        <div style={{ width: 6, height: 6, borderRadius: '50%', background: t.accent, flexShrink: 0 }} />
-        <span style={{ fontSize: 12, color: t.textMuted }}>
-          <span style={{ fontWeight: 700, color: t.accent }}>When</span> a lead enters{' '}
-          <span style={{ fontWeight: 600, color: t.text }}>{stage.name}</span>…
+        <div className={styles.whenDot} style={{ background: t.accent }} />
+        <span className={styles.whenText} style={{ color: t.textMuted }}>
+          <span className={styles.whenBold} style={{ color: t.accent }}>When</span> a lead enters{' '}
+          <span className={styles.whenStageName} style={{ color: t.text }}>{stage.name}</span>…
         </span>
       </div>
 
       {stageRules.length === 0 && (
-        <div style={{
+        <div className={styles.emptyActions} style={{
           background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
-          border: `1.5px dashed ${t.border}`, borderRadius: 12,
-          padding: '20px', textAlign: 'center',
+          border: `1.5px dashed ${t.border}`,
         }}>
-          <div style={{ fontSize: 13, color: t.textFaint, marginBottom: 12 }}>No actions configured yet.</div>
-          <button onClick={handleAdd} disabled={createRule.isPending} style={{
-            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none',
-            borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600,
-            padding: '8px 18px', cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(99,102,241,0.3)',
-          }}>
+          <div className={styles.emptyActionsText} style={{ color: t.textFaint }}>No actions configured yet.</div>
+          <button onClick={handleAdd} disabled={createRule.isPending} className={styles.addActionBtn}>
             + Add action
           </button>
         </div>
@@ -464,12 +406,8 @@ const ActionsSection: React.FC<{
       ))}
 
       {stageRules.length > 0 && (
-        <button onClick={handleAdd} disabled={createRule.isPending} style={{
-          background: 'none',
-          border: `1.5px dashed ${t.border}`, borderRadius: 10,
-          color: t.textMuted, fontSize: 13, fontWeight: 500,
-          padding: '10px', cursor: 'pointer', width: '100%',
-          transition: 'border-color 0.15s',
+        <button onClick={handleAdd} disabled={createRule.isPending} className={styles.addAnotherBtn} style={{
+          border: `1.5px dashed ${t.border}`, color: t.textMuted,
         }}>
           {createRule.isPending ? 'Adding…' : '+ Add another action'}
         </button>
@@ -482,6 +420,7 @@ const ActionsSection: React.FC<{
     </div>
   );
 };
+
 
 // ── Action rule card ──────────────────────────────────────────────────────
 
@@ -550,55 +489,47 @@ const ActionRuleCard: React.FC<{
   };
 
   return (
-    <div style={{
+    <div className={styles.ruleCard} style={{
       background: isDark ? 'rgba(255,255,255,0.03)' : '#fafafa',
       border: `1px solid ${rule.is_enabled ? t.accent + '33' : t.border}`,
-      borderRadius: 12, overflow: 'hidden',
     }}>
       {/* Card header */}
-      <div style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{
-          width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+      <div className={styles.ruleCardHeader}>
+        <div className={styles.ruleIndex} style={{
           background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 11, fontWeight: 700, color: t.textMuted,
+          color: t.textMuted,
         }}>{index + 1}</div>
-        <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div className={styles.ruleCardName} style={{ color: t.text }}>
           {rule.name}
         </div>
         {/* Enable toggle */}
         <div
           onClick={() => updateRule.mutate({ pipelineId, ruleId: rule.id, is_enabled: !rule.is_enabled })}
+          className={styles.miniToggle}
           style={{
-            width: 32, height: 18, borderRadius: 9,
             background: rule.is_enabled ? t.accent : (isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.15)'),
-            position: 'relative', transition: 'background 0.2s', flexShrink: 0, cursor: 'pointer',
           }}
         >
-          <div style={{
-            position: 'absolute', top: 1, left: rule.is_enabled ? 14 : 1,
-            width: 16, height: 16, borderRadius: '50%', background: '#fff',
-            transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-          }} />
+          <div className={styles.miniToggleKnob} style={{ left: rule.is_enabled ? 14 : 1 }} />
         </div>
-        <button onClick={() => setExpanded(e => !e)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textFaint, fontSize: 14, padding: '0 2px', lineHeight: 1 }}>
+        <button onClick={() => setExpanded(e => !e)} className={styles.expandBtn} style={{ color: t.textFaint }}>
           {expanded ? '▾' : '▸'}
         </button>
-        <button onClick={onDelete} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textFaint, fontSize: 16, padding: '0 2px', lineHeight: 1 }}>×</button>
+        <button onClick={onDelete} className={styles.ruleDeleteBtn} style={{ color: t.textFaint }}>×</button>
       </div>
 
       {expanded && (
-        <div style={{ borderTop: `1px solid ${t.border}`, padding: '14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className={styles.ruleCardBody} style={{ borderTop: `1px solid ${t.border}` }}>
           {/* Name */}
           <div>
-            <label style={{ fontSize: 11, color: t.textFaint, display: 'block', marginBottom: 4 }}>Rule name</label>
+            <label className={styles.ruleFieldLabel} style={{ color: t.textFaint }}>Rule name</label>
             <input value={draft.name} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} style={inp} />
           </div>
 
           {/* IF condition */}
           <div>
-            <label style={{ fontSize: 11, color: t.textFaint, display: 'block', marginBottom: 4 }}>
-              <span style={{ color: t.accent, fontWeight: 700 }}>IF</span> condition
+            <label className={styles.ruleFieldLabel} style={{ color: t.textFaint }}>
+              <span className={styles.ruleFieldLabelBold} style={{ color: t.accent }}>IF</span> condition
             </label>
             <select value={draft.condition_type} onChange={e => setDraft(d => ({ ...d, condition_type: e.target.value }))} style={inp}>
               <option value="always">Always</option>
@@ -617,18 +548,16 @@ const ActionRuleCard: React.FC<{
 
           {/* THEN steps */}
           <div>
-            <label style={{ fontSize: 11, color: t.textFaint, display: 'block', marginBottom: 8 }}>
-              <span style={{ color: t.green, fontWeight: 700 }}>THEN</span> do these actions
+            <label className={styles.stepsLabel} style={{ color: t.textFaint }}>
+              <span className={styles.ruleFieldLabelBold} style={{ color: t.green }}>THEN</span> do these actions
             </label>
             {draft.steps.map((step, i) => (
-              <div key={i} style={{
+              <div key={i} className={styles.stepCard} style={{
                 background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                border: `1px solid ${t.border}`, borderRadius: 10,
-                padding: '10px 12px', marginBottom: 8,
-                display: 'flex', flexDirection: 'column', gap: 8,
+                border: `1px solid ${t.border}`,
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: t.textFaint, width: 16, flexShrink: 0 }}>{i + 1}.</div>
+                <div className={styles.stepHeader}>
+                  <div className={styles.stepIndex} style={{ color: t.textFaint }}>{i + 1}.</div>
                   <select
                     value={step.action_type}
                     onChange={e => updateStep(i, { action_type: e.target.value as ActionType, action_config_json: '{}' })}
@@ -636,7 +565,7 @@ const ActionRuleCard: React.FC<{
                   >
                     {ACTION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
-                  <button onClick={() => removeStep(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textFaint, fontSize: 16, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>×</button>
+                  <button onClick={() => removeStep(i)} className={styles.stepRemoveBtn} style={{ color: t.textFaint }}>×</button>
                 </div>
 
                 {/* Per-action config */}
@@ -672,28 +601,23 @@ const ActionRuleCard: React.FC<{
                 )}
               </div>
             ))}
-            <button onClick={addStep} style={{
-              background: 'none', border: `1.5px dashed ${t.border}`,
-              borderRadius: 8, color: t.textMuted, fontSize: 12,
-              padding: '7px', cursor: 'pointer', width: '100%',
+            <button onClick={addStep} className={styles.addStepBtn} style={{
+              border: `1.5px dashed ${t.border}`, color: t.textMuted,
             }}>+ Add step</button>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexDirection: 'column' }}>
+          <div className={styles.ruleCardActions}>
             {saveError && (
-              <div style={{ fontSize: 12, color: t.red, background: t.redBg, border: `1px solid ${t.red}33`, borderRadius: 8, padding: '7px 10px' }}>
+              <div className={styles.saveError} style={{ color: t.red, background: t.redBg, border: `1px solid ${t.red}33` }}>
                 {saveError}
               </div>
             )}
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => { setExpanded(false); setSaveError(null); }} style={{ background: 'none', border: `1px solid ${t.border}`, borderRadius: 8, color: t.textMuted, fontSize: 13, padding: '7px 14px', cursor: 'pointer' }}>
+            <div className={styles.ruleCardBtns}>
+              <button onClick={() => { setExpanded(false); setSaveError(null); }} className={styles.ruleCancelBtn} style={{ border: `1px solid ${t.border}`, color: t.textMuted }}>
                 Cancel
               </button>
-              <button onClick={handleSave} disabled={updateRule.isPending || saved} style={{
-                background: saved ? '#22c55e' : 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none',
-                borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600,
-                padding: '7px 18px', cursor: 'pointer', transition: 'background 0.2s',
-                minWidth: 70,
+              <button onClick={handleSave} disabled={updateRule.isPending || saved} className={styles.ruleSaveBtn} style={{
+                background: saved ? '#22c55e' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
               }}>
                 {saved ? '✓ Saved' : updateRule.isPending ? 'Saving…' : 'Save'}
               </button>
@@ -704,6 +628,7 @@ const ActionRuleCard: React.FC<{
     </div>
   );
 };
+
 
 // ── Live summary ──────────────────────────────────────────────────────────
 
@@ -742,17 +667,16 @@ const LiveSummary: React.FC<{
   };
 
   return (
-    <div style={{
+    <div className={styles.liveSummary} style={{
       background: isDark ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.04)',
-      border: `1px solid ${t.accent}22`, borderRadius: 12, padding: '14px 16px',
-      marginTop: 4,
+      border: `1px solid ${t.accent}22`,
     }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: t.accent, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>
+      <div className={styles.liveSummaryTitle} style={{ color: t.accent }}>
         Summary
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div className={styles.liveSummaryList}>
         {rules.map((rule, ri) => (
-          <div key={rule.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, fontSize: 12 }}>
+          <div key={rule.id} className={styles.summaryRow}>
             <span style={{ color: t.accent, fontWeight: 700 }}>When</span>
             <span style={{ color: t.text }}>lead enters <strong>{stage.name}</strong></span>
             {rule.condition_type !== 'always' && (
@@ -772,9 +696,9 @@ const LiveSummary: React.FC<{
               <span style={{ color: t.textFaint, fontStyle: 'italic' }}>→ (no steps)</span>
             )}
             {!rule.is_enabled && (
-              <span style={{ fontSize: 10, color: t.textFaint, background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', borderRadius: 4, padding: '1px 6px' }}>disabled</span>
+              <span className={styles.disabledBadge} style={{ color: t.textFaint, background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>disabled</span>
             )}
-            {ri < rules.length - 1 && <div style={{ width: '100%', height: 1, background: t.border, margin: '2px 0' }} />}
+            {ri < rules.length - 1 && <div className={styles.summaryDivider} style={{ background: t.border }} />}
           </div>
         ))}
       </div>

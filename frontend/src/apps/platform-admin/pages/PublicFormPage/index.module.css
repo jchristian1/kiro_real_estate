@@ -1,0 +1,176 @@
+.page {
+  min-height: 100vh;
+  background: #f2f2f7;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px 80px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+}
+
+.card {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
+  width: 100%;
+  max-width: 560px;
+}
+
+.centeredMessage {
+  text-align: center;
+  color: #8e8e93;
+  padding: 40px;
+}
+
+.errorIcon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.errorTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1c1c1e;
+  margin-bottom: 8px;
+}
+
+.errorSubtitle {
+  font-size: 15px;
+  color: #8e8e93;
+}
+
+.successContainer {
+  text-align: center;
+  padding: 48px 32px;
+}
+
+.successIcon {
+  font-size: 56px;
+  margin-bottom: 20px;
+}
+
+.successTitle {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1c1c1e;
+  margin-bottom: 12px;
+}
+
+.successMessage {
+  font-size: 15px;
+  color: #3c3c43;
+  line-height: 1.7;
+  max-width: 380px;
+  margin: 0 auto;
+}
+
+.formHeader {
+  padding: 28px 28px 0;
+}
+
+.formTitle {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1c1c1e;
+  margin-bottom: 4px;
+}
+
+.formSubtitle {
+  font-size: 14px;
+  color: #8e8e93;
+  margin-bottom: 28px;
+}
+
+.formBody {
+  padding: 0 28px 28px;
+}
+
+.questionBlock {
+  margin-bottom: 24px;
+}
+
+.questionLabel {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1c1c1e;
+  margin-bottom: 10px;
+}
+
+.requiredMark {
+  color: #ff3b30;
+  margin-left: 4px;
+}
+
+.optionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.optionLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.optionLabelDefault {
+  border: 1.5px solid #e5e5ea;
+  background: #fff;
+}
+
+.optionLabelSelected {
+  border: 1.5px solid #007aff;
+  background: #eaf4ff;
+}
+
+.optionText {
+  font-size: 14px;
+  color: #1c1c1e;
+}
+
+.input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid #e5e5ea;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #1c1c1e;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.errorAlert {
+  background: #fff2f2;
+  border: 1px solid #ffd0d0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  color: #ff3b30;
+}
+
+.submitButton {
+  width: 100%;
+  padding: 14px;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.submitButtonActive {
+  background: #007aff;
+  cursor: pointer;
+}
+
+.submitButtonDisabled {
+  background: #c7c7cc;
+  cursor: not-allowed;
+}

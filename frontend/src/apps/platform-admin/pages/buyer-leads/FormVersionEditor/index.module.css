@@ -1,0 +1,169 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.headerRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.backButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  margin-bottom: 6px;
+  padding: 0;
+}
+
+.pageTitle {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.headerActions {
+  display: flex;
+  gap: 8px;
+}
+
+.disabledButton {
+  opacity: 0.5;
+}
+
+.loadingState {
+  padding: 32px;
+  text-align: center;
+}
+
+.jsonPreview {
+  background: #0d1117;
+  color: #7ee787;
+  font-size: 11px;
+  padding: 16px;
+  border-radius: 12px;
+  overflow: auto;
+  max-height: 240px;
+}
+
+.questionsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.questionCard {
+  cursor: grab;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.questionCardDragging {
+  opacity: 0.5;
+}
+
+.questionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.questionOrder {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.removeButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.twoColGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.optionsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.optionsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.optionsLabel {
+  font-size: 11px;
+}
+
+.addOptionButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.optionRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.optionInput {
+  flex: 1;
+}
+
+.removeOptionButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.logicRulesContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ruleCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ruleHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ruleLabel {
+  font-size: 11px;
+  font-weight: 500;
+}

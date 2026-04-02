@@ -1,0 +1,298 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.explainer {
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.explainerIcon {
+  font-size: 20px;
+}
+
+.explainerTitle {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.explainerDesc {
+  font-size: 12px;
+}
+
+.emptyState {
+  border-radius: 14px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.emptyIcon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.emptyTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.emptyDesc {
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+.primaryBtn {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: none;
+  border-radius: 9px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 22px;
+  cursor: pointer;
+}
+
+.addBtn {
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.loadingText {
+  font-size: 14px;
+  padding: 24px;
+}
+
+/* RuleCard */
+.ruleCard {
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.ruleHeader {
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.expandBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.ruleInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.ruleName {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.ruleSummary {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.toggleBtn {
+  border-radius: 20px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.deleteBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0 2px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.ruleEditor {
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldGroup {
+  margin-bottom: 16px;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.smallLabel {
+  font-size: 11px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.editorActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.cancelBtn {
+  background: none;
+  border-radius: 8px;
+  font-size: 13px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.saveBtn {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 20px;
+  cursor: pointer;
+}
+
+/* ZapBlock */
+.zapBlock {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.zapBlockHeader {
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zapBlockIcon {
+  font-size: 16px;
+}
+
+.zapBlockLabel {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+}
+
+.zapBlockDesc {
+  font-size: 12px;
+}
+
+.zapBlockBody {
+  padding: 14px;
+}
+
+/* Connector */
+.connector {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0;
+  font-size: 18px;
+}
+
+/* ActionRow */
+.actionRow {
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.actionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.actionIcon {
+  font-size: 16px;
+}
+
+.actionRemoveBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.actionDesc {
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+
+.actionFields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.addActionBtn {
+  background: none;
+  border-radius: 8px;
+  font-size: 12px;
+  padding: 8px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.noActionsText {
+  font-size: 12px;
+  font-style: italic;
+}
+
+.conditionDesc {
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.stepsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.noTemplatesText {
+  font-size: 11px;
+}

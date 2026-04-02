@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
 import { API_BASE_URL } from '@/shared/utils/config/enviroments';
+import styles from './index.module.css';
 
 interface ScoringRule { key: string; answer_value: string; points: number; reason: string; }
 interface Thresholds { HOT: number; WARM: number; }
@@ -98,15 +99,15 @@ export const BuyerScoringTab: React.FC = () => {
     } finally { setPublishing(false); }
   };
 
-  if (loading) return <div style={{ padding: 32, textAlign: 'center', color: t.textMuted }}>Loading…</div>;
+  if (loading) return <div className={styles.loadingState} style={{ color: t.textMuted }}>Loading…</div>;
 
   const inputSm: React.CSSProperties = { ...t.input, padding: '5px 8px', fontSize: 12 };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, color: t.text, margin: 0 }}>Buyer Scoring</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <h2 className={styles.title} style={{ color: t.text }}>Buyer Scoring</h2>
+        <div className={styles.headerActions}>
           <button onClick={() => setShowCreate(true)} style={t.btnSecondary}>New Config</button>
           <button onClick={handlePublish} disabled={publishing || !selectedConfig} style={{ ...t.btnPrimary, opacity: publishing || !selectedConfig ? 0.5 : 1 }}>
             {publishing ? 'Publishing…' : 'Publish Version'}
@@ -115,12 +116,12 @@ export const BuyerScoringTab: React.FC = () => {
       </div>
 
       {showCreate && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ ...t.card, width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 600, color: t.text, margin: 0 }}>New Scoring Config</h3>
+        <div className={styles.modalOverlay}>
+          <div style={t.card} className={styles.modalContent}>
+            <h3 className={styles.modalTitle} style={{ color: t.text }}>New Scoring Config</h3>
             <input type="text" placeholder="Config name" value={newConfigName} onChange={(e) => setNewConfigName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()} style={t.input} autoFocus />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <div className={styles.modalActions}>
               <button onClick={() => setShowCreate(false)} style={t.btnSecondary}>Cancel</button>
               <button onClick={handleCreate} disabled={creating || !newConfigName.trim()} style={{ ...t.btnPrimary, opacity: creating || !newConfigName.trim() ? 0.5 : 1 }}>
                 {creating ? 'Creating…' : 'Create'}
@@ -132,7 +133,7 @@ export const BuyerScoringTab: React.FC = () => {
 
       {configs.length > 0 && (
         <div style={t.card}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className={styles.table}>
             <thead><tr>
               {['Config', 'Type', ''].map(h => <th key={h} style={{ ...t.th, textAlign: h === '' ? 'right' : 'left' }}>{h}</th>)}
             </tr></thead>
@@ -149,16 +150,16 @@ export const BuyerScoringTab: React.FC = () => {
                   </td>
                   <td style={{ ...t.td, color: t.textMuted }}>{c.intent_type}</td>
                   <td style={{ ...t.td, textAlign: 'right' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+                    <div className={styles.actionsCell}>
                       {editingConfigId === c.id ? (
                         <>
-                          <button onClick={(e) => { e.stopPropagation(); handleRename(c); }} style={{ color: t.green, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Save</button>
-                          <button onClick={(e) => { e.stopPropagation(); setEditingConfigId(null); }} style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>Cancel</button>
+                          <button onClick={(e) => { e.stopPropagation(); handleRename(c); }} className={styles.linkButtonBold} style={{ color: t.green }}>Save</button>
+                          <button onClick={(e) => { e.stopPropagation(); setEditingConfigId(null); }} className={styles.linkButton} style={{ color: t.textMuted }}>Cancel</button>
                         </>
                       ) : (
                         <>
-                          <button onClick={(e) => { e.stopPropagation(); setEditingConfigId(c.id); setEditConfigName(c.name); }} style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>Rename</button>
-                          <button onClick={(e) => { e.stopPropagation(); handleDelete(c); }} style={{ color: t.red, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>Delete</button>
+                          <button onClick={(e) => { e.stopPropagation(); setEditingConfigId(c.id); setEditConfigName(c.name); }} className={styles.linkButton} style={{ color: t.textMuted }}>Rename</button>
+                          <button onClick={(e) => { e.stopPropagation(); handleDelete(c); }} className={styles.linkButton} style={{ color: t.red }}>Delete</button>
                         </>
                       )}
                     </div>
@@ -172,10 +173,9 @@ export const BuyerScoringTab: React.FC = () => {
 
       {selectedConfig && (
         <>
-          {/* Thresholds */}
           <div style={t.card}>
             <div style={t.sectionTitle}>Bucket Thresholds</div>
-            <div style={{ display: 'flex', gap: 24, alignItems: 'flex-end' }}>
+            <div className={styles.thresholdsRow}>
               {(['HOT', 'WARM'] as const).map((bucket) => (
                 <div key={bucket}>
                   <label style={t.labelStyle}>{bucket} (≥)</label>
@@ -184,23 +184,22 @@ export const BuyerScoringTab: React.FC = () => {
                     style={{ ...t.input, width: 80 }} />
                 </div>
               ))}
-              <span style={{ fontSize: 12, color: t.textFaint, paddingBottom: 8 }}>NURTURE = below WARM</span>
+              <span className={styles.thresholdHint} style={{ color: t.textFaint }}>NURTURE = below WARM</span>
             </div>
           </div>
 
-          {/* Rules table */}
           <div style={t.card}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div className={styles.rulesHeader}>
               <div style={t.sectionTitle}>Scoring Rules</div>
               <button onClick={() => setRules(rs => [...rs, { key: '', answer_value: '', points: 0, reason: '' }])} style={t.btnSecondary}>+ Add Rule</button>
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className={styles.table}>
               <thead><tr>
                 {['Question Key', 'Answer Value', 'Points', 'Reason', ''].map(h => <th key={h} style={t.th}>{h}</th>)}
               </tr></thead>
               <tbody>
                 {rules.length === 0 && (
-                  <tr><td colSpan={5} style={{ ...t.td, textAlign: 'center', color: t.textFaint, padding: '24px 0' }}>No rules yet — click + Add Rule</td></tr>
+                  <tr><td colSpan={5} className={styles.emptyRules} style={{ ...t.td, color: t.textFaint }}>No rules yet — click + Add Rule</td></tr>
                 )}
                 {rules.map((rule, i) => (
                   <tr key={i} style={{ borderBottom: `1px solid ${t.border}` }}>
@@ -208,18 +207,17 @@ export const BuyerScoringTab: React.FC = () => {
                     <td style={t.td}><input type="text" value={rule.answer_value} onChange={(e) => setRules(rs => rs.map((r, j) => j === i ? { ...r, answer_value: e.target.value } : r))} style={inputSm} /></td>
                     <td style={t.td}><input type="number" value={rule.points} onChange={(e) => setRules(rs => rs.map((r, j) => j === i ? { ...r, points: Number(e.target.value) } : r))} style={{ ...inputSm, width: 64 }} /></td>
                     <td style={t.td}><input type="text" value={rule.reason} onChange={(e) => setRules(rs => rs.map((r, j) => j === i ? { ...r, reason: e.target.value } : r))} style={inputSm} /></td>
-                    <td style={{ ...t.td, textAlign: 'right' }}><button onClick={() => setRules(rs => rs.filter((_, j) => j !== i))} style={{ color: t.red, background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }}>✕</button></td>
+                    <td style={{ ...t.td, textAlign: 'right' }}><button onClick={() => setRules(rs => rs.filter((_, j) => j !== i))} className={styles.removeRuleButton} style={{ color: t.red }}>✕</button></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          {/* Version history */}
           {versions.length > 0 && (
             <div style={t.card}>
-              <div style={{ ...t.sectionTitle, marginBottom: 12 }}>Version History</div>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div style={t.sectionTitle} className={styles.versionSectionTitle}>Version History</div>
+              <table className={styles.table}>
                 <thead><tr>
                   {['Version', 'Published', 'Active', ''].map(h => <th key={h} style={{ ...t.th, textAlign: h === '' ? 'right' : 'left' }}>{h}</th>)}
                 </tr></thead>
@@ -228,9 +226,9 @@ export const BuyerScoringTab: React.FC = () => {
                     <tr key={v.id} style={{ borderBottom: `1px solid ${t.border}` }}>
                       <td style={t.td}>v{v.version_number}</td>
                       <td style={{ ...t.td, color: t.textMuted }}>{v.published_at ? new Date(v.published_at).toLocaleDateString() : '—'}</td>
-                      <td style={t.td}>{v.is_active && <span style={{ padding: '2px 8px', fontSize: 10, fontWeight: 600, background: t.greenBg, color: t.green, borderRadius: 20 }}>Active</span>}</td>
+                      <td style={t.td}>{v.is_active && <span className={styles.activeBadge} style={{ background: t.greenBg, color: t.green }}>Active</span>}</td>
                       <td style={{ ...t.td, textAlign: 'right' }}>
-                        {!v.is_active && <button onClick={() => handleRollback(v.id)} style={{ color: t.accent, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Rollback</button>}
+                        {!v.is_active && <button onClick={() => handleRollback(v.id)} className={styles.linkButtonBold} style={{ color: t.accent }}>Rollback</button>}
                       </td>
                     </tr>
                   ))}

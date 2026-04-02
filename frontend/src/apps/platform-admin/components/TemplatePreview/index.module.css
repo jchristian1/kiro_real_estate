@@ -1,0 +1,34 @@
+.sectionLabel {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.previewSubject {
+  margin-top: 6px;
+  font-size: 13px;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.previewBody {
+  margin-top: 6px;
+  font-size: 12px;
+  border-radius: 8px;
+  padding: 8px 12px;
+  white-space: pre-wrap;
+  font-family: inherit;
+}
+
+.subjectSection {
+  margin-bottom: 12px;
+}
+
+.statusText {
+  font-size: 13px;
+}
+
+.sectionTitle {
+  margin-bottom: 12px;
+}

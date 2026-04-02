@@ -1,0 +1,43 @@
+.serverError {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.fieldGroup {
+  margin-bottom: 16px;
+}
+
+.fieldError {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.templateHint {
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.checkboxGroup {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+}
+
+.checkboxLabel {
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

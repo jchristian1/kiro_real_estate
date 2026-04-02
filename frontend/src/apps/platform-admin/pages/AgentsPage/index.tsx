@@ -4,8 +4,10 @@ import { AgentForm, AgentFormValues, AgentEditFormValues, AgentDetail } from '@/
 
 import { useT } from '@/shared/hooks';
 import { ConfirmDialog } from '@/platformAdminComponents/ConfirmDialog';
+import { API_BASE_URL } from '@/shared/utils/config/enviroments';
+import styles from './index.module.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+
 
 interface Agent {
   id: number; agent_id: string; email: string; display_name: string | null;
@@ -88,13 +90,14 @@ export const AgentsPage: React.FC = () => {
   };
 
   const formCard = (title: string, children: React.ReactNode) => (
-    <div style={{ maxWidth: 640 }}>
-      <div style={{ marginBottom: 20 }}>
+    <div className={styles.formContainer}>
+      <div className={styles.formHeader}>
         <button onClick={() => { setView('list'); setSelectedAgent(null); setServerError(null); }}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.accent, fontSize: 13, padding: 0 }}>
+          className={styles.backButton}
+          style={{ color: t.accent }}>
           ← Back to Agents
         </button>
-        <div style={{ fontSize: 20, fontWeight: 700, color: t.text, marginTop: 8 }}>{title}</div>
+        <div className={styles.formTitle} style={{ color: t.text }}>{title}</div>
       </div>
       <div style={t.card}>{children}</div>
     </div>
@@ -113,37 +116,37 @@ export const AgentsPage: React.FC = () => {
       isSubmitting={submitting} serverError={serverError} />);
   }
 
-  if (loading) return <div style={{ textAlign: 'center', padding: 60, color: t.textFaint, fontSize: 14 }}>Loading…</div>;
-  if (error) return <div style={{ textAlign: 'center', padding: 60, color: t.red, fontSize: 14 }}>{error}</div>;
+  if (loading) return <div className={styles.loadingContainer} style={{ color: t.textFaint }}>Loading…</div>;
+  if (error) return <div className={styles.errorContainer} style={{ color: t.red }}>{error}</div>;
 
   const totalPages = Math.max(1, Math.ceil(agents.length / PAGE_SIZE));
   const pagedAgents = agents.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <div style={{ maxWidth: 1000 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <span style={{ fontSize: 22, fontWeight: 700, color: t.text, letterSpacing: '-0.5px' }}>
-          Agents <span style={{ fontSize: 13, fontWeight: 400, color: t.textMuted }}>({agents.length})</span>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <span style={{ color: t.text }} className={styles.title}>
+          Agents <span className={styles.titleCount} style={{ color: t.textMuted }}>({agents.length})</span>
         </span>
         <button onClick={() => { setServerError(null); setView('create'); }} style={t.btnPrimary}>Create Agent</button>
       </div>
 
       {serverError && (
-        <div style={{ marginBottom: 16, padding: '10px 14px', background: t.redBg, border: `1px solid ${t.red}30`, borderRadius: 9, fontSize: 13, color: t.red, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>{serverError}</span>
-          <button onClick={() => setServerError(null)} style={{ background: 'none', border: 'none', color: t.red, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+        <div className={styles.errorAlert} style={{ background: t.redBg, border: `1px solid ${t.red}30` }}>
+          <span style={{ color: t.red }}>{serverError}</span>
+          <button onClick={() => setServerError(null)} className={styles.errorAlertCloseButton} style={{ color: t.red }}>×</button>
         </div>
       )}
 
       {agents.length === 0 ? (
-        <div style={{ ...t.card, textAlign: 'center', padding: 60 }}>
-          <div style={{ fontSize: 14, color: t.textFaint, marginBottom: 8 }}>No agents configured</div>
-          <div style={{ fontSize: 12, color: t.textFaint }}>Create your first agent to start monitoring Gmail accounts</div>
+        <div style={t.card} className={styles.emptyState}>
+          <div className={styles.emptyStateTitle} style={{ color: t.textFaint }}>No agents configured</div>
+          <div className={styles.emptyStateSubtitle} style={{ color: t.textFaint }}>Create your first agent to start monitoring Gmail accounts</div>
         </div>
       ) : (
         <>
           <div style={t.card}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table className={styles.table}>
               <thead>
                 <tr>
                   {['Agent ID', 'Email', 'Company', 'Status', 'Created', 'Actions'].map(h => (
@@ -160,18 +163,18 @@ export const AgentsPage: React.FC = () => {
                       <td style={{ ...t.td, color: t.textSecondary }}>{agent.email}</td>
                       <td style={{ ...t.td, color: t.textMuted }}>{agent.company_name || '—'}</td>
                       <td style={t.td}>
-                        <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: sc.color, background: sc.bg }}>
+                        <span className={styles.statusBadge} style={{ color: sc.color, background: sc.bg }}>
                           {agent.watcher_status === 'cancelled' ? 'Cancelled' : agent.watcher_status || 'Not Started'}
                         </span>
                       </td>
                       <td style={{ ...t.td, color: t.textMuted }}>{new Date(agent.created_at).toLocaleDateString()}</td>
                       <td style={{ ...t.td, textAlign: 'right' }}>
                         <button onClick={() => { setSelectedAgent(agent); setView('detail'); }}
-                          style={{ ...t.btnSecondary, padding: '5px 10px', fontSize: 12, marginRight: 6 }}>View</button>
+                          className={styles.actionButton} style={t.btnSecondary}>View</button>
                         <button onClick={() => { setSelectedAgent(agent); setServerError(null); setView('edit'); }}
-                          style={{ ...t.btnSecondary, padding: '5px 10px', fontSize: 12, marginRight: 6 }}>Edit</button>
+                          className={styles.actionButton} style={t.btnSecondary}>Edit</button>
                         <button onClick={() => setDeleteTarget(agent)}
-                          style={{ ...t.btnDanger, padding: '5px 10px', fontSize: 12 }}>Delete</button>
+                          className={styles.actionButtonLast} style={t.btnDanger}>Delete</button>
                       </td>
                     </tr>
                   );
@@ -181,10 +184,10 @@ export const AgentsPage: React.FC = () => {
           </div>
 
           {totalPages > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
+            <div className={styles.paginationContainer}>
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
                 style={{ ...t.btnSecondary, opacity: page === 1 ? 0.4 : 1 }}>Previous</button>
-              <span style={{ fontSize: 13, color: t.textMuted }}>Page {page} of {totalPages}</span>
+              <span className={styles.paginationText} style={{ color: t.textMuted }}>Page {page} of {totalPages}</span>
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
                 style={{ ...t.btnSecondary, opacity: page === totalPages ? 0.4 : 1 }}>Next</button>
             </div>

@@ -1,0 +1,611 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 901;
+  width: 440px;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.drawerHeader {
+  padding: 20px 24px 18px;
+  flex-shrink: 0;
+}
+
+.drawerHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.drawerHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stageColorDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.drawerTitle {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.drawerSubtitle {
+  font-size: 11px;
+  margin-top: 1px;
+}
+
+.closeBtn {
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: background 0.15s;
+}
+
+.scrollBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0 24px;
+}
+
+/* SectionBlock */
+.sectionHeader {
+  padding: 14px 24px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sectionIcon {
+  font-size: 12px;
+  opacity: 0.5;
+}
+
+.sectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.sectionBody {
+  padding: 16px 24px;
+}
+
+.sectionDivider {
+  height: 1px;
+}
+
+/* SettingsSection */
+.settingsForm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.colorFieldLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.colorRow {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.colorBtn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: outline 0.1s;
+}
+
+.customColorInput {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  background: none;
+}
+
+.categoryRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.categoryBtn {
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.toggleList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.toggleLabel {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.toggleSub {
+  font-size: 11px;
+  margin-top: 1px;
+}
+
+.toggleSwitch {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.toggleKnob {
+  position: absolute;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.saveDeleteRow {
+  display: flex;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.saveBtn {
+  flex: 1;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+}
+
+.deleteBtn {
+  background: transparent;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+
+.deleteConfirm {
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.deleteConfirmTitle {
+  font-size: 13px;
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.deleteConfirmField {
+  margin-bottom: 10px;
+}
+
+.deleteConfirmLabel {
+  font-size: 11px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.deleteError {
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.deleteActions {
+  display: flex;
+  gap: 8px;
+}
+
+.confirmDeleteBtn {
+  flex: 1;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.cancelDeleteBtn {
+  background: none;
+  border-radius: 8px;
+  font-size: 13px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+/* TriggersSection */
+.triggersContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.triggersDesc {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.triggersDescHighlight {
+  font-weight: 600;
+}
+
+.triggerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 10px;
+  padding: 10px 14px;
+  transition: all 0.15s;
+}
+
+.triggerName {
+  font-size: 13px;
+}
+
+.triggerElsewhere {
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+/* ActionsSection */
+.actionsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.whenHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.whenDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.whenText {
+  font-size: 12px;
+}
+
+.whenBold {
+  font-weight: 700;
+}
+
+.whenStageName {
+  font-weight: 600;
+}
+
+.emptyActions {
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+}
+
+.emptyActionsText {
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.addActionBtn {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 18px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.addAnotherBtn {
+  background: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px;
+  cursor: pointer;
+  width: 100%;
+  transition: border-color 0.15s;
+}
+
+/* ActionRuleCard */
+.ruleCard {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ruleCardHeader {
+  padding: 11px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ruleIndex {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ruleCardName {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.miniToggle {
+  width: 32px;
+  height: 18px;
+  border-radius: 9px;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.miniToggleKnob {
+  position: absolute;
+  top: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.expandBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.ruleDeleteBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.ruleCardBody {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ruleFieldLabel {
+  font-size: 11px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.ruleFieldLabelBold {
+  font-weight: 700;
+}
+
+.stepsLabel {
+  font-size: 11px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.stepCard {
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stepHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stepIndex {
+  font-size: 11px;
+  font-weight: 700;
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.stepRemoveBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 2px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.addStepBtn {
+  background: none;
+  border-radius: 8px;
+  font-size: 12px;
+  padding: 7px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.ruleCardActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-direction: column;
+}
+
+.saveError {
+  font-size: 12px;
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+
+.ruleCardBtns {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.ruleCancelBtn {
+  background: none;
+  border-radius: 8px;
+  font-size: 13px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+
+.ruleSaveBtn {
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 18px;
+  cursor: pointer;
+  transition: background 0.2s;
+  min-width: 70px;
+}
+
+/* LiveSummary */
+.liveSummary {
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-top: 4px;
+}
+
+.liveSummaryTitle {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 10px;
+}
+
+.liveSummaryList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.summaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.summaryDivider {
+  width: 100%;
+  height: 1px;
+  margin: 2px 0;
+}
+
+.disabledBadge {
+  font-size: 10px;
+  border-radius: 4px;
+  padding: 1px 6px;
+}

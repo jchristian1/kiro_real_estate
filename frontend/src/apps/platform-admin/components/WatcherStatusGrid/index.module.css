@@ -1,0 +1,79 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 32px 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.card {
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.agentTitle {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusBadge {
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 20px;
+}
+
+.metaItem {
+  margin-bottom: 6px;
+}
+
+.metaLabel {
+  font-size: 10px;
+}
+
+.metaValue {
+  font-size: 12px;
+}
+
+.errorBox {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.errorTitle {
+  font-size: 10px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.errorText {
+  font-size: 11px;
+}

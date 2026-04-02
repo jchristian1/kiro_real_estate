@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
 import { API_BASE_URL } from '@/shared/utils/config/enviroments';
+import styles from './index.module.css';
 
 interface LeadStateRow { lead_id: number; name: string | null; source_email: string | null; current_state: string | null; current_state_updated_at: string | null; }
 interface LeadsStateResponse { items: LeadStateRow[]; total: number; page: number; page_size: number; }
@@ -54,29 +55,27 @@ export const LeadStatesTab: React.FC = () => {
   const maxCount = funnel.reduce((m, e) => Math.max(m, e.count), 1);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <h2 style={{ fontSize: 16, fontWeight: 600, color: t.text, margin: 0 }}>Lead States</h2>
+    <div className={styles.container}>
+      <h2 className={styles.title} style={{ color: t.text }}>Lead States</h2>
 
-      {/* Funnel chart */}
       {!funnelLoading && funnel.length > 0 && (
         <div style={t.card}>
           <div style={t.sectionTitle}>State Funnel</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className={styles.funnelContainer}>
             {funnel.map((entry) => (
-              <div key={entry.state} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 11, color: t.textMuted, width: 200, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.state}</span>
-                <div style={{ flex: 1, background: t.bgBadge, borderRadius: 4, height: 14, overflow: 'hidden' }}>
-                  <div style={{ background: t.accentGrad, height: 14, borderRadius: 4, width: `${(entry.count / maxCount) * 100}%`, transition: 'width 0.3s' }} />
+              <div key={entry.state} className={styles.funnelRow}>
+                <span className={styles.funnelLabel} style={{ color: t.textMuted }}>{entry.state}</span>
+                <div className={styles.funnelBarOuter} style={{ background: t.bgBadge }}>
+                  <div className={styles.funnelBarInner} style={{ background: t.accentGrad, width: `${(entry.count / maxCount) * 100}%` }} />
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 600, color: t.text, width: 28, textAlign: 'right' }}>{entry.count}</span>
+                <span className={styles.funnelCount} style={{ color: t.text }}>{entry.count}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Filters */}
-      <div style={{ ...t.card, display: 'flex', gap: 16, alignItems: 'flex-end' }}>
+      <div style={t.card} className={styles.filtersRow}>
         <div>
           <label style={t.labelStyle}>State</label>
           <select value={stateFilter} onChange={(e) => { setStateFilter(e.target.value); setPage(1); }} style={t.input}>
@@ -91,17 +90,16 @@ export const LeadStatesTab: React.FC = () => {
             {BUCKET_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
         </div>
-        <span style={{ fontSize: 13, color: t.textMuted, paddingBottom: 2 }}>{total} leads</span>
+        <span className={styles.filterCount} style={{ color: t.textMuted }}>{total} leads</span>
       </div>
 
-      {/* Table */}
       <div style={t.card}>
         {loading ? (
-          <div style={{ padding: 32, textAlign: 'center', color: t.textMuted }}>Loading…</div>
+          <div className={styles.loadingState} style={{ color: t.textMuted }}>Loading…</div>
         ) : leads.length === 0 ? (
-          <div style={{ padding: 32, textAlign: 'center', color: t.textMuted }}>No leads found</div>
+          <div className={styles.emptyState} style={{ color: t.textMuted }}>No leads found</div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className={styles.table}>
             <thead><tr>
               {['Lead', 'State', 'Email', 'Updated'].map(h => <th key={h} style={t.th}>{h}</th>)}
             </tr></thead>
@@ -120,9 +118,9 @@ export const LeadStatesTab: React.FC = () => {
       </div>
 
       {totalPages > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className={styles.pagination}>
           <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ ...t.btnSecondary, opacity: page === 1 ? 0.4 : 1 }}>Previous</button>
-          <span style={{ fontSize: 13, color: t.textMuted }}>Page {page} of {totalPages}</span>
+          <span className={styles.paginationText} style={{ color: t.textMuted }}>Page {page} of {totalPages}</span>
           <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ ...t.btnSecondary, opacity: page === totalPages ? 0.4 : 1 }}>Next</button>
         </div>
       )}

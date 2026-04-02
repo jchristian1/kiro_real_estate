@@ -12,6 +12,7 @@ import { Template } from '@/models/app-model';
 import { PLACEHOLDERS } from '@/shared/utils';
 import { ConfirmDialog } from '@/platformAdminComponents/ConfirmDialog';
 import { API_BASE_URL } from '@/shared/utils/config/enviroments';
+import styles from './index.module.css';
 
 
 

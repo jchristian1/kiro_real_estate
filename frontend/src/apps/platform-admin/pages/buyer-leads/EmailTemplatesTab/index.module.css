@@ -1,0 +1,184 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modalContent {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modalTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.disabledButton {
+  opacity: 0.6;
+}
+
+.splitGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.templateList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.templateCard {
+  cursor: pointer;
+  padding: 14px 18px;
+}
+
+.templateCardSelected {
+  outline-offset: -2px;
+}
+
+.templateCardInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.templateName {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.templateKey {
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.templateActions {
+  display: flex;
+  gap: 8px;
+}
+
+.actionButton {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.loadingState {
+  padding: 40px;
+  text-align: center;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.paginationText {
+  font-size: 12px;
+}
+
+.paginationButton {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.paginationButtonDisabled {
+  opacity: 0.4;
+}
+
+.versionPanel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.versionPanelHeader {
+  padding: 12px 18px;
+}
+
+.versionPanelTitle {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.versionLoadingState {
+  padding: 32px;
+  text-align: center;
+}
+
+.versionEmptyState {
+  padding: 32px;
+  text-align: center;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.versionCell {
+  padding: 10px 16px;
+}
+
+.subjectCell {
+  padding: 10px 16px;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activeBadge {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 20px;
+}
+
+.rollbackButton {
+  padding: 4px 10px;
+  font-size: 11px;
+}

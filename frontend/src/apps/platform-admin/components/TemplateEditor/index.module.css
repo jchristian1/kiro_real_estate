@@ -1,0 +1,53 @@
+.serverError {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.placeholderSection {
+  margin-bottom: 16px;
+}
+
+.placeholderLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.placeholderRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.placeholderBtnGroup {
+  display: flex;
+  gap: 4px;
+}
+
+.placeholderBtn {
+  padding: 3px 8px;
+  font-size: 11px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: monospace;
+}
+
+.fieldGroup {
+  margin-bottom: 16px;
+}
+
+.fieldError {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

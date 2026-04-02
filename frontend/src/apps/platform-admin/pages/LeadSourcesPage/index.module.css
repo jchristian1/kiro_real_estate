@@ -1,0 +1,71 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 48px 24px;
+  border-radius: 12px;
+}
+
+.emptyStateText {
+  margin-bottom: 8px;
+}
+
+.emptyStateSubtext {
+  font-size: 12px;
+  margin-bottom: 0;
+}
+
+.paginationContainer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+
+.paginationText {
+  font-size: 13px;
+}
+
+.paginationButtonDisabled {
+  opacity: 0.4;
+}
+
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+}
+
+.errorContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+}
+
+.formContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.formCard {
+  max-width: 640px;
+}

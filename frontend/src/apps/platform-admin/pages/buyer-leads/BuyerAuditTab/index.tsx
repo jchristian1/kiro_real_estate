@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
 import { API_BASE_URL } from '@/shared/utils/config/enviroments';
+import styles from './index.module.css';
 
 interface AuditEntry { id: number; lead_id: number | null; event_type: string; actor_type?: string; occurred_at: string; metadata_json?: string; }
 interface AuditResponse { items: AuditEntry[]; total: number; page: number; page_size: number; }
@@ -50,17 +51,17 @@ export const BuyerAuditTab: React.FC = () => {
       LEAD: { bg: t.greenBg, color: t.green },
     };
     const c = colors[actor] ?? { bg: t.bgBadge, color: t.textMuted };
-    return <span style={{ padding: '2px 8px', fontSize: 10, fontWeight: 600, background: c.bg, color: c.color, borderRadius: 20 }}>{actor}</span>;
+    return <span className={styles.actorBadge} style={{ background: c.bg, color: c.color }}>{actor}</span>;
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, color: t.text, margin: 0 }}>Audit Log</h2>
-        <span style={{ fontSize: 13, color: t.textMuted }}>{total} entries</span>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <h2 className={styles.title} style={{ color: t.text }}>Audit Log</h2>
+        <span className={styles.subtitle} style={{ color: t.textMuted }}>{total} entries</span>
       </div>
 
-      <div style={{ ...t.card, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+      <div style={t.card} className={styles.filtersGrid}>
         <div>
           <label style={t.labelStyle}>Lead ID</label>
           <input type="number" value={leadIdFilter} onChange={(e) => { setLeadIdFilter(e.target.value); setPage(1); }} placeholder="Any" style={t.input} />
@@ -84,11 +85,11 @@ export const BuyerAuditTab: React.FC = () => {
 
       <div style={t.card}>
         {loading ? (
-          <div style={{ padding: 32, textAlign: 'center', color: t.textMuted }}>Loading…</div>
+          <div className={styles.loadingState} style={{ color: t.textMuted }}>Loading…</div>
         ) : entries.length === 0 ? (
-          <div style={{ padding: 32, textAlign: 'center', color: t.textMuted }}>No audit entries found</div>
+          <div className={styles.emptyState} style={{ color: t.textMuted }}>No audit entries found</div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className={styles.table}>
             <thead><tr>
               {['Time', 'Event', 'Actor', 'Lead ID', ''].map(h => <th key={h} style={{ ...t.th, textAlign: h === '' ? 'right' : 'left' }}>{h}</th>)}
             </tr></thead>
@@ -96,14 +97,14 @@ export const BuyerAuditTab: React.FC = () => {
               {entries.map((entry) => (
                 <React.Fragment key={entry.id}>
                   <tr style={{ borderBottom: `1px solid ${t.border}` }}>
-                    <td style={{ ...t.td, fontSize: 11, color: t.textMuted, whiteSpace: 'nowrap' }}>{new Date(entry.occurred_at).toLocaleString()}</td>
+                    <td style={{ ...t.td, color: t.textMuted }} className={styles.timestampCell}>{new Date(entry.occurred_at).toLocaleString()}</td>
                     <td style={{ ...t.td, fontWeight: 500 }}>{entry.event_type}</td>
-                    <td style={t.td}>{entry.actor_type ? actorBadge(entry.actor_type) : <span style={{ color: t.textFaint, fontSize: 12 }}>—</span>}</td>
+                    <td style={t.td}>{entry.actor_type ? actorBadge(entry.actor_type) : <span className={styles.actorFallback} style={{ color: t.textFaint }}>—</span>}</td>
                     <td style={{ ...t.td, color: t.textMuted }}>{entry.lead_id ?? '—'}</td>
                     <td style={{ ...t.td, textAlign: 'right' }}>
                       {entry.metadata_json && (
                         <button onClick={() => setExpandedEntry(expandedEntry === entry.id ? null : entry.id)}
-                          style={{ color: t.accent, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                          className={styles.expandButton} style={{ color: t.accent }}>
                           {expandedEntry === entry.id ? 'Hide' : 'Show'}
                         </button>
                       )}
@@ -111,8 +112,8 @@ export const BuyerAuditTab: React.FC = () => {
                   </tr>
                   {expandedEntry === entry.id && entry.metadata_json && (
                     <tr style={{ background: t.bgInput }}>
-                      <td colSpan={5} style={{ padding: '12px 16px' }}>
-                        <pre style={{ fontSize: 11, color: t.textSecondary, whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'monospace' }}>
+                      <td colSpan={5} className={styles.metadataCell}>
+                        <pre className={styles.metadataPre} style={{ color: t.textSecondary }}>
                           {JSON.stringify(JSON.parse(entry.metadata_json), null, 2)}
                         </pre>
                       </td>
@@ -126,9 +127,9 @@ export const BuyerAuditTab: React.FC = () => {
       </div>
 
       {totalPages > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className={styles.pagination}>
           <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ ...t.btnSecondary, opacity: page === 1 ? 0.4 : 1 }}>Previous</button>
-          <span style={{ fontSize: 13, color: t.textMuted }}>Page {page} of {totalPages}</span>
+          <span className={styles.paginationText} style={{ color: t.textMuted }}>Page {page} of {totalPages}</span>
           <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ ...t.btnSecondary, opacity: page === totalPages ? 0.4 : 1 }}>Next</button>
         </div>
       )}

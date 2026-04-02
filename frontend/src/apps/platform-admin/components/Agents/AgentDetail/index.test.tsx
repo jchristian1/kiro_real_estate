@@ -17,7 +17,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import axios from 'axios';
-import { AgentDetail, AgentDetailData, WatcherStatus } from './AgentDetail';
+import { AgentDetail, AgentDetailData, WatcherStatus } from '@/models/agents';
 
 vi.mock('axios');
 const mockedAxios = axios as unknown as {

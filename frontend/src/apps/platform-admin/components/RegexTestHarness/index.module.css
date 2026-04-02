@@ -1,0 +1,80 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.heading {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.monoInput {
+  font-family: monospace;
+}
+
+.resizableTextarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.errorAlert {
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.resultsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.matchBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.matchDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.highlightedBox {
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-family: monospace;
+  word-break: break-all;
+}
+
+.groupsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.groupRow {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.groupLabel {
+  font-family: monospace;
+}
+
+.groupValue {
+  font-family: monospace;
+  padding: 1px 6px;
+  border-radius: 5px;
+}

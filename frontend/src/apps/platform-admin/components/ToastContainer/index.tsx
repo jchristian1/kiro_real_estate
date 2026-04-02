@@ -2,8 +2,7 @@ import React from 'react';
 import { useToast } from '@/shared/contexts';
 import { useT } from '@/shared/hooks';
 import { TOAST_COLORS } from '@/shared/utils';
-
-
+import styles from './index.module.css';
 
 export const ToastContainer: React.FC = () => {
   const { toasts, dismissToast } = useToast();
@@ -12,27 +11,16 @@ export const ToastContainer: React.FC = () => {
   if (toasts.length === 0) return null;
 
   return (
-    <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 100, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 360 }}>
+    <div className={styles.container}>
       {toasts.map(toast => {
         const c = TOAST_COLORS[toast.type] || TOAST_COLORS.info;
         return (
-          <div key={toast.id} role="alert" style={{
-            display: 'flex', alignItems: 'flex-start', gap: 10,
-            padding: '12px 14px',
-            background: t.isDark ? c.bg : '#fff',
-            border: `1px solid ${c.border}`,
-            borderRadius: 12,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-            backdropFilter: 'blur(12px)',
-          }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.dot, flexShrink: 0, marginTop: 4 }} />
-            <span style={{ flex: 1, fontSize: 13, color: t.isDark ? c.color : '#1c1c1e', fontWeight: 500, lineHeight: 1.5 }}>
-              {toast.message}
-            </span>
+          <div key={toast.id} role="alert" className={styles.toast}
+            style={{ background: t.isDark ? c.bg : '#fff', border: `1px solid ${c.border}` }}>
+            <span className={styles.dot} style={{ background: c.dot }} />
+            <span className={styles.message} style={{ color: t.isDark ? c.color : '#1c1c1e' }}>{toast.message}</span>
             <button onClick={() => dismissToast(toast.id)} aria-label="Dismiss"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textFaint, fontSize: 16, lineHeight: 1, padding: 0, flexShrink: 0 }}>
-              ×
-            </button>
+              className={styles.dismissButton} style={{ color: t.textFaint }}>×</button>
           </div>
         );
       })}

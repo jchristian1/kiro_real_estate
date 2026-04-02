@@ -5,6 +5,7 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useT } from '@/shared/hooks';
+import styles from './index.module.css';
 
 const TAB_LINKS = [
   { to: 'qualification', label: 'Qualification Forms' },
@@ -18,22 +19,17 @@ export const BuyerLeadsLayout: React.FC = () => {
   const t = useT();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, margin: 0 }}>Forms</h1>
-      <nav style={{ display: 'flex', gap: 4, borderBottom: `1px solid ${t.border}` }}>
+    <div className={styles.container}>
+      <h1 className={styles.title} style={{ color: t.text }}>Forms</h1>
+      <nav className={styles.nav} style={{ borderBottom: `1px solid ${t.border}` }}>
         {TAB_LINKS.map(({ to, label }) => (
           <NavLink
             key={to}
             to={to}
+            className={styles.navLink}
             style={({ isActive }) => ({
-              padding: '8px 16px',
-              fontSize: 13,
-              fontWeight: 500,
               color: isActive ? t.accent : t.textMuted,
               borderBottom: isActive ? `2px solid ${t.accent}` : '2px solid transparent',
-              textDecoration: 'none',
-              transition: 'all 0.15s',
-              marginBottom: -1,
             })}
           >
             {label}

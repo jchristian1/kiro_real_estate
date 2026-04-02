@@ -1,0 +1,245 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.loadingText {
+  font-size: 14px;
+  padding: 24px;
+}
+
+.guideBox {
+  border-radius: 14px;
+  padding: 20px 24px;
+}
+
+.guideTitle {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.guideSteps {
+  display: flex;
+  gap: 0;
+  flex-wrap: wrap;
+}
+
+.guideStepWrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.guideStep {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 160px;
+  padding: 0 8px;
+}
+
+.guideStepIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.guideStepTitle {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.guideStepDesc {
+  font-size: 11px;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.guideArrow {
+  font-size: 20px;
+  padding-top: 8px;
+  flex-shrink: 0;
+}
+
+.stageFlowBox {
+  border-radius: 16px;
+  padding: 24px 20px;
+  overflow-x: auto;
+}
+
+.stageFlowLabel {
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stageFlowRow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-width: max-content;
+}
+
+.stageArrow {
+  font-size: 16px;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.addStageBtn {
+  border-radius: 12px;
+  padding: 10px 18px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.emptyStagesText {
+  font-size: 13px;
+  padding: 12px 0;
+}
+
+/* SortableStage */
+.sortableOuter {
+  flex-shrink: 0;
+}
+
+.stageCard {
+  border-radius: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 148px;
+  max-width: 180px;
+  transition: all 0.18s;
+  text-align: left;
+}
+
+.stageTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.stageColorDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.stageBadges {
+  display: flex;
+  gap: 4px;
+}
+
+.stageBadge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.stageBadgeLetterSpacing {
+  letter-spacing: 0.3px;
+}
+
+.stageName {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  line-height: 1.2;
+}
+
+.stageBottomRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.stageCategory {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stageRuleCount {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 20px;
+  letter-spacing: 0.2px;
+}
+
+/* QuickAddStageForm */
+.addForm {
+  border-radius: 14px;
+  padding: 20px;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.addFormInput {
+  border-radius: 8px;
+  font-size: 13px;
+  padding: 8px 12px;
+  flex: 1;
+  min-width: 160px;
+}
+
+.colorPicker {
+  display: flex;
+  gap: 6px;
+}
+
+.colorBtn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+}
+
+.addFormSubmit {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.addFormCancel {
+  background: none;
+  border-radius: 8px;
+  font-size: 13px;
+  padding: 8px 14px;
+  cursor: pointer;
+}

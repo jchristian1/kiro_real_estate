@@ -21,6 +21,7 @@ import {
 } from '@/apps/platform-admin/hooks/usePipelineQueries';
 import { StageDrawer } from '../StageDrawer';
 import type { PipelineStage, PipelineStageCreate } from '@/apps/platform-admin/api/pipelinesApi';
+import styles from './index.module.css';
 
 interface Props { pipelineId: number; }
 
@@ -53,32 +54,32 @@ export const BuilderTab: React.FC<Props> = ({ pipelineId }) => {
   };
 
   if (isLoading) {
-    return <div style={{ color: getTokens(theme).textFaint, fontSize: 14, padding: 24 }}>Loading stages…</div>;
+    return <div className={styles.loadingText} style={{ color: getTokens(theme).textFaint }}>Loading stages…</div>;
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div className={styles.container}>
       {/* How-to guide */}
       {sorted.length === 0 && (
-        <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: '20px 24px' }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: t.text, marginBottom: 14 }}>How to set up your pipeline</div>
-          <div style={{ display: 'flex', gap: 0, flexWrap: 'wrap' }}>
+        <div className={styles.guideBox} style={{ background: t.bgCard, border: `1px solid ${t.border}` }}>
+          <div className={styles.guideTitle} style={{ color: t.text }}>How to set up your pipeline</div>
+          <div className={styles.guideSteps}>
             {[
               { step: '1', icon: '🏗️', title: 'Add stages', desc: 'Create the stages a lead moves through, e.g. New → Contacted → Won' },
               { step: '2', icon: '🔌', title: 'Map events', desc: 'Go to Built-in Rules to auto-move leads when platform events fire' },
               { step: '3', icon: '⚡', title: 'Add automations', desc: 'Go to Automations to trigger emails or actions when leads change stage' },
               { step: '4', icon: '✅', title: 'Activate', desc: 'Click "Set Active" to make this the live pipeline for your company' },
             ].map((item, idx, arr) => (
-              <div key={item.step} style={{ display: 'flex', alignItems: 'flex-start', gap: 0 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 160, padding: '0 8px' }}>
-                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: t.accentBg, border: `2px solid ${t.accent}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, marginBottom: 8 }}>
+              <div key={item.step} className={styles.guideStepWrapper}>
+                <div className={styles.guideStep}>
+                  <div className={styles.guideStepIcon} style={{ background: t.accentBg, border: `2px solid ${t.accent}` }}>
                     {item.icon}
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: t.text, marginBottom: 4, textAlign: 'center' }}>{item.title}</div>
-                  <div style={{ fontSize: 11, color: t.textFaint, textAlign: 'center', lineHeight: 1.4 }}>{item.desc}</div>
+                  <div className={styles.guideStepTitle} style={{ color: t.text }}>{item.title}</div>
+                  <div className={styles.guideStepDesc} style={{ color: t.textFaint }}>{item.desc}</div>
                 </div>
                 {idx < arr.length - 1 && (
-                  <div style={{ color: t.textFaint, fontSize: 20, paddingTop: 8, flexShrink: 0 }}>→</div>
+                  <div className={styles.guideArrow} style={{ color: t.textFaint }}>→</div>
                 )}
               </div>
             ))}
@@ -87,17 +88,14 @@ export const BuilderTab: React.FC<Props> = ({ pipelineId }) => {
       )}
 
       {/* Stage flow */}
-      <div style={{
-        background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16,
-        padding: '24px 20px', overflowX: 'auto',
-      }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: t.textMuted, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+      <div className={styles.stageFlowBox} style={{ background: t.bgCard, border: `1px solid ${t.border}` }}>
+        <div className={styles.stageFlowLabel} style={{ color: t.textMuted }}>
           Stage Flow — drag to reorder · click to edit
         </div>
 
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={sorted.map(s => s.id)} strategy={horizontalListSortingStrategy}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 0, minWidth: 'max-content' }}>
+            <div className={styles.stageFlowRow}>
               {sorted.map((stage, idx) => (
                 <React.Fragment key={stage.id}>
                   <SortableStage
@@ -106,23 +104,21 @@ export const BuilderTab: React.FC<Props> = ({ pipelineId }) => {
                     ruleCount={allRules.filter(r => r.trigger_type === 'on_stage_enter' && r.trigger_stage_id === stage.id).length}
                   />
                   {idx < sorted.length - 1 && (
-                    <div style={{ color: t.textFaint, fontSize: 16, padding: '0 4px', flexShrink: 0 }}>→</div>
+                    <div className={styles.stageArrow} style={{ color: t.textFaint }}>→</div>
                   )}
                 </React.Fragment>
               ))}
 
               {/* Add stage button */}
               {sorted.length > 0 && (
-                <div style={{ color: t.textFaint, fontSize: 16, padding: '0 4px', flexShrink: 0 }}>→</div>
+                <div className={styles.stageArrow} style={{ color: t.textFaint }}>→</div>
               )}
               <button
                 onClick={() => setShowAddForm(true)}
+                className={styles.addStageBtn}
                 style={{
                   background: t.bgCardHover, border: `1.5px dashed ${t.border}`,
-                  borderRadius: 12, padding: '10px 18px', cursor: 'pointer',
-                  color: t.textMuted, fontSize: 13, fontWeight: 500,
-                  display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
-                  transition: 'all 0.15s',
+                  color: t.textMuted,
                 }}
               >
                 + Add Stage
@@ -132,7 +128,7 @@ export const BuilderTab: React.FC<Props> = ({ pipelineId }) => {
         </DndContext>
 
         {sorted.length === 0 && !showAddForm && (
-          <div style={{ color: t.textFaint, fontSize: 13, padding: '12px 0' }}>
+          <div className={styles.emptyStagesText} style={{ color: t.textFaint }}>
             No stages yet. Add your first stage to get started.
           </div>
         )}
@@ -177,7 +173,8 @@ const SortableStage: React.FC<{ stage: PipelineStage; onClick: () => void; ruleC
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1, flexShrink: 0 }}
+      className={styles.sortableOuter}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
       {...attributes}
       {...listeners}
     >
@@ -185,62 +182,48 @@ const SortableStage: React.FC<{ stage: PipelineStage; onClick: () => void; ruleC
         onClick={onClick}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        className={styles.stageCard}
         style={{
           background: hovered
             ? (isDark ? `${stage.color}18` : `${stage.color}12`)
             : (isDark ? 'rgba(255,255,255,0.04)' : '#ffffff'),
           border: `1.5px solid ${hovered ? stage.color + '88' : (isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.09)')}`,
-          borderRadius: 14,
-          padding: '14px 16px',
-          cursor: 'pointer',
-          display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10,
-          minWidth: 148, maxWidth: 180,
-          transition: 'all 0.18s',
           boxShadow: hovered
             ? `0 4px 20px ${stage.color}22, 0 0 0 1px ${stage.color}33`
             : (isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.06)'),
-          textAlign: 'left',
         }}
       >
         {/* Top row: color dot + badges */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-          <div style={{
-            width: 10, height: 10, borderRadius: '50%', background: stage.color, flexShrink: 0,
+        <div className={styles.stageTopRow}>
+          <div className={styles.stageColorDot} style={{
+            background: stage.color,
             boxShadow: `0 0 8px ${stage.color}88`,
           }} />
-          <div style={{ display: 'flex', gap: 4 }}>
+          <div className={styles.stageBadges}>
             {stage.is_default && (
-              <span style={{ fontSize: 9, fontWeight: 700, color: t.accent, background: t.accentBg, padding: '2px 6px', borderRadius: 6, letterSpacing: '0.3px' }}>DEFAULT</span>
+              <span className={`${styles.stageBadge} ${styles.stageBadgeLetterSpacing}`} style={{ color: t.accent, background: t.accentBg }}>DEFAULT</span>
             )}
             {stage.is_closed_won && (
-              <span style={{ fontSize: 9, fontWeight: 700, color: t.green, background: t.greenBg, padding: '2px 6px', borderRadius: 6 }}>WON</span>
+              <span className={styles.stageBadge} style={{ color: t.green, background: t.greenBg }}>WON</span>
             )}
             {stage.is_closed_lost && (
-              <span style={{ fontSize: 9, fontWeight: 700, color: t.red, background: t.redBg, padding: '2px 6px', borderRadius: 6 }}>LOST</span>
+              <span className={styles.stageBadge} style={{ color: t.red, background: t.redBg }}>LOST</span>
             )}
           </div>
         </div>
 
         {/* Stage name */}
-        <div style={{ fontSize: 14, fontWeight: 700, color: t.text, letterSpacing: '-0.2px', lineHeight: 1.2 }}>
+        <div className={styles.stageName} style={{ color: t.text }}>
           {stage.name}
         </div>
 
         {/* Bottom row: category + action count */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-          <span style={{
-            fontSize: 10, fontWeight: 600, color: t.textFaint,
-            textTransform: 'uppercase', letterSpacing: '0.5px',
-          }}>
+        <div className={styles.stageBottomRow}>
+          <span className={styles.stageCategory} style={{ color: t.textFaint }}>
             {categoryLabel[stage.category] ?? stage.category}
           </span>
           {ruleCount > 0 && (
-            <span style={{
-              fontSize: 10, fontWeight: 700,
-              color: t.accent, background: t.accentBg,
-              padding: '2px 7px', borderRadius: 20,
-              letterSpacing: '0.2px',
-            }}>
+            <span className={styles.stageRuleCount} style={{ color: t.accent, background: t.accentBg }}>
               {ruleCount} {ruleCount === 1 ? 'action' : 'actions'}
             </span>
           )}
@@ -274,42 +257,35 @@ const QuickAddStageForm: React.FC<{
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{
-      background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14,
-      padding: '20px 20px', marginTop: 12, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+    <form onSubmit={handleSubmit} className={styles.addForm} style={{
+      background: t.bgCard, border: `1px solid ${t.border}`,
     }}>
       <input
         autoFocus
         value={name}
         onChange={e => setName(e.target.value)}
         placeholder="Stage name"
-        style={{
-          background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 8,
-          color: t.text, fontSize: 13, padding: '8px 12px', flex: 1, minWidth: 160,
-        }}
+        className={styles.addFormInput}
+        style={{ background: t.bgInput, border: `1px solid ${t.border}`, color: t.text }}
       />
-      <div style={{ display: 'flex', gap: 6 }}>
+      <div className={styles.colorPicker}>
         {COLORS.map(c => (
           <button
             key={c} type="button" onClick={() => setColor(c)}
+            className={styles.colorBtn}
             style={{
-              width: 22, height: 22, borderRadius: '50%', background: c, border: 'none',
-              cursor: 'pointer', outline: color === c ? `2px solid ${t.text}` : 'none',
+              background: c,
+              outline: color === c ? `2px solid ${t.text}` : 'none',
               outlineOffset: 2,
             }}
           />
         ))}
       </div>
-      <button type="submit" disabled={!name.trim() || loading} style={{
-        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none',
-        borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600,
-        padding: '8px 16px', cursor: 'pointer',
-      }}>
+      <button type="submit" disabled={!name.trim() || loading} className={styles.addFormSubmit}>
         {loading ? 'Adding…' : 'Add'}
       </button>
-      <button type="button" onClick={onCancel} style={{
-        background: 'none', border: `1px solid ${t.border}`, borderRadius: 8,
-        color: t.textMuted, fontSize: 13, padding: '8px 14px', cursor: 'pointer',
+      <button type="button" onClick={onCancel} className={styles.addFormCancel} style={{
+        border: `1px solid ${t.border}`, color: t.textMuted,
       }}>
         Cancel
       </button>

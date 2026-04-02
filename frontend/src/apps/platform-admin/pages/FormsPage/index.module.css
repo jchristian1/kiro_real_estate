@@ -1,0 +1,509 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.createButton {
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.createButtonIcon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.searchInput {
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  outline: none;
+  max-width: 320px;
+}
+
+.centeredState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+}
+
+.centeredStateText {
+  font-size: 14px;
+}
+
+.emptyState {
+  border-radius: 12px;
+  padding: 48px;
+  text-align: center;
+}
+
+.emptyStateIcon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.emptyStateTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.emptyStateSubtitle {
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+.formList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* FormCard */
+.card {
+  border-radius: 12px;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cardContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.cardNameRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.cardName {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusBadge {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.cardMeta {
+  font-size: 12px;
+}
+
+.cardActions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.cardActionButton {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* Drawer */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 40;
+  backdrop-filter: blur(2px);
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-width: 760px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.35);
+}
+
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  flex-shrink: 0;
+}
+
+.drawerTitle {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.drawerStatusRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.drawerStatusType {
+  font-size: 12px;
+}
+
+.drawerActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.drawerActionButton {
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.drawerPrimaryButton {
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.drawerCloseButton {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 8px;
+}
+
+.drawerBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.serverError {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.fieldLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.fieldHint {
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.loadingText {
+  font-size: 13px;
+}
+
+/* Section Header */
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.sectionIcon {
+  font-size: 16px;
+}
+
+.sectionLabel {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.sectionDivider {
+  flex: 1;
+  height: 1px;
+}
+
+/* Question card */
+.questionCard {
+  border-radius: 10px;
+  padding: 16px;
+  cursor: grab;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.questionCardDragging {
+  opacity: 0.5;
+}
+
+.questionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.questionOrder {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.twoColGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.miniLabel {
+  display: block;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.optionsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.optionsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.optionRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.linkButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.linkButtonBold {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.removeButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  text-align: center;
+}
+
+.addButton {
+  padding: 10px;
+  font-size: 13px;
+  background: none;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: center;
+}
+
+/* Logic rule card */
+.ruleCard {
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ruleHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ruleLabel {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Scoring */
+.thresholdsPanel {
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.thresholdsTitle {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.thresholdsRow {
+  display: flex;
+  gap: 24px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.thresholdHint {
+  font-size: 11px;
+  padding-bottom: 4px;
+}
+
+.scoringGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 80px 1fr 32px;
+  gap: 8px;
+}
+
+.scoringGridHeader {
+  padding: 0 4px;
+}
+
+.scoringColumnLabel {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.scoringRulesContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Rename modal */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 60;
+}
+
+.modalContent {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 400px;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.modalTitle {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.modalInput {
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.modalCancelButton {
+  padding: 7px 14px;
+  font-size: 13px;
+  background: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.modalSaveButton {
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.disabledButton {
+  opacity: 0.6;
+}

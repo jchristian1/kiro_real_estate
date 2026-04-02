@@ -1,0 +1,333 @@
+.container {
+  max-width: 680px;
+}
+
+.card {
+  background: var(--bgCard);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+  transition: background 0.2s;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 18px;
+}
+
+.fieldRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.fieldRowLast {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.fieldLabel {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.fieldDescription {
+  font-size: 12px;
+  margin-top: 0;
+}
+
+.fieldError {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.fieldInputContainer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.toggleButton {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  border-radius: 13px;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s;
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+
+.numberInput {
+  width: 110px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  font-size: 13px;
+  outline: none;
+  text-align: right;
+  transition: border-color 0.15s;
+}
+
+.themeButton {
+  padding: 7px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.resetButton {
+  padding: 8px 18px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.saveButton {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  font-size: 14px;
+}
+
+.errorContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  font-size: 14px;
+}
+
+.card {
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+  transition: background 0.2s;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 18px;
+}
+
+.appearanceSection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.appearanceLabel {
+  flex: 1;
+}
+
+.appearanceLabelTitle {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+
+.appearanceLabelDescription {
+  font-size: 12px;
+}
+
+.themeButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.themeButton {
+  padding: 7px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: 'pointer';
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fieldRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid;
+}
+
+.fieldRowLast {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.fieldLabel {
+  flex: 1;
+}
+
+.fieldLabelTitle {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.fieldLabelDescription {
+  font-size: 12px;
+}
+
+.fieldError {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.fieldInput {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.numberInput {
+  width: 110px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  font-size: 13px;
+  outline: 'none';
+  text-align: right;
+  transition: border-color 0.15s;
+}
+
+.toggleSwitch {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  border-radius: 13px;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s;
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.2s;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.toggleThumbActive {
+  left: 21px;
+}
+
+.toggleThumbInactive {
+  left: 3px;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid;
+}
+
+.resetButton {
+  padding: 8px 18px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: 'pointer';
+  transition: all 0.15s;
+}
+
+.resetButtonDisabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.saveButton {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  cursor: 'pointer';
+  transition: all 0.15s;
+}
+
+.saveButtonDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  font-size: 14px;
+}
+
+.errorContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  font-size: 14px;
+}

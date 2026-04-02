@@ -7,6 +7,7 @@ import { useToast } from '@/shared/contexts/ToastContext';
 import { useTheme } from '@/shared/contexts/ThemeContext';
 import { getTokens } from '@/shared/utils/theme';
 import { API_BASE_URL } from '@/shared/utils/config/enviroments';
+import styles from './index.module.css';
 
 interface Settings {
   sync_interval_seconds: number;
@@ -87,36 +88,14 @@ export const SettingsPage: React.FC = () => {
 
   const handleReset = () => { if (settings) { setDraft(settings); setValidationErrors({}); } };
 
-  const card: React.CSSProperties = {
-    background: t.bgCard,
-    border: `1px solid ${t.border}`,
-    borderRadius: 16,
-    padding: '24px',
-    marginBottom: 20,
-    transition: 'background 0.2s',
-  };
-
-  const sectionTitle: React.CSSProperties = {
-    fontSize: 13, fontWeight: 600, color: t.textMuted,
-    textTransform: 'uppercase', letterSpacing: '0.5px',
-    marginBottom: 18,
-  };
-
-  const fieldRow: React.CSSProperties = {
-    display: 'flex', alignItems: 'flex-start',
-    justifyContent: 'space-between', gap: 24,
-    paddingBottom: 18, marginBottom: 18,
-    borderBottom: `1px solid ${t.border}`,
-  };
-
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: t.textFaint, fontSize: 14 }}>
+  return (
+    <div className={styles.loadingContainer} style={{ color: t.textFaint }}>
       Loading settings…
     </div>
   );
 
   if (fetchError) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: t.red, fontSize: 14 }}>
+    <div className={styles.errorContainer} style={{ color: t.red }}>
       {fetchError}
     </div>
   );
@@ -125,30 +104,28 @@ export const SettingsPage: React.FC = () => {
   const isDirty = JSON.stringify(draft) !== JSON.stringify(settings);
 
   return (
-    <div style={{ maxWidth: 680 }}>
+    <div className={styles.container}>
 
       {/* ── Appearance ── */}
-      <div style={card}>
-        <div style={sectionTitle}>Appearance</div>
+      <div className={styles.card} style={{ background: t.bgCard, border: `1px solid ${t.border}` }}>
+        <div className={styles.sectionTitle} style={{ color: t.textMuted }}>Appearance</div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 500, color: t.text, marginBottom: 3 }}>Theme</div>
-            <div style={{ fontSize: 12, color: t.textMuted }}>Choose between dark and light interface</div>
+            <div className={styles.fieldLabel} style={{ color: t.text }}>Theme</div>
+            <div className={styles.fieldDescription} style={{ color: t.textMuted }}>Choose between dark and light interface</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {(['dark', 'light'] as const).map(opt => (
               <button
                 key={opt}
                 onClick={() => setTheme(opt)}
+                className={styles.themeButton}
                 style={{
-                  padding: '7px 18px',
                   borderRadius: 10,
                   border: `1.5px solid ${theme === opt ? t.accent : t.border}`,
                   background: theme === opt ? t.accentBg : t.bgCard,
                   color: theme === opt ? t.accent : t.textMuted,
-                  fontSize: 13, fontWeight: theme === opt ? 600 : 400,
-                  cursor: 'pointer', transition: 'all 0.15s',
-                  display: 'flex', alignItems: 'center', gap: 6,
+                  fontWeight: theme === opt ? 600 : 400,
                 }}
               >
                 <span>{opt === 'dark' ? '🌙' : '☀️'}</span>
@@ -160,21 +137,21 @@ export const SettingsPage: React.FC = () => {
       </div>
 
       {/* ── System Settings ── */}
-      <div style={card} data-testid="settings-form">
-        <div style={sectionTitle}>System</div>
+      <div className={styles.card} style={{ background: t.bgCard, border: `1px solid ${t.border}` }} data-testid="settings-form">
+        <div className={styles.sectionTitle} style={{ color: t.textMuted }}>System</div>
 
         {FIELDS.map((f, i) => (
-          <div key={f.key} style={{ ...fieldRow, ...(i === FIELDS.length - 1 ? { borderBottom: 'none', marginBottom: 0, paddingBottom: 0 } : {}) }}>
+          <div key={f.key} className={`${styles.fieldRow} ${i === FIELDS.length - 1 ? styles.fieldRowLast : ''}`} style={{ borderBottom: i === FIELDS.length - 1 ? 'none' : `1px solid ${t.border}` }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 500, color: t.text, marginBottom: 2 }}>{f.label}</div>
-              <div style={{ fontSize: 12, color: t.textMuted }}>{f.description}</div>
+              <div className={styles.fieldLabel} style={{ color: t.text }}>{f.label}</div>
+              <div className={styles.fieldDescription} style={{ color: t.textMuted }}>{f.description}</div>
               {validationErrors[f.key] && (
-                <div style={{ fontSize: 12, color: t.red, marginTop: 4 }} role="alert" data-testid={`error-${f.key}`}>
+                <div className={styles.fieldError} style={{ color: t.red }} role="alert" data-testid={`error-${f.key}`}>
                   {validationErrors[f.key]}
                 </div>
               )}
             </div>
-            <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+            <div className={styles.fieldInputContainer}>
               {f.type === 'boolean' ? (
                 <button
                   type="button"
@@ -182,21 +159,13 @@ export const SettingsPage: React.FC = () => {
                   aria-checked={draft[f.key] as boolean}
                   onClick={() => handleChange(f.key, !(draft[f.key] as boolean))}
                   data-testid={`toggle-${f.key}`}
+                  className={styles.toggleButton}
                   style={{
-                    position: 'relative', width: 44, height: 26,
-                    borderRadius: 13, border: 'none', cursor: 'pointer',
                     background: draft[f.key] ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : t.border,
-                    transition: 'background 0.2s',
-                    padding: 0,
                   }}
                 >
-                  <span style={{
-                    position: 'absolute', top: 3,
+                  <span className={styles.toggleThumb} style={{
                     left: draft[f.key] ? 21 : 3,
-                    width: 20, height: 20, borderRadius: '50%',
-                    background: '#fff',
-                    transition: 'left 0.2s',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
                   }} />
                 </button>
               ) : (
@@ -208,13 +177,11 @@ export const SettingsPage: React.FC = () => {
                   max={f.max}
                   onChange={e => handleChange(f.key, e.target.value)}
                   data-testid={`input-${f.key}`}
+                  className={styles.numberInput}
                   style={{
-                    width: 110, padding: '8px 12px',
                     background: t.bgInput,
                     border: `1.5px solid ${validationErrors[f.key] ? t.red : t.border}`,
-                    borderRadius: 9, fontSize: 13, color: t.text,
-                    outline: 'none', textAlign: 'right',
-                    transition: 'border-color 0.15s',
+                    color: t.text,
                   }}
                   onFocus={e => (e.target.style.borderColor = t.borderFocus)}
                   onBlur={e => (e.target.style.borderColor = validationErrors[f.key] ? t.red : t.border)}
@@ -224,17 +191,17 @@ export const SettingsPage: React.FC = () => {
           </div>
         ))}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20, paddingTop: 18, borderTop: `1px solid ${t.border}` }}>
+        <div className={styles.formActions} style={{ borderTop: `1px solid ${t.border}` }}>
           <button
             onClick={handleReset}
             disabled={!isDirty || saving}
             data-testid="reset-btn"
+            className={styles.resetButton}
             style={{
-              padding: '8px 18px',
               background: t.bgCard, border: `1px solid ${t.border}`,
-              borderRadius: 9, fontSize: 13, fontWeight: 500,
-              color: t.textMuted, cursor: isDirty ? 'pointer' : 'not-allowed',
-              opacity: isDirty ? 1 : 0.4, transition: 'all 0.15s',
+              color: t.textMuted,
+              cursor: isDirty ? 'pointer' : 'not-allowed',
+              opacity: isDirty ? 1 : 0.4,
             }}
           >
             Reset
@@ -243,15 +210,12 @@ export const SettingsPage: React.FC = () => {
             onClick={handleSave}
             disabled={!isDirty || saving || Object.keys(validationErrors).length > 0}
             data-testid="save-btn"
+            className={styles.saveButton}
             style={{
-              padding: '8px 20px',
               background: isDirty && !saving ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : t.accentBg,
-              border: 'none', borderRadius: 9,
-              fontSize: 13, fontWeight: 600, color: '#fff',
               cursor: isDirty && !saving ? 'pointer' : 'not-allowed',
               opacity: isDirty && !saving ? 1 : 0.5,
               boxShadow: isDirty ? '0 4px 14px rgba(99,102,241,0.35)' : 'none',
-              transition: 'all 0.15s',
             }}
           >
             {saving ? 'Saving…' : 'Save Settings'}

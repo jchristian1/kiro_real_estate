@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useToast } from '@/shared/contexts/ToastContext';
 import { useT } from '@/shared/hooks';
 import { API_BASE_URL } from '@/shared/utils/config/enviroments';
+import styles from './index.module.css';
 
 interface QuestionOption { value: string; label: string; }
 interface Question { question_key: string; type: string; label: string; required: boolean; options?: QuestionOption[]; order: number; }
@@ -63,44 +64,43 @@ export const SimulationTab: React.FC = () => {
     return { background: t.accentBg, border: `1px solid ${t.accent}40`, color: t.accent };
   };
 
-  if (loading) return <div style={{ padding: 32, textAlign: 'center', color: t.textMuted }}>Loading…</div>;
-  if (questions.length === 0) return <div style={{ padding: 32, textAlign: 'center', color: t.textMuted }}>No active form found. Publish a form version first.</div>;
+  if (loading) return <div className={styles.loadingState} style={{ color: t.textMuted }}>Loading…</div>;
+  if (questions.length === 0) return <div className={styles.emptyState} style={{ color: t.textMuted }}>No active form found. Publish a form version first.</div>;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <h2 style={{ fontSize: 16, fontWeight: 600, color: t.text, margin: 0 }}>Score Simulation</h2>
+    <div className={styles.container}>
+      <h2 className={styles.title} style={{ color: t.text }}>Score Simulation</h2>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        {/* Form */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ ...t.card, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className={styles.splitGrid}>
+        <div className={styles.formColumn}>
+          <div style={t.card} className={styles.formCard}>
             {questions.map((q) => (
               <div key={q.question_key}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: t.text, marginBottom: 8 }}>
-                  {q.label}{q.required && <span style={{ color: t.red, marginLeft: 4 }}>*</span>}
+                <label className={styles.questionLabel} style={{ color: t.text }}>
+                  {q.label}{q.required && <span className={styles.requiredMark} style={{ color: t.red }}>*</span>}
                 </label>
                 {q.type === 'single_choice' && q.options && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div className={styles.optionsList}>
                     {q.options.map((opt) => (
-                      <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                      <label key={opt.value} className={styles.optionLabel}>
                         <input type="radio" name={q.question_key} value={opt.value}
                           checked={answers[q.question_key] === opt.value}
                           onChange={() => setAnswer(q.question_key, opt.value)}
                           style={{ accentColor: t.accent }} />
-                        <span style={{ fontSize: 13, color: t.textSecondary }}>{opt.label}</span>
+                        <span className={styles.optionText} style={{ color: t.textSecondary }}>{opt.label}</span>
                       </label>
                     ))}
                   </div>
                 )}
                 {q.type === 'multi_select' && q.options && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div className={styles.optionsList}>
                     {q.options.map((opt) => (
-                      <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                      <label key={opt.value} className={styles.optionLabel}>
                         <input type="checkbox" value={opt.value}
                           checked={((answers[q.question_key] as string[]) ?? []).includes(opt.value)}
                           onChange={() => toggleMultiAnswer(q.question_key, opt.value)}
                           style={{ accentColor: t.accent }} />
-                        <span style={{ fontSize: 13, color: t.textSecondary }}>{opt.label}</span>
+                        <span className={styles.optionText} style={{ color: t.textSecondary }}>{opt.label}</span>
                       </label>
                     ))}
                   </div>
@@ -114,41 +114,41 @@ export const SimulationTab: React.FC = () => {
               </div>
             ))}
           </div>
-          <button onClick={handleSimulate} disabled={simulating} style={{ ...t.btnPrimary, width: '100%', padding: '10px 18px', opacity: simulating ? 0.6 : 1 }}>
+          <button onClick={handleSimulate} disabled={simulating}
+            className={styles.simulateButton} style={{ ...t.btnPrimary, opacity: simulating ? 0.6 : 1 }}>
             {simulating ? 'Simulating…' : 'Simulate Score'}
           </button>
         </div>
 
-        {/* Results */}
         {result && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className={styles.resultsColumn}>
             <div style={{ ...t.card, ...bucketStyle(result.bucket) }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div className={styles.scoreBucketRow}>
                 <div>
-                  <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', opacity: 0.7, margin: 0 }}>Score</p>
-                  <p style={{ fontSize: 40, fontWeight: 700, margin: '4px 0 0' }}>{result.total}</p>
+                  <p className={styles.scoreLabel}>Score</p>
+                  <p className={styles.scoreValue}>{result.total}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', opacity: 0.7, margin: 0 }}>Bucket</p>
-                  <p style={{ fontSize: 28, fontWeight: 700, margin: '4px 0 0' }}>{result.bucket}</p>
+                  <p className={styles.scoreLabel}>Bucket</p>
+                  <p className={styles.bucketValue}>{result.bucket}</p>
                 </div>
               </div>
-              {result.explanation && <p style={{ fontSize: 12, marginTop: 8, opacity: 0.8 }}>{result.explanation}</p>}
+              {result.explanation && <p className={styles.explanation}>{result.explanation}</p>}
             </div>
 
             <div style={t.card}>
               <div style={t.sectionTitle}>Score Breakdown</div>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className={styles.table}>
                 <thead><tr>
                   {['Question', 'Answer', 'Points', 'Reason'].map(h => <th key={h} style={t.th}>{h}</th>)}
                 </tr></thead>
                 <tbody>
                   {result.breakdown.map((item, i) => (
                     <tr key={i} style={{ borderBottom: `1px solid ${t.border}` }}>
-                      <td style={{ ...t.td, fontSize: 12 }}>{item.question_key}</td>
-                      <td style={{ ...t.td, fontSize: 12, color: t.textMuted }}>{item.answer}</td>
-                      <td style={{ ...t.td, fontSize: 12, fontWeight: 600, color: item.points >= 0 ? t.green : t.red }}>{item.points >= 0 ? '+' : ''}{item.points}</td>
-                      <td style={{ ...t.td, fontSize: 12, color: t.textMuted }}>{item.reason}</td>
+                      <td style={t.td} className={styles.breakdownCell}>{item.question_key}</td>
+                      <td style={{ ...t.td, color: t.textMuted }} className={styles.breakdownCell}>{item.answer}</td>
+                      <td style={{ ...t.td, fontWeight: 600, color: item.points >= 0 ? t.green : t.red }} className={styles.breakdownCell}>{item.points >= 0 ? '+' : ''}{item.points}</td>
+                      <td style={{ ...t.td, color: t.textMuted }} className={styles.breakdownCell}>{item.reason}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -159,12 +159,12 @@ export const SimulationTab: React.FC = () => {
               <div style={t.card}>
                 <div style={t.sectionTitle}>Email Preview</div>
                 <div style={{ marginBottom: 10 }}>
-                  <p style={{ fontSize: 10, color: t.textFaint, textTransform: 'uppercase', marginBottom: 4 }}>Subject</p>
-                  <p style={{ fontSize: 13, color: t.text, background: t.bgInput, padding: '8px 12px', borderRadius: 8, margin: 0 }}>{result.email_preview.subject}</p>
+                  <p className={styles.previewLabel} style={{ color: t.textFaint }}>Subject</p>
+                  <p className={styles.previewSubject} style={{ color: t.text, background: t.bgInput }}>{result.email_preview.subject}</p>
                 </div>
                 <div>
-                  <p style={{ fontSize: 10, color: t.textFaint, textTransform: 'uppercase', marginBottom: 4 }}>Body</p>
-                  <pre style={{ fontSize: 12, color: t.text, background: t.bgInput, padding: '8px 12px', borderRadius: 8, margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{result.email_preview.body}</pre>
+                  <p className={styles.previewLabel} style={{ color: t.textFaint }}>Body</p>
+                  <pre className={styles.previewBody} style={{ color: t.text, background: t.bgInput }}>{result.email_preview.body}</pre>
                 </div>
               </div>
             )}

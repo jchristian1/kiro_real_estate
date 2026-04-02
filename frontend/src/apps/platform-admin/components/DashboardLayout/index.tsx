@@ -1,7 +1,6 @@
 /**
  * Dashboard Layout — theme-aware
  */
-
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from '../Sidebar';
@@ -9,6 +8,7 @@ import { Header } from '../Header';
 import { ToastProvider, useTheme } from '@/shared/contexts';
 import { ToastContainer } from '../ToastContainer';
 import { getTokens } from '@/shared/utils';
+import styles from './index.module.css';
 
 export const DashboardLayout: React.FC = () => {
   const { theme } = useTheme();
@@ -17,17 +17,11 @@ export const DashboardLayout: React.FC = () => {
   return (
     <ToastProvider>
       <ToastContainer />
-      <div style={{ display: 'flex', minHeight: '100vh', width: '100%', background: t.bgPage, transition: 'background 0.2s' }}>
+      <div className={styles.layout} style={{ background: t.bgPage }}>
         <Sidebar />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <div className={styles.contentColumn}>
           <Header />
-          <main style={{
-            flex: 1,
-            padding: '28px',
-            overflowY: 'auto',
-            background: t.bgPage,
-            transition: 'background 0.2s',
-          }}>
+          <main className={styles.main} style={{ background: t.bgPage }}>
             <Outlet />
           </main>
         </div>

@@ -1,0 +1,77 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  border-radius: 20px;
+  padding: 32px 28px;
+  width: 480px;
+  max-width: 90vw;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.subtitle {
+  font-size: 13px;
+  margin-bottom: 24px;
+}
+
+.templateList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.templateBtn {
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.templateLabel {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.templateDesc {
+  font-size: 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.cancelBtn {
+  background: none;
+  border-radius: 9px;
+  font-size: 13px;
+  padding: 8px 18px;
+  cursor: pointer;
+}
+
+.createBtn {
+  border: none;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 20px;
+  transition: all 0.15s;
+}

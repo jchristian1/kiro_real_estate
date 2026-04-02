@@ -1,6 +1,7 @@
 import React from 'react';
 import { useT } from '@/shared/hooks';
 import { LeadSource } from '@/models';
+import styles from './index.module.css';
 
 
 interface LeadSourceListProps {
@@ -17,7 +18,7 @@ export const LeadSourceList: React.FC<LeadSourceListProps> = ({ leadSources, onE
 
   return (
     <div style={t.card}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <table className={styles.table}>
         <thead>
           <tr>
             {['Sender Email', 'Identifier Snippet', 'Name Regex', 'Auto Respond', 'Created', 'Actions'].map(h => (
@@ -28,25 +29,25 @@ export const LeadSourceList: React.FC<LeadSourceListProps> = ({ leadSources, onE
         <tbody>
           {leadSources.map((ls) => (
             <tr key={ls.id} style={{ borderBottom: `1px solid ${t.border}` }}>
-              <td style={{ ...t.td, fontWeight: 500 }}>{ls.sender_email}</td>
+              <td style={{ ...t.td }} className={styles.fontMedium}>{ls.sender_email}</td>
               <td style={{ ...t.td, color: t.textMuted }}>{truncate(ls.identifier_snippet)}</td>
               <td style={t.td}>
-                <code style={{ fontSize: 11, background: t.bgBadge, color: t.textSecondary, padding: '2px 6px', borderRadius: 4, fontFamily: 'monospace' }} title={ls.name_regex}>
+                <code className={styles.codeSnippet} style={{ background: t.bgBadge, color: t.textSecondary }} title={ls.name_regex}>
                   {truncate(ls.name_regex)}
                 </code>
               </td>
               <td style={t.td}>
-                <span style={{ padding: '2px 8px', fontSize: 10, fontWeight: 600, background: ls.auto_respond_enabled ? t.greenBg : t.bgBadge, color: ls.auto_respond_enabled ? t.green : t.textMuted, borderRadius: 20 }}>
+                <span className={styles.autoRespondBadge} style={{ background: ls.auto_respond_enabled ? t.greenBg : t.bgBadge, color: ls.auto_respond_enabled ? t.green : t.textMuted }}>
                   {ls.auto_respond_enabled ? 'Yes' : 'No'}
                 </span>
               </td>
               <td style={{ ...t.td, color: t.textMuted }}>{new Date(ls.created_at).toLocaleDateString()}</td>
               <td style={{ ...t.td, textAlign: 'right' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
-                  <button onClick={() => onView(ls)} style={{ color: t.accent, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>View</button>
-                  <button onClick={() => onEdit(ls)} style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>Edit</button>
-                  {onViewHistory && <button onClick={() => onViewHistory(ls)} style={{ color: t.textSecondary, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>History</button>}
-                  <button onClick={() => onDelete(ls)} style={{ color: t.red, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>Delete</button>
+                <div className={styles.actionsCell}>
+                  <button onClick={() => onView(ls)} className={styles.actionBtnPrimary} style={{ color: t.accent }}>View</button>
+                  <button onClick={() => onEdit(ls)} className={styles.actionBtn} style={{ color: t.textMuted }}>Edit</button>
+                  {onViewHistory && <button onClick={() => onViewHistory(ls)} className={styles.actionBtn} style={{ color: t.textSecondary }}>History</button>}
+                  <button onClick={() => onDelete(ls)} className={styles.actionBtn} style={{ color: t.red }}>Delete</button>
                 </div>
               </td>
             </tr>
