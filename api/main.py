@@ -64,7 +64,7 @@ from api.routers.public_submission import router as public_submission_router  # 
 from api.routers.public_health import router as public_health_router  # noqa: E402
 from api.routers import (  # noqa: E402
     agent_auth,
-    agent_onboarding,
+    agent_first_run,
     agent_dashboard,
     agent_leads,
     agent_settings,
@@ -725,7 +725,7 @@ app.include_router(admin_pipelines_router, prefix="/api/v1", tags=["Pipelines"])
 
 # Agent-app routers
 app.include_router(agent_auth.router, prefix="/api/v1", tags=["Agent Auth"])
-app.include_router(agent_onboarding.router, prefix="/api/v1", tags=["Agent Onboarding"])
+app.include_router(agent_first_run.router, prefix="/api/v1", tags=["Agent First Run"])
 app.include_router(agent_dashboard.router, prefix="/api/v1", tags=["Agent Dashboard"])
 app.include_router(agent_leads.router, prefix="/api/v1", tags=["Agent Leads"])
 app.include_router(agent_settings.router, prefix="/api/v1", tags=["Agent Settings"])

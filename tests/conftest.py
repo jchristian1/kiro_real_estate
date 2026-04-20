@@ -33,17 +33,6 @@ import api.models.watcher_state_models  # noqa: F401 — registers watcher_contr
 
 
 @pytest.fixture(autouse=True)
-def reset_imap_rate_limiter():
-    """Reset the IMAP rate limiter before each test to prevent cross-test pollution."""
-    from api.services.imap_service import _attempt_timestamps, _lock
-    with _lock:
-        _attempt_timestamps.clear()
-    yield
-    with _lock:
-        _attempt_timestamps.clear()
-
-
-@pytest.fixture(autouse=True)
 def reset_slowapi_limiter():
     """Reset the slowapi in-memory rate limiter before each test."""
     try:

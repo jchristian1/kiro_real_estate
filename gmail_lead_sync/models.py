@@ -53,16 +53,27 @@ class LeadSource(Base):
     
     Defines regex patterns and identifiers for extracting lead information
     from emails sent by a particular sender address.
+
+    Uniqueness: (company_id, sender_email) — two companies may share a sender,
+    but one company may not have two rules for the same sender.
     """
     __tablename__ = 'lead_sources'
+    __table_args__ = (
+        UniqueConstraint('company_id', 'sender_email', name='uq_lead_sources_company_sender'),
+    )
     
     id = Column(Integer, primary_key=True)
-    sender_email = Column(String(255), unique=True, nullable=False, index=True)
+    # sender_email uniqueness is now per-company: UNIQUE(company_id, sender_email).
+    # The global unique=True was removed in PR 2 migration l6m7n8o9p0q1.
+    sender_email = Column(String(255), nullable=False, index=True)
     identifier_snippet = Column(String(500), nullable=False)
     name_regex = Column(String(500), nullable=False)
     phone_regex = Column(String(500), nullable=False)
     template_id = Column(Integer, ForeignKey('templates.id'), nullable=True)
     auto_respond_enabled = Column(Boolean, default=False)
+    # PR 1: company_id added as nullable — NOT NULL + composite unique enforced in PR 2
+    # after backfill. Do not filter queries by this column until PR 3.
+    company_id = Column(Integer, ForeignKey('companies.id'), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

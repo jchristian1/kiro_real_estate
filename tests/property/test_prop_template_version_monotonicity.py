@@ -69,7 +69,6 @@ def _create_agent_with_session(db) -> tuple:
         email=email,
         password_hash=password_hash,
         full_name="Test Agent",
-        onboarding_step=6,
         onboarding_completed=True,
         created_at=datetime.utcnow(),
     )

@@ -18,7 +18,6 @@ from sqlalchemy.orm import Session
 from api.dependencies.agent_auth import get_current_agent
 from api.dependencies.db import get_db
 from api.repositories import LeadRepository, LeadEventRepository
-from api.repositories.watcher_repository import AgentPreferencesRepository
 from gmail_lead_sync.agent_models import AgentUser
 from api.dependencies.auth import require_role
 
@@ -77,7 +76,7 @@ def get_dashboard(
       (NOW() - created_at) > sla_minutes_hot minutes.
     - response_time_today_minutes: mean of (AGENT_CONTACTED.created_at -
       EMAIL_RECEIVED.created_at) for leads contacted today.
-    - watcher_status: derived from AgentPreferences.watcher_enabled.
+    - watcher_status: read from the watcher_status table (DB-backed, written by worker).
 
     All queries are scoped by agent_user_id (Requirement 10.2).
 
@@ -85,22 +84,30 @@ def get_dashboard(
     """
     now = datetime.utcnow()
 
-    prefs_repo = AgentPreferencesRepository(db)
     lead_repo = LeadRepository(db)
     event_repo = LeadEventRepository(db)
 
     # ------------------------------------------------------------------
-    # Resolve AgentPreferences (for SLA and watcher_enabled)
+    # Watcher status — from DB-backed watcher_status table (worker writes this)
     # ------------------------------------------------------------------
-    prefs = prefs_repo.get_config_by_agent_id(agent.id)
-    sla_minutes_hot: int = prefs.sla_minutes_hot if prefs else 5
+    watcher_status = "stopped"
+    try:
+        from api.repositories.watcher_coordination_repository import WatcherStatusRepository
+        status_row = WatcherStatusRepository(db).get_by_agent_id(str(agent.id))
+        if status_row is not None:
+            watcher_status = status_row.status
+    except Exception:
+        pass
 
-    if prefs is None:
-        watcher_status = "stopped"
-    elif prefs.watcher_enabled:
-        watcher_status = "running"
-    else:
-        watcher_status = "stopped"
+    # SLA from preferences (personal scheduling preference — kept agent-side)
+    sla_minutes_hot: int = 5
+    try:
+        from api.repositories.watcher_repository import AgentPreferencesRepository
+        prefs = AgentPreferencesRepository(db).get_config_by_agent_id(agent.id)
+        if prefs:
+            sla_minutes_hot = prefs.sla_minutes_hot
+    except Exception:
+        pass
 
     # ------------------------------------------------------------------
     # HOT leads — scoped by agent_user_id

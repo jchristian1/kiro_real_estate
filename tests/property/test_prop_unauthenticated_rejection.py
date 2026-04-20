@@ -100,7 +100,6 @@ def _create_agent(db) -> AgentUser:
         email="prop_test@example.com",
         password_hash="$2b$12$fakehash",
         full_name="Prop Test Agent",
-        onboarding_step=0,
         onboarding_completed=False,
         created_at=datetime.utcnow(),
     )

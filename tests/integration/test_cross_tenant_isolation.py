@@ -22,7 +22,6 @@ import secrets
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, StaticPool
 from sqlalchemy.orm import sessionmaker
-from unittest.mock import patch
 
 from gmail_lead_sync.models import Base, Lead
 from gmail_lead_sync.agent_models import AgentUser
@@ -67,80 +66,66 @@ def client(db_session):
 
 # ── Helper Functions ──────────────────────────────────────────────────────────
 
-def _signup_agent(client, email: str, password: str):
-    """Sign up a new agent and return the response."""
-    r = client.post("/api/v1/agent/auth/signup", json={"email": email, "password": password})
-    assert r.status_code in (200, 201), f"Signup failed for {email}: {r.text}"
+def _create_agent_direct(db_session, email: str, password: str) -> "AgentUser":
+    """Create an agent directly in the DB (no signup endpoint — company admin creates agents)."""
+    import bcrypt
+    from datetime import datetime
+    password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    agent = AgentUser(
+        email=email,
+        password_hash=password_hash,
+        full_name="Test Agent",
+        onboarding_completed=True,
+        created_at=datetime,
+    )
+    db_session.add(agent)
+    db_session.commit()
+    db_session.refresh(agent)
+    return agent
+
+
+def _login_agent(client, email: str, password: str):
+    """Log in an agent and set the session cookie."""
+    r = client.post("/api/v1/agent/auth/login", json={"email": email, "password": password})
+    assert r.status_code == 200, f"Login failed for {email}: {r.text}"
     return r.json()
-
-
-def _complete_profile(client, full_name: str):
-    """Complete the profile step of onboarding."""
-    r = client.put("/api/v1/agent/onboarding/profile", json={
-        "full_name": full_name,
-        "timezone": "America/New_York",
-    })
-    assert r.status_code == 200, f"Profile update failed: {r.text}"
-
-
-def _connect_gmail(client, gmail_address: str, app_password: str):
-    """Connect Gmail credentials."""
-    with patch("api.routers.agent_onboarding.test_imap_connection", return_value={"success": True}):
-        r = client.post("/api/v1/agent/onboarding/gmail", json={
-            "gmail_address": gmail_address,
-            "app_password": app_password,
-        })
-    assert r.status_code == 200, f"Gmail connection failed: {r.text}"
-
-
-def _complete_onboarding(client, gmail_address: str):
-    """Complete all onboarding steps."""
-    _complete_profile(client, "Test Agent")
-    _connect_gmail(client, gmail_address, "test password 1234")
-    
-    # Sources
-    client.put("/api/v1/agent/onboarding/sources", json={"enabled_lead_source_ids": []})
-    
-    # Automation
-    client.put("/api/v1/agent/onboarding/automation", json={
-        "hot_threshold": 80,
-        "warm_threshold": 50,
-        "sla_minutes_hot": 15,
-        "enable_tour_question": True,
-    })
-    
-    # Templates
-    client.put("/api/v1/agent/onboarding/templates", json={
-        "templates": [
-            {"template_type": "INITIAL_INVITE", "subject": "Hi {lead_name}", "body": "Hello", "tone": "PROFESSIONAL"},
-            {"template_type": "POST_HOT", "subject": "Hot", "body": "Hot lead", "tone": "PROFESSIONAL"},
-            {"template_type": "POST_WARM", "subject": "Warm", "body": "Warm lead", "tone": "PROFESSIONAL"},
-            {"template_type": "POST_NURTURE", "subject": "Nurture", "body": "Nurture lead", "tone": "PROFESSIONAL"},
-        ]
-    })
 
 
 def _setup_two_agents(client, db_session):
     """
-    Create two agents with completed onboarding.
+    Create two agents directly in the DB and log in as agent2.
     Returns (agent1_id, agent2_id).
     The client session will be logged in as agent2 after this call.
     """
-    # Agent 1
-    _signup_agent(client, "agent1@test.com", "password1111")
-    _complete_onboarding(client, "agent1@gmail.com")
-    
-    agent1 = db_session.query(AgentUser).filter_by(email="agent1@test.com").first()
-    agent1_id = agent1.id
-    
-    # Agent 2 (this will switch the session cookie to agent2)
-    _signup_agent(client, "agent2@test.com", "password2222")
-    _complete_onboarding(client, "agent2@gmail.com")
-    
-    agent2 = db_session.query(AgentUser).filter_by(email="agent2@test.com").first()
-    agent2_id = agent2.id
-    
-    return agent1_id, agent2_id
+    import bcrypt
+    from datetime import datetime as dt
+
+    password1 = "password1111"
+    password2 = "password2222"
+
+    agent1 = AgentUser(
+        email="agent1@test.com",
+        password_hash=bcrypt.hashpw(password1.encode(), bcrypt.gensalt()).decode(),
+        full_name="Agent One",
+        onboarding_completed=True,
+        created_at=dt.utcnow(),
+    )
+    agent2 = AgentUser(
+        email="agent2@test.com",
+        password_hash=bcrypt.hashpw(password2.encode(), bcrypt.gensalt()).decode(),
+        full_name="Agent Two",
+        onboarding_completed=True,
+        created_at=dt.utcnow(),
+    )
+    db_session.add_all([agent1, agent2])
+    db_session.commit()
+    db_session.refresh(agent1)
+    db_session.refresh(agent2)
+
+    # Log in as agent2 so the client session is set
+    _login_agent(client, "agent2@test.com", password2)
+
+    return agent1.id, agent2.id
 
 
 # ── Test: Cross-Tenant Lead Access ───────────────────────────────────────────
@@ -263,99 +248,6 @@ class TestCrossTenantLeadAccess:
         # Assert agent1's lead data is not in response
         response_text = str(body)
         assert "Agent1 Lead" not in response_text, "Response leaked agent1's lead name"
-
-
-# ── Test: Cross-Tenant Credential Access ─────────────────────────────────────
-
-class TestCrossTenantCredentialAccess:
-    """Test that agents cannot access other agents' Gmail credentials."""
-    
-    def test_get_gmail_status_only_returns_own_credentials(self, client, db_session):
-        """Agent B cannot see agent A's Gmail credentials."""
-        agent1_id, agent2_id = _setup_two_agents(client, db_session)
-        
-        # Both agents have credentials from onboarding
-        # Agent2 is currently logged in
-        
-        r = client.get("/api/v1/agent/account/gmail")
-        
-        # If endpoint exists and returns 200
-        if r.status_code == 200:
-            body = r.json()
-            # Assert agent1's email is not in response — this is the security requirement
-            assert "agent1@gmail.com" not in str(body), "Response leaked agent1's Gmail address"
-
-
-# ── Test: Cross-Tenant Watcher Access ────────────────────────────────────────
-
-class TestCrossTenantWatcherAccess:
-    """Test that agents cannot control other agents' watchers."""
-    
-    def test_start_watcher_for_other_agent_returns_403(self, client, db_session):
-        """Agent B cannot start agent A's watcher."""
-        agent1_id, agent2_id = _setup_two_agents(client, db_session)
-        
-        # Try to start watcher for agent1 while logged in as agent2
-        # The endpoint might be /api/v1/agent/watcher/start or similar
-        
-        # Check if watcher start endpoint exists
-        r = client.post("/api/v1/agent/watcher/start")
-        
-        # If endpoint exists, it should only start agent2's watcher, not agent1's
-        # We can't directly test starting agent1's watcher as agent2 without
-        # knowing the exact API design, but we can verify that the watcher
-        # endpoints are properly scoped
-        
-        # For now, we'll test that agent2 can only see their own watcher status
-        r = client.get("/api/v1/agent/watcher/status")
-        
-        if r.status_code == 200:
-            body = r.json()
-            
-            # If the response includes agent_id, it should be agent2's
-            if "agent_id" in body:
-                assert body["agent_id"] == agent2_id, "Watcher status returned wrong agent_id"
-            
-            # Assert no data from agent1 is present
-            assert str(agent1_id) not in str(body), "Response leaked agent1's watcher data"
-
-
-# ── Test: Cross-Tenant Lead Source Preferences ───────────────────────────────
-
-class TestCrossTenantLeadSourceAccess:
-    """Test that agents cannot access other agents' lead source preferences."""
-    
-    def test_get_lead_sources_only_returns_own_preferences(self, client, db_session):
-        """Agent B cannot see agent A's enabled lead source IDs."""
-        agent1_id, agent2_id = _setup_two_agents(client, db_session)
-        
-        # Update agent1's lead source preferences
-        # First, log back in as agent1
-        client.post("/api/v1/agent/auth/login", json={
-            "email": "agent1@test.com",
-            "password": "password1111",
-        })
-        
-        client.put("/api/v1/agent/onboarding/sources", json={
-            "enabled_lead_source_ids": [1, 2, 3]
-        })
-        
-        # Log back in as agent2
-        client.post("/api/v1/agent/auth/login", json={
-            "email": "agent2@test.com",
-            "password": "password2222",
-        })
-        
-        # Get agent2's lead source preferences
-        r = client.get("/api/v1/agent/settings/sources")
-        
-        if r.status_code == 200:
-            body = r.json()
-            enabled_ids = body.get("enabled_lead_source_ids", [])
-            
-            # Agent2's preferences should be empty (from onboarding)
-            # Should not include agent1's [1, 2, 3]
-            assert enabled_ids == [], f"Response leaked agent1's lead source preferences: {enabled_ids}"
 
 
 # ── Test: Cross-Tenant Template Access ───────────────────────────────────────

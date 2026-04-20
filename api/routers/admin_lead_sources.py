@@ -1,12 +1,30 @@
 """
 Lead source management API endpoints.
 
+All endpoints are company-scoped: a company admin can only create, read,
+update, and delete lead sources that belong to their own company.
+company_id is derived from the authenticated user — it is never accepted
+from the request body.
+
+Cross-company access returns 404 (indistinguishable from not-found) to
+avoid leaking tenant information.
+
+Note on platform-admin global management
+-----------------------------------------
+Platform-level visibility and management of lead sources across all companies
+will be added later via separate platform-panel endpoints.  These admin routes
+are intentionally scoped to a single company and will not be extended to
+support cross-company access.
+
 Endpoints:
-- POST /api/v1/lead-sources - Create new lead source
-- GET /api/v1/lead-sources - List all lead sources
-- GET /api/v1/lead-sources/{id} - Get lead source details
-- PUT /api/v1/lead-sources/{id} - Update lead source
-- DELETE /api/v1/lead-sources/{id} - Delete lead source
+- POST   /api/v1/lead-sources
+- GET    /api/v1/lead-sources
+- GET    /api/v1/lead-sources/{id}
+- PUT    /api/v1/lead-sources/{id}
+- DELETE /api/v1/lead-sources/{id}
+- POST   /api/v1/lead-sources/test-regex
+- GET    /api/v1/lead-sources/{id}/versions
+- POST   /api/v1/lead-sources/{id}/rollback
 """
 
 from fastapi import APIRouter, Depends, Request, status
@@ -27,7 +45,12 @@ from api.models.lead_source_models import (
     RegexProfileRollbackResponse,
 )
 from api.models.error_models import ErrorCode
-from api.exceptions import ValidationException, NotFoundException, ConflictException
+from api.exceptions import (
+    ValidationException,
+    NotFoundException,
+    ConflictException,
+    AuthorizationException,
+)
 from api.services.audit_log import record_audit_log
 from api.utils.regex_tester import test_regex_pattern, RegexTimeoutError
 from api.repositories.lead_source_repository import (
@@ -43,7 +66,7 @@ router = APIRouter(dependencies=[Depends(require_role("company_admin"))])
 
 
 def _get_regex_timeout_ms() -> int:
-    """Read REGEX_TIMEOUT_MS from config, defaulting to 1000ms. Requirements: 11.7"""
+    """Read REGEX_TIMEOUT_MS from config, defaulting to 1000ms."""
     import os
     try:
         return int(os.getenv("REGEX_TIMEOUT_MS", "1000"))
@@ -66,39 +89,70 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     return auth_get_current_user(request, db, get_config().secret_key)
 
 
-@router.post("/lead-sources", response_model=LeadSourceResponse, status_code=status.HTTP_201_CREATED)
+def _require_company(user: User) -> int:
+    """Return the user's company_id or raise 403 if not set.
+
+    A user with no company association cannot manage company-scoped resources.
+    This guards every endpoint that writes or reads tenant data.
+    """
+    if user.company_id is None:
+        raise AuthorizationException(
+            message="Your account is not associated with a company. "
+                    "Contact a platform administrator.",
+            code=ErrorCode.AUTH_FORBIDDEN,
+        )
+    return user.company_id
+
+
+# ---------------------------------------------------------------------------
+# Create
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/lead-sources",
+    response_model=LeadSourceResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_lead_source(
     lead_source_data: LeadSourceCreateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Create a new lead source. Requirements: 2.1, 2.2, 2.6"""
+    """Create a new lead source for the authenticated user's company."""
+    company_id = _require_company(current_user)
+
     ls_repo = LeadSourceRepository(db)
     tmpl_repo = TemplateExistenceRepository(db)
     ver_repo = RegexProfileVersionRepository(db)
 
-    # Check for duplicate sender_email
-    existing_sources = ls_repo.list_all(limit=10000)
-    if any(s.sender_email == lead_source_data.sender_email for s in existing_sources):
+    # Duplicate check: scoped to this company only.
+    # Two companies may share the same sender_email with different rules.
+    if ls_repo.get_by_sender_and_company(lead_source_data.sender_email, company_id):
         raise ConflictException(
-            message=f"Lead source with sender email '{lead_source_data.sender_email}' already exists",
+            message=f"A lead source for '{lead_source_data.sender_email}' already exists "
+                    f"in your company.",
             code=ErrorCode.CONFLICT_RESOURCE_EXISTS,
         )
 
-    if lead_source_data.template_id is not None and not tmpl_repo.exists(lead_source_data.template_id):
+    if lead_source_data.template_id is not None and not tmpl_repo.exists(
+        lead_source_data.template_id
+    ):
         raise ValidationException(
             message=f"Template with ID {lead_source_data.template_id} not found",
             code=ErrorCode.VALIDATION_ERROR,
         )
 
-    lead_source = ls_repo.create(LeadSourceCreate(
-        sender_email=lead_source_data.sender_email,
-        identifier_snippet=lead_source_data.identifier_snippet,
-        name_regex=lead_source_data.name_regex,
-        phone_regex=lead_source_data.phone_regex,
-        template_id=lead_source_data.template_id,
-        auto_respond_enabled=lead_source_data.auto_respond_enabled,
-    ))
+    lead_source = ls_repo.create(
+        LeadSourceCreate(
+            company_id=company_id,
+            sender_email=lead_source_data.sender_email,
+            identifier_snippet=lead_source_data.identifier_snippet,
+            name_regex=lead_source_data.name_regex,
+            phone_regex=lead_source_data.phone_regex,
+            template_id=lead_source_data.template_id,
+            auto_respond_enabled=lead_source_data.auto_respond_enabled,
+        )
+    )
 
     ver_repo.create(lead_source, current_user.id)
 
@@ -113,16 +167,27 @@ def create_lead_source(
     return LeadSourceResponse.from_orm(lead_source)
 
 
+# ---------------------------------------------------------------------------
+# List
+# ---------------------------------------------------------------------------
+
 @router.get("/lead-sources", response_model=LeadSourceListResponse)
 def list_lead_sources(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List all lead sources. Requirements: 2.1"""
+    """List all lead sources belonging to the authenticated user's company."""
+    company_id = _require_company(current_user)
     ls_repo = LeadSourceRepository(db)
-    lead_sources = ls_repo.list_all(limit=10000)
-    return LeadSourceListResponse(lead_sources=[LeadSourceResponse.from_orm(ls) for ls in lead_sources])
+    lead_sources = ls_repo.list_for_company(company_id, limit=10000)
+    return LeadSourceListResponse(
+        lead_sources=[LeadSourceResponse.from_orm(ls) for ls in lead_sources]
+    )
 
+
+# ---------------------------------------------------------------------------
+# Detail
+# ---------------------------------------------------------------------------
 
 @router.get("/lead-sources/{lead_source_id}", response_model=LeadSourceResponse)
 def get_lead_source(
@@ -130,9 +195,10 @@ def get_lead_source(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get details for a specific lead source. Requirements: 2.1"""
+    """Get a lead source by ID, scoped to the authenticated user's company."""
+    company_id = _require_company(current_user)
     ls_repo = LeadSourceRepository(db)
-    lead_source = ls_repo.get_by_id(lead_source_id)
+    lead_source = ls_repo.get_by_id(lead_source_id, company_id)
     if not lead_source:
         raise NotFoundException(
             message=f"Lead source with ID {lead_source_id} not found",
@@ -141,6 +207,10 @@ def get_lead_source(
     return LeadSourceResponse.from_orm(lead_source)
 
 
+# ---------------------------------------------------------------------------
+# Update
+# ---------------------------------------------------------------------------
+
 @router.put("/lead-sources/{lead_source_id}", response_model=LeadSourceResponse)
 def update_lead_source(
     lead_source_id: int,
@@ -148,12 +218,14 @@ def update_lead_source(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Update an existing lead source. Requirements: 2.1, 2.2, 2.6, 2.7"""
+    """Update a lead source, scoped to the authenticated user's company."""
+    company_id = _require_company(current_user)
+
     ls_repo = LeadSourceRepository(db)
     tmpl_repo = TemplateExistenceRepository(db)
     ver_repo = RegexProfileVersionRepository(db)
 
-    lead_source = ls_repo.get_by_id(lead_source_id)
+    lead_source = ls_repo.get_by_id(lead_source_id, company_id)
     if not lead_source:
         raise NotFoundException(
             message=f"Lead source with ID {lead_source_id} not found",
@@ -169,31 +241,41 @@ def update_lead_source(
         lead_source_data.auto_respond_enabled is not None,
     ])
     if not has_updates:
-        raise ValidationException(message="No fields to update", code=ErrorCode.VALIDATION_ERROR)
+        raise ValidationException(
+            message="No fields to update", code=ErrorCode.VALIDATION_ERROR
+        )
 
+    # Duplicate sender check: scoped to this company, excluding the current record.
     if lead_source_data.sender_email is not None:
-        all_sources = ls_repo.list_all(limit=10000)
-        if any(s.sender_email == lead_source_data.sender_email and s.id != lead_source_id for s in all_sources):
+        existing = ls_repo.get_by_sender_and_company(
+            lead_source_data.sender_email, company_id
+        )
+        if existing and existing.id != lead_source_id:
             raise ConflictException(
-                message=f"Lead source with sender email '{lead_source_data.sender_email}' already exists",
+                message=f"A lead source for '{lead_source_data.sender_email}' already exists "
+                        f"in your company.",
                 code=ErrorCode.CONFLICT_RESOURCE_EXISTS,
             )
 
-    if lead_source_data.template_id is not None and not tmpl_repo.exists(lead_source_data.template_id):
+    if lead_source_data.template_id is not None and not tmpl_repo.exists(
+        lead_source_data.template_id
+    ):
         raise ValidationException(
             message=f"Template with ID {lead_source_data.template_id} not found",
             code=ErrorCode.VALIDATION_ERROR,
         )
 
     updated_fields = [
-        f for f, v in [
+        f
+        for f, v in [
             ("sender_email", lead_source_data.sender_email),
             ("identifier_snippet", lead_source_data.identifier_snippet),
             ("name_regex", lead_source_data.name_regex),
             ("phone_regex", lead_source_data.phone_regex),
             ("template_id", lead_source_data.template_id),
             ("auto_respond_enabled", lead_source_data.auto_respond_enabled),
-        ] if v is not None
+        ]
+        if v is not None
     ]
 
     regex_fields_updated = any([
@@ -216,7 +298,7 @@ def update_lead_source(
     if lead_source_data.auto_respond_enabled is not None:
         update_kwargs["auto_respond_enabled"] = lead_source_data.auto_respond_enabled
 
-    lead_source = ls_repo.update(lead_source_id, LeadSourceUpdate(**update_kwargs))
+    lead_source = ls_repo.update(lead_source_id, company_id, LeadSourceUpdate(**update_kwargs))
 
     if regex_fields_updated:
         new_version = ver_repo.create(lead_source, current_user.id)
@@ -240,15 +322,21 @@ def update_lead_source(
     return LeadSourceResponse.from_orm(lead_source)
 
 
+# ---------------------------------------------------------------------------
+# Delete
+# ---------------------------------------------------------------------------
+
 @router.delete("/lead-sources/{lead_source_id}", response_model=LeadSourceDeleteResponse)
 def delete_lead_source(
     lead_source_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Delete a lead source. Requirements: 2.1, 2.7"""
+    """Delete a lead source, scoped to the authenticated user's company."""
+    company_id = _require_company(current_user)
+
     ls_repo = LeadSourceRepository(db)
-    lead_source = ls_repo.get_by_id(lead_source_id)
+    lead_source = ls_repo.get_by_id(lead_source_id, company_id)
     if not lead_source:
         raise NotFoundException(
             message=f"Lead source with ID {lead_source_id} not found",
@@ -263,9 +351,15 @@ def delete_lead_source(
         resource_id=lead_source.id,
         details=f"Deleted lead source for {sender_email}",
     )
-    ls_repo.delete(lead_source_id)
-    return LeadSourceDeleteResponse(message=f"Lead source for '{sender_email}' deleted successfully")
+    ls_repo.delete(lead_source_id, company_id)
+    return LeadSourceDeleteResponse(
+        message=f"Lead source for '{sender_email}' deleted successfully"
+    )
 
+
+# ---------------------------------------------------------------------------
+# Regex tester (no company scoping needed — stateless utility)
+# ---------------------------------------------------------------------------
 
 @router.post("/lead-sources/test-regex", response_model=RegexTestResponse)
 def test_regex(
@@ -273,7 +367,7 @@ def test_regex(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Test a regex pattern against sample text. Requirements: 2.3, 2.4, 11.7, 14.1-14.4"""
+    """Test a regex pattern against sample text."""
     try:
         matched, groups, match_text = test_regex_pattern(
             pattern=test_data.pattern,
@@ -290,17 +384,25 @@ def test_regex(
         raise ValidationException(message=str(e), code=ErrorCode.VALIDATION_ERROR)
 
 
-@router.get("/lead-sources/{lead_source_id}/versions", response_model=RegexProfileVersionListResponse)
+# ---------------------------------------------------------------------------
+# Version history
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/lead-sources/{lead_source_id}/versions",
+    response_model=RegexProfileVersionListResponse,
+)
 def get_lead_source_versions(
     lead_source_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get version history for a lead source's regex profile. Requirements: 9.3"""
+    """Get version history for a lead source's regex profile."""
+    company_id = _require_company(current_user)
     ls_repo = LeadSourceRepository(db)
     ver_repo = RegexProfileVersionRepository(db)
 
-    if not ls_repo.get_by_id(lead_source_id):
+    if not ls_repo.get_by_id(lead_source_id, company_id):
         raise NotFoundException(
             message=f"Lead source with ID {lead_source_id} not found",
             code=ErrorCode.NOT_FOUND_RESOURCE,
@@ -311,18 +413,27 @@ def get_lead_source_versions(
     )
 
 
-@router.post("/lead-sources/{lead_source_id}/rollback", response_model=RegexProfileRollbackResponse)
+# ---------------------------------------------------------------------------
+# Rollback
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/lead-sources/{lead_source_id}/rollback",
+    response_model=RegexProfileRollbackResponse,
+)
 def rollback_lead_source(
     lead_source_id: int,
     rollback_data: RegexProfileRollbackRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Rollback a lead source's regex profile to a specific version. Requirements: 9.4, 9.7"""
+    """Rollback a lead source's regex profile to a specific version."""
+    company_id = _require_company(current_user)
+
     ls_repo = LeadSourceRepository(db)
     ver_repo = RegexProfileVersionRepository(db)
 
-    lead_source = ls_repo.get_by_id(lead_source_id)
+    lead_source = ls_repo.get_by_id(lead_source_id, company_id)
     if not lead_source:
         raise NotFoundException(
             message=f"Lead source with ID {lead_source_id} not found",
@@ -336,11 +447,15 @@ def rollback_lead_source(
             code=ErrorCode.NOT_FOUND_RESOURCE,
         )
 
-    lead_source = ls_repo.update(lead_source_id, LeadSourceUpdate(
-        name_regex=target_version.name_regex,
-        phone_regex=target_version.phone_regex,
-        identifier_snippet=target_version.identifier_snippet,
-    ))
+    lead_source = ls_repo.update(
+        lead_source_id,
+        company_id,
+        LeadSourceUpdate(
+            name_regex=target_version.name_regex,
+            phone_regex=target_version.phone_regex,
+            identifier_snippet=target_version.identifier_snippet,
+        ),
+    )
 
     new_version = ver_repo.create(lead_source, current_user.id)
 
@@ -350,7 +465,10 @@ def rollback_lead_source(
         action="regex_profile_rollback",
         resource_type="lead_source",
         resource_id=lead_source.id,
-        details=f"Rolled back lead source {lead_source_id} to version {rollback_data.version} (created new version {new_version})",
+        details=(
+            f"Rolled back lead source {lead_source_id} to version "
+            f"{rollback_data.version} (created new version {new_version})"
+        ),
     )
     return RegexProfileRollbackResponse(
         message=f"Successfully rolled back to version {rollback_data.version}",

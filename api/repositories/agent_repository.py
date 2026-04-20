@@ -44,7 +44,6 @@ class AgentUpdate(BaseModel):
     service_area: Optional[str] = None
     company_id: Optional[int] = None
     onboarding_completed: Optional[bool] = None
-    onboarding_step: Optional[int] = None
     role: Optional[str] = None
 
 
@@ -147,7 +146,6 @@ class AgentRepository:
             email=email,
             password_hash=password_hash,
             full_name=full_name,
-            onboarding_step=0,
             onboarding_completed=False,
             created_at=datetime.utcnow(),
         )
@@ -171,29 +169,13 @@ class AgentRepository:
         service_area: Optional[str],
         company_id: Optional[int] = None,
     ) -> AgentUser:
-        """Persist profile fields on *agent* and advance onboarding_step to at least 2."""
+        """Persist profile fields and mark onboarding_completed=True."""
         agent.full_name = full_name
         agent.phone = phone
         agent.timezone = timezone if timezone else "UTC"
         agent.service_area = service_area
         if company_id is not None:
             agent.company_id = company_id
-        if agent.onboarding_step < 2:
-            agent.onboarding_step = 2
-        self._db.commit()
-        self._db.refresh(agent)
-        return agent
-
-    def advance_onboarding_step(self, agent: AgentUser, step: int) -> AgentUser:
-        """Advance *agent.onboarding_step* to *step* if currently less than *step*."""
-        if agent.onboarding_step < step:
-            agent.onboarding_step = step
-        self._db.commit()
-        self._db.refresh(agent)
-        return agent
-
-    def complete_onboarding(self, agent: AgentUser) -> AgentUser:
-        """Mark *agent* as onboarding_completed and commit."""
         agent.onboarding_completed = True
         self._db.commit()
         self._db.refresh(agent)

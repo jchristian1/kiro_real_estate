@@ -58,35 +58,36 @@ def client(db_session):
 
 @pytest.fixture
 def agent_client(client, db_session):
-    """Authenticated agent client with completed onboarding."""
-    # Signup
-    r = client.post("/api/v1/agent/auth/signup", json={
-        "email": "agent@test.com", "password": "securepass123"
-    })
-    assert r.status_code in (200, 201)
+    """Authenticated agent client — agent created directly in DB (no signup endpoint)."""
+    import bcrypt
+    from datetime import datetime
+    from gmail_lead_sync.agent_models import AgentSession as _AgentSession
+    import secrets as _secrets
 
-    # Complete onboarding steps
-    client.put("/api/v1/agent/onboarding/profile", json={
-        "full_name": "Test Agent", "timezone": "America/New_York",
-    })
-    with patch("api.routers.agent_onboarding.test_imap_connection", return_value={"success": True}):
-        client.post("/api/v1/agent/onboarding/gmail", json={
-            "gmail_address": "agent@gmail.com", "app_password": "abcd efgh ijkl mnop",
-        })
-    client.put("/api/v1/agent/onboarding/sources", json={"enabled_lead_source_ids": []})
-    client.put("/api/v1/agent/onboarding/automation", json={
-        "hot_threshold": 80, "warm_threshold": 50,
-        "sla_minutes_hot": 15, "enable_tour_question": True,
-    })
-    client.put("/api/v1/agent/onboarding/templates", json={
-        "templates": [
-            {"template_type": "initial_outreach", "subject": "Hi {lead_name}", "body": "Hello {lead_name}.", "tone": "PROFESSIONAL"},
-            {"template_type": "follow_up",        "subject": "Follow up",      "body": "Hi {lead_name}.",    "tone": "FRIENDLY"},
-            {"template_type": "post_form",         "subject": "Thanks",         "body": "Got it {lead_name}.", "tone": "PROFESSIONAL"},
-            {"template_type": "appointment",       "subject": "Meet",           "body": "{form_link}",         "tone": "SHORT"},
-        ]
-    })
-    client.post("/api/v1/agent/onboarding/complete", json={})
+    password = "securepass123"
+    password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    agent = AgentUser(
+        email="agent@test.com",
+        password_hash=password_hash,
+        full_name="Test Agent",
+        onboarding_completed=True,
+        created_at=datetime.utcnow(),
+    )
+    db_session.add(agent)
+    db_session.flush()
+
+    token = _secrets.token_hex(64)
+    session = _AgentSession(
+        id=token,
+        agent_user_id=agent.id,
+        created_at=datetime.utcnow(),
+        expires_at=datetime.utcnow() + __import__("datetime").timedelta(hours=1),
+        last_accessed=datetime.utcnow(),
+    )
+    db_session.add(session)
+    db_session.commit()
+
+    client.cookies.set("agent_session", token)
     return client
 
 
@@ -202,14 +203,24 @@ class TestLeadLifecycle:
 
     def test_cross_agent_lead_access_denied(self, db_session, client):
         """Agent B cannot access Agent A's lead — returns 403."""
-        # Create a second agent
-        r = client.post("/api/v1/agent/auth/signup", json={
-            "email": "agent2@test.com", "password": "securepass456"
-        })
-        assert r.status_code in (200, 201)
+        import bcrypt
+        from datetime import datetime, timedelta
+        from gmail_lead_sync.agent_models import AgentSession as _AgentSession
+        import secrets as _secrets
 
-        # Agent A's lead — get its ID from the first agent's session
-        # We need to log back in as agent1 to get the lead id
+        # Create agent2 directly in DB
+        password2 = "securepass456"
+        agent2 = AgentUser(
+            email="agent2@test.com",
+            password_hash=bcrypt.hashpw(password2.encode(), bcrypt.gensalt()).decode(),
+            full_name="Agent Two",
+            onboarding_completed=True,
+            created_at=datetime.utcnow(),
+        )
+        db_session.add(agent2)
+        db_session.commit()
+
+        # Log back in as agent1 to get the lead id
         client.post("/api/v1/agent/auth/login", json={
             "email": "agent@test.com", "password": "securepass123"
         })
@@ -219,7 +230,7 @@ class TestLeadLifecycle:
 
         lead_id = r_leads.json()["leads"][0]["id"]
 
-        # Now log in as agent2
+        # Log in as agent2
         client.post("/api/v1/agent/auth/login", json={
             "email": "agent2@test.com", "password": "securepass456"
         })

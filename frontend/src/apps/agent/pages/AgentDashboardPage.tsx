@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../../shared/contexts/ThemeContext';
 import { getTokens } from '../../../shared/utils/theme';
 import {
-  useAgentDashboard, useAgentGmail, useToggleWatcher, useAgentMe,
+  useAgentDashboard, useAgentMe,
 } from '../hooks/useAgentQueries';
 import { BackendPendingBadge } from '../components/BackendPendingBadge';
 
@@ -271,34 +271,19 @@ const QueueSection: React.FC<{
 };
 
 // ── WatcherCard ───────────────────────────────────────────────────────────────
-const WatcherCard: React.FC = () => {
+// ── WatcherCard — read-only status (watcher is company-managed, PR A1) ────────
+const WatcherCard: React.FC<{ status?: string }> = ({ status }) => {
   const { theme } = useTheme();
   const t = getTokens(theme);
-  const { data: gmail } = useAgentGmail();
-  const toggleWatcher = useToggleWatcher();
 
-  const watcherOn   = gmail?.watcher_enabled ?? false;
-  const adminLocked = gmail?.watcher_admin_override ?? false;
-  const connected   = gmail?.connected ?? false;
-
-  const handleToggle = async () => {
-    if (adminLocked || !connected) return;
-    try { await toggleWatcher.mutateAsync(!watcherOn); } catch { /* ignore */ }
-  };
-
-  const tier: 'active' | 'paused' | 'unconfigured' =
-    !connected ? 'unconfigured' : watcherOn ? 'active' : 'paused';
+  const tier: 'active' | 'paused' | 'unknown' =
+    status === 'running' ? 'active' : status === 'stopped' ? 'paused' : 'unknown';
 
   const cfg = {
-    active:       { label: 'Active',          dot: t.green,    bg: `${t.green}0d`,           bd: `${t.green}28`,           lc: t.green    },
-    paused:       { label: 'Paused',           dot: '#f87171',  bg: 'rgba(248,113,113,0.06)', bd: 'rgba(248,113,113,0.22)', lc: '#f87171'  },
-    unconfigured: { label: 'Not configured',   dot: t.textFaint, bg: t.bgBadge,              bd: t.border,                 lc: t.textFaint },
+    active:  { label: 'Active',  dot: t.green,     bg: `${t.green}0d`,           bd: `${t.green}28`,           lc: t.green,     icon: '📡', sub: 'Monitoring inbox' },
+    paused:  { label: 'Paused',  dot: '#f87171',   bg: 'rgba(248,113,113,0.06)', bd: 'rgba(248,113,113,0.22)', lc: '#f87171',   icon: '⏸',  sub: 'Watcher paused — contact your admin' },
+    unknown: { label: 'Unknown', dot: t.textFaint, bg: t.bgBadge,               bd: t.border,                 lc: t.textFaint, icon: '🔌', sub: 'Status unavailable' },
   }[tier];
-
-  const emailDisplay = gmail?.gmail_address
-    ? gmail.gmail_address.replace(/^(.{2}).*@/, '$1…@')
-    : null;
-  const lastSync = gmail?.last_sync;
 
   return (
     <div style={{
@@ -307,16 +292,13 @@ const WatcherCard: React.FC = () => {
       background: cfg.bg, border: `1px solid ${cfg.bd}`,
       marginBottom: 7,
     }}>
-      {/* Icon + pulse dot */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
         <div style={{
           width: 32, height: 32, borderRadius: 9,
           background: tier === 'active' ? `${t.green}15` : t.bgBadge,
           border: `1px solid ${tier === 'active' ? t.green + '30' : t.border}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15,
-        }}>
-          {tier === 'active' ? '📡' : tier === 'unconfigured' ? '🔌' : '⏸'}
-        </div>
+        }}>{cfg.icon}</div>
         <div
           className={tier === 'active' ? 'dpulse' : undefined}
           style={{
@@ -327,8 +309,6 @@ const WatcherCard: React.FC = () => {
           }}
         />
       </div>
-
-      {/* Text */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 1 }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: t.text }}>Inbox Watcher</span>
@@ -337,51 +317,9 @@ const WatcherCard: React.FC = () => {
             background: tier === 'active' ? `${t.green}18` : 'rgba(148,163,184,0.12)',
             color: cfg.lc, border: `1px solid ${cfg.bd}`, letterSpacing: '0.05em',
           }}>{cfg.label}</span>
-          {adminLocked && (
-            <span style={{ fontSize: 8, color: t.orange, fontWeight: 700, letterSpacing: '0.05em' }}>LOCKED</span>
-          )}
         </div>
-        <div style={{ fontSize: 10, color: t.textFaint, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {emailDisplay
-            ? <span style={{ fontFamily: 'monospace' }}>{emailDisplay}</span>
-            : <span>{tier === 'unconfigured' ? 'Connect Gmail to monitor leads' : tier === 'paused' ? 'Watcher paused — leads may be missed' : 'Monitoring inbox'}</span>
-          }
-          {lastSync && tier === 'active' && (
-            <span>· {timeAgo(lastSync)}</span>
-          )}
-        </div>
+        <div style={{ fontSize: 10, color: t.textFaint }}>{cfg.sub}</div>
       </div>
-
-      {/* Control */}
-      {connected ? (
-        <button
-          onClick={handleToggle}
-          disabled={adminLocked || toggleWatcher.isPending}
-          aria-label={watcherOn ? 'Pause watcher' : 'Enable watcher'}
-          style={{
-            width: 38, height: 22, borderRadius: 11, border: 'none', flexShrink: 0,
-            cursor: adminLocked ? 'not-allowed' : 'pointer',
-            background: watcherOn ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : t.border,
-            position: 'relative', transition: 'background 0.2s',
-            opacity: adminLocked ? 0.5 : 1,
-          }}
-        >
-          <div style={{
-            position: 'absolute', top: 2, left: watcherOn ? 18 : 2,
-            width: 18, height: 18, borderRadius: '50%', background: '#fff',
-            transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-          }} />
-        </button>
-      ) : (
-        <button
-          style={{
-            padding: '5px 10px', borderRadius: 7, fontSize: 10, fontWeight: 600,
-            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff',
-            border: 'none', cursor: 'pointer', flexShrink: 0,
-            boxShadow: '0 2px 6px rgba(99,102,241,0.3)',
-          }}
-        >Set up</button>
-      )}
     </div>
   );
 };
@@ -483,7 +421,7 @@ export const AgentDashboardPage: React.FC = () => {
       </div>
 
       {/* ── Watcher ── */}
-      <WatcherCard />
+      <WatcherCard status={data?.watcher_status} />
 
       {/* ── Needs Attention ── */}
       {attentionLeads.length > 0 && (

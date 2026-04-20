@@ -1,6 +1,5 @@
 /**
  * Agent Auth Context — session cookie-based auth for the agent-facing app.
- * Mirrors the admin AuthContext pattern but targets /api/v1/agent/auth/* endpoints.
  */
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -10,7 +9,6 @@ export interface AgentUser {
   id: number;
   email: string;
   full_name: string;
-  onboarding_step: number;
   onboarding_completed: boolean;
 }
 
@@ -18,7 +16,6 @@ interface AgentAuthState {
   agent: AgentUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshAgent: () => Promise<void>;
 }
@@ -47,18 +44,13 @@ export const AgentAuthProvider: React.FC<{ children: ReactNode }> = ({ children 
     setAgent(data);
   };
 
-  const signup = async (email: string, password: string) => {
-    const data = await agentApi.post<AgentUser>('/agent/auth/signup', { email, password });
-    setAgent(data);
-  };
-
   const logout = async () => {
     try { await agentApi.post('/agent/auth/logout', {}); } catch { /* ignore */ }
     setAgent(null);
   };
 
   return (
-    <AgentAuthContext.Provider value={{ agent, loading, login, signup, logout, refreshAgent }}>
+    <AgentAuthContext.Provider value={{ agent, loading, login, logout, refreshAgent }}>
       {children}
     </AgentAuthContext.Provider>
   );

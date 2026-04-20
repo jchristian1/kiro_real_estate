@@ -3,7 +3,7 @@
  */
 
 import React, { useState, FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAgentAuth } from '../contexts/AgentAuthContext';
 import { useTheme } from '../../../shared/contexts/ThemeContext';
 import { getTokens } from '../../../shared/utils/theme';
@@ -119,13 +119,6 @@ export const AgentLoginPage: React.FC = () => {
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
-
-        <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: t.textMuted }}>
-          Don't have an account?{' '}
-          <Link to="/agent/signup" style={{ color: t.accent, textDecoration: 'none', fontWeight: 500 }}>
-            Sign up
-          </Link>
-        </div>
       </div>
     </div>
   );

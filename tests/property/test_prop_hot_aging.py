@@ -68,7 +68,6 @@ def _create_agent(db, sla_minutes_hot: int = 5) -> AgentUser:
         email=f"agent_{uid}@example.com",
         password_hash=password_hash,
         full_name=f"Agent {uid}",
-        onboarding_step=1,
         onboarding_completed=True,
         created_at=datetime.utcnow(),
     )

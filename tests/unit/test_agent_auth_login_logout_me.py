@@ -60,7 +60,6 @@ def client(setup_db):
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-SIGNUP_URL = "/api/v1/agent/auth/signup"
 LOGIN_URL = "/api/v1/agent/auth/login"
 LOGOUT_URL = "/api/v1/agent/auth/logout"
 ME_URL = "/api/v1/agent/auth/me"
@@ -72,9 +71,32 @@ VALID_AGENT = {
 }
 
 
+def _create_agent_in_db() -> None:
+    """Create the test agent directly in the DB (no signup endpoint)."""
+    import bcrypt
+    from datetime import datetime
+    from gmail_lead_sync.agent_models import AgentUser as _AgentUser
+    db = TestingSessionLocal()
+    existing = db.query(_AgentUser).filter_by(email=VALID_AGENT["email"]).first()
+    if existing:
+        db.close()
+        return
+    password_hash = bcrypt.hashpw(VALID_AGENT["password"].encode(), bcrypt.gensalt()).decode()
+    agent = _AgentUser(
+        email=VALID_AGENT["email"],
+        password_hash=password_hash,
+        full_name=VALID_AGENT["full_name"],
+        onboarding_completed=False,
+        created_at=datetime.utcnow(),
+    )
+    db.add(agent)
+    db.commit()
+    db.close()
+
+
 def _signup_and_login(client) -> str:
-    """Register an agent and log in; return the session token."""
-    client.post(SIGNUP_URL, json=VALID_AGENT)
+    """Create agent in DB and log in; return the session token."""
+    _create_agent_in_db()
     resp = client.post(LOGIN_URL, json={"email": VALID_AGENT["email"], "password": VALID_AGENT["password"]})
     assert resp.status_code == 200
     return resp.cookies[AGENT_SESSION_COOKIE_NAME]
@@ -98,12 +120,12 @@ class TestLoginSuccess:
     """Requirement 2.1 — valid credentials set cookie and return agent info."""
 
     def test_returns_200(self, client):
-        client.post(SIGNUP_URL, json=VALID_AGENT)
+        _create_agent_in_db()
         resp = client.post(LOGIN_URL, json={"email": VALID_AGENT["email"], "password": VALID_AGENT["password"]})
         assert resp.status_code == 200
 
     def test_response_body_fields(self, client):
-        client.post(SIGNUP_URL, json=VALID_AGENT)
+        _create_agent_in_db()
         resp = client.post(LOGIN_URL, json={"email": VALID_AGENT["email"], "password": VALID_AGENT["password"]})
         data = resp.json()
         assert "agent_user_id" in data
@@ -111,20 +133,20 @@ class TestLoginSuccess:
         assert "onboarding_completed" in data
 
     def test_session_cookie_set(self, client):
-        client.post(SIGNUP_URL, json=VALID_AGENT)
+        _create_agent_in_db()
         resp = client.post(LOGIN_URL, json={"email": VALID_AGENT["email"], "password": VALID_AGENT["password"]})
         assert AGENT_SESSION_COOKIE_NAME in resp.cookies
         assert len(resp.cookies[AGENT_SESSION_COOKIE_NAME]) > 0
 
     def test_session_token_is_64_bytes(self, client):
         """Requirement 2.6 — 64-byte token stored as 128-char hex."""
-        client.post(SIGNUP_URL, json=VALID_AGENT)
+        _create_agent_in_db()
         resp = client.post(LOGIN_URL, json={"email": VALID_AGENT["email"], "password": VALID_AGENT["password"]})
         token = resp.cookies[AGENT_SESSION_COOKIE_NAME]
         assert len(token) == 128
 
     def test_session_record_created_in_db(self, client):
-        client.post(SIGNUP_URL, json=VALID_AGENT)
+        _create_agent_in_db()
         resp = client.post(LOGIN_URL, json={"email": VALID_AGENT["email"], "password": VALID_AGENT["password"]})
         token = resp.cookies[AGENT_SESSION_COOKIE_NAME]
         db = TestingSessionLocal()
@@ -134,7 +156,7 @@ class TestLoginSuccess:
 
     def test_each_login_creates_new_session(self, client):
         """Two logins should produce two distinct session tokens."""
-        client.post(SIGNUP_URL, json=VALID_AGENT)
+        _create_agent_in_db()
         creds = {"email": VALID_AGENT["email"], "password": VALID_AGENT["password"]}
         token1 = client.post(LOGIN_URL, json=creds).cookies[AGENT_SESSION_COOKIE_NAME]
         token2 = client.post(LOGIN_URL, json=creds).cookies[AGENT_SESSION_COOKIE_NAME]
@@ -149,12 +171,12 @@ class TestLoginInvalidCredentials:
     """Requirement 2.2 — invalid credentials return 401."""
 
     def test_wrong_password_returns_401(self, client):
-        client.post(SIGNUP_URL, json=VALID_AGENT)
+        _create_agent_in_db()
         resp = client.post(LOGIN_URL, json={"email": VALID_AGENT["email"], "password": "wrongpassword"})
         assert resp.status_code == 401
 
     def test_wrong_password_error_body(self, client):
-        client.post(SIGNUP_URL, json=VALID_AGENT)
+        _create_agent_in_db()
         resp = client.post(LOGIN_URL, json={"email": VALID_AGENT["email"], "password": "wrongpassword"})
         assert resp.json()["error"] == "INVALID_CREDENTIALS"
 
@@ -232,7 +254,7 @@ class TestMe:
         assert data["full_name"] == VALID_AGENT["full_name"]
         assert "agent_user_id" in data
         assert "onboarding_completed" in data
-        assert "onboarding_step" in data
+        assert "onboarding_step" not in data
 
     def test_me_without_session_returns_401(self, client):
         """No cookie → 401."""
@@ -243,8 +265,3 @@ class TestMe:
         """Bogus token → 401."""
         resp = _authed_get(client, ME_URL, "a" * 128)
         assert resp.status_code == 401
-
-    def test_me_onboarding_step_is_zero_after_signup(self, client):
-        token = _signup_and_login(client)
-        resp = _authed_get(client, ME_URL, token)
-        assert resp.json()["onboarding_step"] == 0

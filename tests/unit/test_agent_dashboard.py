@@ -84,7 +84,6 @@ def _create_agent(db, email="agent@test.com", full_name="Test Agent") -> AgentUs
         email=email,
         password_hash="hashed",
         full_name=full_name,
-        onboarding_step=6,
         onboarding_completed=True,
         created_at=datetime.utcnow(),
     )

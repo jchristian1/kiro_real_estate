@@ -93,10 +93,6 @@ def _make_app() -> FastAPI:
     def agent_login():
         return {"ok": True}
 
-    @app.post("/api/v1/agent/auth/signup")
-    def agent_signup():
-        return {"ok": True}
-
     @app.post("/api/v1/public/submit")
     def public_submit():
         return {"ok": True}
@@ -214,14 +210,6 @@ class TestExemptPaths:
             "/api/v1/agent/auth/login",
             headers={"Origin": "http://evil.example.com"},
             json={"email": "x@x.com", "password": "y"},
-        )
-        assert r.status_code != 403 or r.json().get("code") != "CSRF_ORIGIN_MISMATCH"
-
-    def test_agent_signup_exempt(self, client):
-        r = client.post(
-            "/api/v1/agent/auth/signup",
-            headers={"Origin": "http://evil.example.com"},
-            json={"email": "x@x.com", "password": "password123"},
         )
         assert r.status_code != 403 or r.json().get("code") != "CSRF_ORIGIN_MISMATCH"
 

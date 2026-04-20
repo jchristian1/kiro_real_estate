@@ -114,7 +114,6 @@ def _create_agent(db, email: str) -> AgentUser:
         email=email,
         password_hash=password_hash,
         full_name="Test Agent",
-        onboarding_step=1,
         onboarding_completed=True,
         created_at=datetime.utcnow(),
     )

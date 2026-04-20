@@ -18,8 +18,8 @@ Exemptions:
 - GET, HEAD, OPTIONS — safe/idempotent methods, no state change.
 - /api/v1/health, /metrics — public read-only endpoints.
 - /api/v1/public/* — public form submission endpoints (no session cookie).
-- /api/v1/auth/login, /api/v1/agent/auth/login, /api/v1/agent/auth/signup
-  — login/signup endpoints: the session cookie does not exist yet, so there
+- /api/v1/auth/login, /api/v1/agent/auth/login
+  — login endpoints: the session cookie does not exist yet, so there
   is nothing to protect via CSRF. These are already rate-limited.
 
 References:
@@ -44,13 +44,12 @@ logger = logging.getLogger("api.middleware.csrf")
 _MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 # Paths that are exempt from origin validation.
-# Login/signup: no session exists yet — nothing to CSRF-protect.
+# Login: no session exists yet — nothing to CSRF-protect.
 # Public submission: unauthenticated, no session cookie involved.
 # Health/metrics: read-only, no session required.
 _EXEMPT_PATHS = frozenset({
     "/api/v1/auth/login",
     "/api/v1/agent/auth/login",
-    "/api/v1/agent/auth/signup",
     "/api/v1/health",
     "/metrics",
 })

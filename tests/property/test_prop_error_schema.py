@@ -93,7 +93,6 @@ def _create_agent(db, email: str) -> AgentUser:
         email=email,
         password_hash=password_hash,
         full_name="Test Agent",
-        onboarding_step=1,
         onboarding_completed=True,
         created_at=datetime.utcnow(),
     )
@@ -198,29 +197,6 @@ class TestProperty3UnifiedErrorSchema:
     # ------------------------------------------------------------------
     # 422 — Pydantic validation errors (invalid request body)
     # ------------------------------------------------------------------
-
-    @given(invalid_body=_RANDOM_DICT)
-    @settings(
-        max_examples=50,
-        deadline=None,
-        suppress_health_check=[HealthCheck.function_scoped_fixture],
-    )
-    def test_422_agent_signup_invalid_body(self, setup_db, invalid_body: dict):
-        """
-        # Feature: production-hardening, Property 3: Unified error schema on all error responses
-        **Validates: Requirements 5.1, 5.2**
-
-        POST /api/v1/agent/auth/signup with a random invalid body must return
-        422 with the unified error schema.
-        """
-        Base.metadata.create_all(bind=engine)
-        app.dependency_overrides[get_db] = override_get_db
-
-        with TestClient(app, raise_server_exceptions=False) as client:
-            resp = client.post("/api/v1/agent/auth/signup", json=invalid_body)
-
-        if resp.status_code in (422, 400):
-            _assert_error_schema(resp.json(), resp.status_code)
 
     @given(invalid_body=_RANDOM_DICT)
     @settings(
@@ -525,7 +501,6 @@ class TestProperty3UnifiedErrorSchema:
         ("GET", "/api/v1/agent/leads"),
         ("GET", "/api/v1/agent/dashboard"),
         ("GET", "/api/v1/agent/templates"),
-        ("GET", "/api/v1/agent/account/gmail"),
         ("GET", "/api/v1/agent/reports/summary"),
         ("GET", "/api/v1/agent/auth/me"),
     ])

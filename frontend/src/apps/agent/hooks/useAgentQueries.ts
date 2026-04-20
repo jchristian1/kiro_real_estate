@@ -10,7 +10,7 @@ import { agentApi } from '../api/agentApi';
 
 export interface AgentUser {
   id: number; email: string; full_name: string;
-  onboarding_step: number; onboarding_completed: boolean;
+  onboarding_completed: boolean;
 }
 
 export interface Lead {
@@ -70,17 +70,6 @@ export interface Template {
   tone?: string; version: number; is_active: boolean; is_custom: boolean;
 }
 
-export interface AutomationConfig {
-  hot_threshold: number; warm_threshold: number;
-  sla_minutes_hot: number; enable_tour_question: boolean;
-  working_days?: string; quiet_hours_start?: string; quiet_hours_end?: string;
-}
-
-export interface GmailStatus {
-  connected: boolean; gmail_address?: string; last_sync?: string;
-  watcher_enabled: boolean; watcher_admin_override: boolean;
-}
-
 export interface ReportsSummary {
   leads_by_source: { source: string; count: number }[];
   bucket_distribution: { HOT: number; WARM: number; NURTURE: number };
@@ -97,8 +86,6 @@ export const agentKeys = {
   leads:      (p: Record<string, unknown>) => ['agent', 'leads', p] as const,
   lead:       (id: number) => ['agent', 'lead', id] as const,
   templates:  () => ['agent', 'templates'] as const,
-  automation: () => ['agent', 'automation'] as const,
-  gmail:      () => ['agent', 'gmail'] as const,
   reports:    (period: string) => ['agent', 'reports', period] as const,
   leadPipeline: (id: number) => ['agent', 'lead', id, 'pipeline'] as const,
 };
@@ -119,12 +106,6 @@ export const useAgentLead = (id: number) =>
 
 export const useAgentTemplates = () =>
   useQuery({ queryKey: agentKeys.templates(), queryFn: () => agentApi.get<{ templates: Template[] }>('/agent/templates'), staleTime: 0, refetchOnMount: 'always' });
-
-export const useAgentAutomation = () =>
-  useQuery({ queryKey: agentKeys.automation(), queryFn: () => agentApi.get<AutomationConfig>('/agent/automation') });
-
-export const useAgentGmail = () =>
-  useQuery({ queryKey: agentKeys.gmail(), queryFn: () => agentApi.get<GmailStatus>('/agent/account/gmail') });
 
 export const useAgentReports = (period: string) =>
   useQuery({ queryKey: agentKeys.reports(period), queryFn: () => agentApi.get<ReportsSummary>('/agent/reports/summary', { period }) });
@@ -221,62 +202,5 @@ export const useDeleteTemplate = () => {
   return useMutation({
     mutationFn: (id: number) => agentApi.delete(`/agent/templates/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: agentKeys.templates() }),
-  });
-};
-
-export const useUpdateAutomation = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: Partial<AutomationConfig>) => agentApi.put('/agent/automation', body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: agentKeys.automation() }),
-  });
-};
-
-export const useToggleWatcher = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (enabled: boolean) => agentApi.patch('/agent/account/watcher', { enabled }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: agentKeys.gmail() }),
-  });
-};
-
-export const useUpdateGmail = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: { gmail_address: string; app_password: string }) =>
-      agentApi.put('/agent/account/gmail', body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: agentKeys.gmail() }),
-  });
-};
-
-export const useDisconnectGmail = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => agentApi.delete('/agent/account/gmail'),
-    onSuccess: () => qc.invalidateQueries({ queryKey: agentKeys.gmail() }),
-  });
-};
-
-export const useCancelSubscription = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => agentApi.post('/agent/account/cancel-subscription', {}),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: agentKeys.gmail() });
-      qc.invalidateQueries({ queryKey: agentKeys.dashboard() });
-      qc.invalidateQueries({ queryKey: agentKeys.me() });
-    },
-  });
-};
-
-export const useReactivateSubscription = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => agentApi.post('/agent/account/reactivate-subscription', {}),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: agentKeys.gmail() });
-      qc.invalidateQueries({ queryKey: agentKeys.dashboard() });
-      qc.invalidateQueries({ queryKey: agentKeys.me() });
-    },
   });
 };

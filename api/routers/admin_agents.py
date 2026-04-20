@@ -39,7 +39,6 @@ from api.exceptions import (
 )
 from api.repositories import CredentialRepository, AgentRepository
 from api.repositories.template_repository import TemplateRepository
-from api.repositories.watcher_repository import AgentPreferencesRepository
 from api.services.audit_log import record_audit_log
 from api.config import load_config
 from api.dependencies.auth import require_role
@@ -230,7 +229,6 @@ def list_agents(
 
     cred_repo = CredentialRepository(db)
     agent_repo = AgentRepository(db)
-    prefs_repo = AgentPreferencesRepository(db)
 
     # Get all credentials, filtered by company if user is company-scoped
     all_credentials = cred_repo.list_all()
@@ -262,8 +260,7 @@ def list_agents(
                 if not au.onboarding_completed:
                     watcher_status = "cancelled"
                 elif watcher_status is None:
-                    prefs = prefs_repo.get_config_by_agent_id(au.id)
-                    watcher_status = "running" if (prefs and prefs.watcher_enabled) else "stopped"
+                    watcher_status = "stopped"
         except (ValueError, TypeError):
             pass
 

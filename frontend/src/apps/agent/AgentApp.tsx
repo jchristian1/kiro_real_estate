@@ -10,18 +10,18 @@ import { ToastProvider } from '../../shared/contexts/ToastContext';
 import { ToastContainer } from './components/ToastContainer';
 import { AgentAuthProvider } from './contexts/AgentAuthContext';
 import { AgentAuthGuard } from './components/AgentAuthGuard';
-import { AgentOnboardingGuard } from './components/AgentOnboardingGuard';
+import { FirstRunGuard } from './components/FirstRunGuard';
 import { AgentLayout } from './components/AgentLayout';
 
 // Pages
 import { AgentLoginPage } from './pages/AgentLoginPage';
-import { AgentSignupPage } from './pages/AgentSignupPage';
-import { OnboardingWizard } from './pages/onboarding/OnboardingWizard';
+import { FirstRunPage } from './pages/FirstRunPage';
 import { AgentDashboardPage } from './pages/AgentDashboardPage';
 import { AgentLeadsPage } from './pages/AgentLeadsPage';
 import { AgentLeadDetailPage } from './pages/AgentLeadDetailPage';
 import { AgentSettingsLayout } from './pages/settings/AgentSettingsLayout';
 import { AccountSettingsPage } from './pages/settings/AccountSettingsPage';
+import { TemplatesSettingsPage } from './pages/settings/TemplatesSettingsPage';
 import { AgentReportsPage } from './pages/AgentReportsPage';
 
 const queryClient = new QueryClient({
@@ -39,40 +39,40 @@ export const AgentApp: React.FC = () => (
       <ToastProvider>
         <ToastContainer />
         <Routes>
-            {/* Public */}
-            <Route path="login" element={<AgentLoginPage />} />
-            <Route path="signup" element={<AgentSignupPage />} />
+          {/* Public */}
+          <Route path="login" element={<AgentLoginPage />} />
 
-            {/* Onboarding — auth required, onboarding not yet complete */}
-            <Route path="onboarding/*" element={
-              <AgentAuthGuard>
-                <OnboardingWizard />
-              </AgentAuthGuard>
-            } />
+          {/* First-run profile — auth required, shown when onboarding_completed=false */}
+          <Route path="first-run" element={
+            <AgentAuthGuard>
+              <FirstRunPage />
+            </AgentAuthGuard>
+          } />
 
-            {/* Main app — auth + onboarding complete required */}
-            <Route element={
-              <AgentAuthGuard>
-                <AgentOnboardingGuard>
-                  <AgentLayout />
-                </AgentOnboardingGuard>
-              </AgentAuthGuard>
-            }>
-              <Route path="dashboard" element={<AgentDashboardPage />} />
-              <Route path="leads" element={<AgentLeadsPage />} />
-              <Route path="leads/:id" element={<AgentLeadDetailPage />} />
-              <Route path="settings" element={<AgentSettingsLayout />}>
-                <Route index element={<Navigate to="account" replace />} />
-                <Route path="account" element={<AccountSettingsPage />} />
-              </Route>
-              <Route path="reports" element={<AgentReportsPage />} />
+          {/* Main workspace — auth + first-run complete required */}
+          <Route element={
+            <AgentAuthGuard>
+              <FirstRunGuard>
+                <AgentLayout />
+              </FirstRunGuard>
+            </AgentAuthGuard>
+          }>
+            <Route path="dashboard" element={<AgentDashboardPage />} />
+            <Route path="leads" element={<AgentLeadsPage />} />
+            <Route path="leads/:id" element={<AgentLeadDetailPage />} />
+            <Route path="settings" element={<AgentSettingsLayout />}>
+              <Route index element={<Navigate to="account" replace />} />
+              <Route path="account" element={<AccountSettingsPage />} />
+              <Route path="templates" element={<TemplatesSettingsPage />} />
             </Route>
+            <Route path="reports" element={<AgentReportsPage />} />
+          </Route>
 
-            {/* Default */}
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="*" element={<Navigate to="dashboard" replace />} />
-          </Routes>
-        </ToastProvider>
-      </AgentAuthProvider>
-    </QueryClientProvider>
+          {/* Default */}
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="*" element={<Navigate to="dashboard" replace />} />
+        </Routes>
+      </ToastProvider>
+    </AgentAuthProvider>
+  </QueryClientProvider>
 );

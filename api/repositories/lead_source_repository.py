@@ -1,8 +1,12 @@
 """
 Lead source repository — all SQLAlchemy queries for the LeadSource domain.
 
-Lead sources are platform-level entities (not tenant-scoped): they define
-email parsing rules shared across the platform.
+Lead sources are company-scoped: every record belongs to exactly one company.
+All read/write methods that operate on a single record require a company_id
+parameter so cross-company access is impossible at the data-access layer.
+
+Platform-admin global management (cross-company visibility) will be added
+later via separate platform-level endpoints, not through these methods.
 
 Requirements: 7.1, 7.2
 """
@@ -23,6 +27,7 @@ from gmail_lead_sync.models import LeadSource
 class LeadSourceCreate(BaseModel):
     """Fields required to create a new lead source."""
 
+    company_id: int
     sender_email: str
     identifier_snippet: str
     name_regex: str
@@ -50,9 +55,13 @@ class LeadSourceUpdate(BaseModel):
 class LeadSourceRepository:
     """Data-access layer for LeadSource records.
 
-    Lead sources are platform-level (not tenant-scoped).  The caller is
-    responsible for ensuring the requesting user has the appropriate role
-    before invoking write methods.
+    All methods that touch a single record are scoped by company_id.
+    Cross-company access returns None / empty list — identical to not-found,
+    so callers can safely raise 404 without leaking tenant information.
+
+    list_all() is retained temporarily for callers that have not yet been
+    migrated to company-scoped queries (e.g. legacy admin views). It will be
+    removed in a follow-up PR once all callers are updated.
     """
 
     def __init__(self, db: Session) -> None:
@@ -62,16 +71,58 @@ class LeadSourceRepository:
     # Read
     # ------------------------------------------------------------------
 
-    def get_by_id(self, source_id: int) -> Optional[LeadSource]:
-        """Return the lead source with the given primary key, or ``None``."""
+    def get_by_id(self, source_id: int, company_id: int) -> Optional[LeadSource]:
+        """Return the lead source with the given primary key scoped to company_id.
+
+        Returns None if the record does not exist or belongs to a different company.
+        Callers should treat None as 404 — do not distinguish not-found from
+        wrong-company to avoid leaking tenant information.
+        """
         return (
             self._db.query(LeadSource)
-            .filter(LeadSource.id == source_id)
+            .filter(
+                LeadSource.id == source_id,
+                LeadSource.company_id == company_id,
+            )
             .first()
         )
 
+    def get_by_sender_and_company(
+        self, sender_email: str, company_id: int
+    ) -> Optional[LeadSource]:
+        """Return the lead source matching (sender_email, company_id), or None.
+
+        Used for duplicate-check in create and update.  Two companies may have
+        the same sender_email — uniqueness is enforced per company only.
+        """
+        return (
+            self._db.query(LeadSource)
+            .filter(
+                LeadSource.sender_email == sender_email,
+                LeadSource.company_id == company_id,
+            )
+            .first()
+        )
+
+    def list_for_company(
+        self, company_id: int, *, skip: int = 0, limit: int = 50
+    ) -> list[LeadSource]:
+        """Return a paginated list of lead sources belonging to company_id."""
+        return (
+            self._db.query(LeadSource)
+            .filter(LeadSource.company_id == company_id)
+            .order_by(LeadSource.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
     def list_all(self, *, skip: int = 0, limit: int = 50) -> list[LeadSource]:
-        """Return a paginated list of all lead sources."""
+        """Return a paginated list of ALL lead sources across all companies.
+
+        Retained temporarily for callers not yet migrated to list_for_company().
+        Do not use this in new code — it will be removed in a follow-up PR.
+        """
         return (
             self._db.query(LeadSource)
             .order_by(LeadSource.created_at.desc())
@@ -85,8 +136,9 @@ class LeadSourceRepository:
     # ------------------------------------------------------------------
 
     def create(self, data: LeadSourceCreate) -> LeadSource:
-        """Create and persist a new lead source."""
+        """Create and persist a new lead source owned by data.company_id."""
         source = LeadSource(
+            company_id=data.company_id,
             sender_email=data.sender_email,
             identifier_snippet=data.identifier_snippet,
             name_regex=data.name_regex,
@@ -99,12 +151,14 @@ class LeadSourceRepository:
         self._db.refresh(source)
         return source
 
-    def update(self, source_id: int, data: LeadSourceUpdate) -> Optional[LeadSource]:
-        """Update a lead source.
+    def update(
+        self, source_id: int, company_id: int, data: LeadSourceUpdate
+    ) -> Optional[LeadSource]:
+        """Update a lead source scoped to company_id.
 
-        Returns the updated record, or ``None`` if not found.
+        Returns the updated record, or None if not found / wrong company.
         """
-        source = self.get_by_id(source_id)
+        source = self.get_by_id(source_id, company_id)
         if source is None:
             return None
 
@@ -115,12 +169,12 @@ class LeadSourceRepository:
         self._db.refresh(source)
         return source
 
-    def delete(self, source_id: int) -> bool:
-        """Delete a lead source by ID.
+    def delete(self, source_id: int, company_id: int) -> bool:
+        """Delete a lead source scoped to company_id.
 
-        Returns ``True`` if deleted, ``False`` if not found.
+        Returns True if deleted, False if not found / wrong company.
         """
-        source = self.get_by_id(source_id)
+        source = self.get_by_id(source_id, company_id)
         if source is None:
             return False
 

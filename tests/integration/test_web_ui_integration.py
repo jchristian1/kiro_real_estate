@@ -56,10 +56,16 @@ def db():
 
 @pytest.fixture
 def admin_user(db):
+    from gmail_lead_sync.models import Company
+    company = Company(name="Test Company")
+    db.add(company)
+    db.commit()
+    db.refresh(company)
     user = User(
         username="admin",
         password_hash=hash_password("adminpass"),
-        role="admin",
+        role="company_admin",
+        company_id=company.id,
     )
     db.add(user)
     db.commit()
